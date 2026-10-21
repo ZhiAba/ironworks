@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v0.53.0，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v0.53.1，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -73,7 +73,7 @@ Mindustry 模组「铁流工业」v0.53.0，Java 编写，自研多配方库 + �
 22. 多配方机器要限制 `acceptLiquid` + `liquidOutputDirections`，否则相邻机器互相倒灌卡线
 
 ## 工具脚本
-- `tools/chain-test.sh`：无头端回归 T1–T75（内部 timeout 520s）
+- `tools/chain-test.sh`：无头端回归 T1–T77（内部 timeout 520s）
 - `tools/balance.js`：造价/弹耗/DPS/效率 + 装甲成本
 - `/root/tools/genstatus.js`、`/root/tools/genarmor.js`：贴图生成
 
@@ -97,6 +97,10 @@ Mindustry 模组「铁流工业」v0.53.0，Java 编写，自研多配方库 + �
 2. 迫击炮（最小射程盲区，需自定义 Turret）
 3. 给自研库加 hjson 解析
 4. 战役/许可/地图（已搁置）
+
+## 0.53.1 新增要点
+- 磁轨炮开火反馈：装填充能双环（进度环 + 反向细环 + 满环脉冲光）、开火屏幕震动（shakePower=4/6帧）、命中点 hitBeam + hitLancer 火花
+- 整轮回归 T1–T77 全绿（含铝全量 T66–T70、原版闭环 T71–T74、应急烧结 T75、聚合釜 T76、相织机 T77）
 
 ## 0.53.0 新增要点
 - 铝线闭环：酸在溶出/焙烧间循环；电解副产氧气回炼钢；铝热炉把氧化铝吐回电解槽；赤泥进废料分选厂提钍
