@@ -114,3 +114,12 @@ Mindustry 模组「铁流工业」v0.53.0，Java 编写，自研多配方库 + �
 - docs/DESIGN.md：大纲、技术决策、平衡推演、backlog（末尾是 0.16/0.17 两批）
 - NOTES.md：开发日志与踩坑
 - README.md：使用/构建说明
+
+## 本地代码模型（2026-10-21 接入）
+- 服务：llama.cpp + Qwen3-4B-Instruct-2507 Q4_K_M，`http://127.0.0.1:18080/v1`，OpenAI 兼容，无需 key
+- 快速通道：`local-code "..."`（实测 25 秒返回短函数），`LOCAL_CODE_MAX_TOKENS` 可调输出上限
+- 子代理：`local_coder`（首次 prefill 约 17K tokens，较慢；适合单文件小改、补测试）
+- 上下文包：`docs/SUBCONTEXT.md`（给本地模型的仓库约定与 API 速查，委派时让它先读）
+- 版本控制：`git init --separate-git-dir=/root/git/ironworks`，元数据放 /root（sdcard 不支持 git 直接写对象），
+  用法 `git diff` / `git checkout -- <file>` 回滚；基线提交 `baseline v0.53.0`
+- 分工：本地模型写机械型代码（测试、样板、脚本、文案），主模型负责架构、跨文件重构、验收
