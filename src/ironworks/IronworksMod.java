@@ -20,6 +20,7 @@ public class IronworksMod extends Mod{
         IronworksShells.load();    // 大口径炮弹 + 炮弹组装室 + 迫击炮
         IronworksCoolant.load();   // 循环冷却液（石墨烯 / 冷液 / 热液 / 冷却工厂）
         IronworksHighTemp.load();  // 酸、碳化硅、耐高温管道、石墨坩埚
+        IronworksPetro.load();     // 石油化工（炼油厂/聚合车间）
         IronworksVanillaLoops.load(); // 原版材料闭环（硅/玻璃/石墨/塑钢/相织/合金/火工/废料回收）
         IronworksSilicon.load();   // 硅基时代：贵金属 / 钛合金 / 三级芯片 / 电弧塔
         IronworksBelts.load();     // 通液传送带全套（带 / 路由器 / 带桥 ×2 档）

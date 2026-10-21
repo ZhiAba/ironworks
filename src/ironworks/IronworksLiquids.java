@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -106,6 +106,25 @@ public class IronworksLiquids{
             temperature = 1f; viscosity = 0.6f; heatCapacity = 1.2f;
             effect = StatusEffects.melting;
             lightColor = Color.valueOf("e8ff8a").a(0.35f);
+            blockReactive = false;
+        }};
+
+        // 汽油：原油分馏的轻馏分，凝固汽油弹的提纯来源
+        gasoline = new Liquid("gasoline", Color.valueOf("ffd166")){{
+            temperature = 0.4f;
+            viscosity = 0.35f;
+            flammability = 1f;
+            explosiveness = 0.25f;
+            heatCapacity = 0.9f;
+            blockReactive = false;
+        }};
+
+        // 重油：分馏塔底的渣油，去焦化或裂化
+        heavyOil = new Liquid("heavy-oil", Color.valueOf("4a4340")){{
+            temperature = 0.5f;
+            viscosity = 0.95f;
+            flammability = 0.55f;
+            heatCapacity = 1.1f;
             blockReactive = false;
         }};
 

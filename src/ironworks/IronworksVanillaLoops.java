@@ -69,6 +69,11 @@ public class IronworksVanillaLoops{
                 new Recipe("graphite", 72f)
                     .items(with(Items.coal, 4))
                     .power(3f)
+                    .output(with(Items.graphite, 3)),
+                // 石油焦石墨化：炼油副产物回到电极链
+                new Recipe("petcoke-graphite", 80f)
+                    .items(with(IronworksPetro.petcoke, 3))
+                    .power(3f)
                     .output(with(Items.graphite, 3))
             };
         }};

@@ -88,7 +88,7 @@ public class IronworksAmmoLine{
 
                 // 灌装：石油桶的下游。桶类属 2 级材料，可作为原料继续加工
                 new Recipe("napalm-ammo", 90f)
-                    .items(with(IronworksMaterials.oilBarrel, 1, IronworksMaterials.titaniumPlate, 1, Items.silicon, 1))
+                    .items(with(IronworksMaterials.gasolineBarrel, 1, IronworksMaterials.titaniumPlate, 1, Items.silicon, 1))
                     .power(2f)
                     .output(with(IronworksAmmo.napalmAmmo, 2))
             };

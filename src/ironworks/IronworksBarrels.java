@@ -70,7 +70,17 @@ public class IronworksBarrels{
                     .items(with(IronworksAluminum.aluminumSheet, 1))
                     .liquids(new LiquidStack(IronworksLiquids.moltenAluminum, 30f))
                     .power(2f)
-                    .output(with(IronworksMaterials.moltenAluminumBarrel, 1))
+                    .output(with(IronworksMaterials.moltenAluminumBarrel, 1)),
+                new Recipe("gasoline-barrel", 45f)
+                    .items(with(IronworksMaterials.copperPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.gasoline, 30f))
+                    .power(1f)
+                    .output(with(IronworksMaterials.gasolineBarrel, 1)),
+                new Recipe("heavy-oil-barrel", 45f)
+                    .items(with(IronworksMaterials.leadPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.heavyOil, 30f))
+                    .power(1f)
+                    .output(with(IronworksMaterials.heavyOilBarrel, 1))
             };
         }};
 
@@ -116,7 +126,15 @@ public class IronworksBarrels{
                 new Recipe("molten-aluminum-barrel", 40f)
                     .items(with(IronworksMaterials.moltenAluminumBarrel, 1))
                     .power(2f)
-                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenAluminum, 30f))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenAluminum, 30f)),
+                new Recipe("gasoline-barrel", 30f)
+                    .items(with(IronworksMaterials.gasolineBarrel, 1))
+                    .power(1f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.gasoline, 30f)),
+                new Recipe("heavy-oil-barrel", 30f)
+                    .items(with(IronworksMaterials.heavyOilBarrel, 1))
+                    .power(1f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.heavyOil, 30f))
             };
         }};
     }

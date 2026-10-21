@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-21，v0.54.0）
+# 铁流工业 交接文档（2026-10-21，v0.55.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -9,7 +9,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`c859a8e723c775978e491fee2f531f87`（0.53.0）
+- 当前 jar md5：`b519af4086df308b068cfcfbe84fec98`（0.53.0）
 - 测试：`bash tools/chain-test.sh`（T1–T75，无头端，单实例运行，内部 timeout 520s）
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
@@ -48,8 +48,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-22 00:20）
-状态：v0.53.0 已构建并部署双客户端，md5 `c859a8e723c775978e491fee2f531f87`。
-T1–T79 整套回归已跑过全绿；T76/T77 已并入整轮回归并全绿。
+状态：v0.53.0 已构建并部署双客户端，md5 `b519af4086df308b068cfcfbe84fec98`。
+T1–T83 整套回归已跑过全绿；T76/T77 已并入整轮回归并全绿。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。

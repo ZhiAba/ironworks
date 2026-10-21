@@ -645,5 +645,37 @@ cd "$TESTDIR" || exit 1
   sleep 7
   echo 'js "T79 surgeAlloy=" + sc.items.get(Vars.content.item("surge-alloy"))'
 
+  # ---- 80. 炼油厂常压分馏：原油 -> 汽油 + 重油 ----
+  echo 'js Vars.world.tile(18,100).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(20,100).setBlock(Vars.content.block("ironworks-refinery"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var rf=Vars.world.tile(20,100).build; rf.liquids.add(Vars.content.liquid("oil"), 60)'
+  sleep 9
+  echo 'js "T80 gasoline=" + Math.round(rf.liquids.get(Vars.content.liquid("ironworks-gasoline"))) + " heavy=" + Math.round(rf.liquids.get(Vars.content.liquid("ironworks-heavy-oil")))'
+
+  # ---- 81. 延迟焦化：重油 -> 石油焦 + 汽油 ----
+  echo 'js Vars.world.tile(26,100).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(28,100).setBlock(Vars.content.block("ironworks-refinery"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var rk=Vars.world.tile(28,100).build; rk.recipeIndex=1; rk.liquids.add(Vars.content.liquid("ironworks-heavy-oil"), 50)'
+  sleep 10
+  echo 'js "T81 petcoke=" + rk.items.get(Vars.content.item("ironworks-petcoke")) + " gasBack=" + Math.round(rk.liquids.get(Vars.content.liquid("ironworks-gasoline")))'
+
+  # ---- 82. 聚合车间：汽油 + 硫 -> 橡胶 ----
+  echo 'js Vars.world.tile(34,100).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(36,100).setBlock(Vars.content.block("ironworks-polymer-works"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var pw=Vars.world.tile(36,100).build; pw.items.add(Vars.content.item("ironworks-sulfur"), 4); pw.liquids.add(Vars.content.liquid("ironworks-gasoline"), 30); pw.liquids.add(Vars.content.liquid("water"), 20)'
+  sleep 8
+  echo 'js "T82 rubber=" + pw.items.get(Vars.content.item("ironworks-rubber"))'
+
+  # ---- 83. 聚合车间：汽油 + 氧化铝催化 -> 塑料 ----
+  echo 'js Vars.world.tile(42,100).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(44,100).setBlock(Vars.content.block("ironworks-polymer-works"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var pl=Vars.world.tile(44,100).build; pl.recipeIndex=1; pl.items.add(Vars.content.item("ironworks-alumina"), 3); pl.liquids.add(Vars.content.liquid("ironworks-gasoline"), 30)'
+  sleep 8
+  echo 'js "T83 plastic=" + pl.items.get(Vars.content.item("ironworks-plastic"))'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

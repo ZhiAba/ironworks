@@ -12,7 +12,8 @@ public class IronworksMaterials{
     public static Item castIron, ironPlate, graphene;
     public static Item titaniumPlate;
     public static Item waterBarrel, oilBarrel, moltenIronBarrel, moltenSteelBarrel,
-        moltenCopperBarrel, moltenLeadBarrel, moltenTitaniumBarrel, moltenSurgeBarrel, moltenAluminumBarrel;
+        moltenCopperBarrel, moltenLeadBarrel, moltenTitaniumBarrel, moltenSurgeBarrel, moltenAluminumBarrel,
+        gasolineBarrel, heavyOilBarrel;
     public static Item slag;
     public static Item siliconCarbide, graphiteElectrode;
 
@@ -49,6 +50,8 @@ public class IronworksMaterials{
         moltenTitaniumBarrel = new Item("molten-titanium-barrel", Color.valueOf("c8dcf0")){{ cost = 3.6f; hardness = 4; }};
         moltenSurgeBarrel  = new Item("molten-surge-barrel",  Color.valueOf("d6e77a")){{ cost = 4.0f; hardness = 4; }};
         moltenAluminumBarrel = new Item("molten-aluminum-barrel", Color.valueOf("dfe8f2")){{ cost = 3.0f; hardness = 3; }};
+        gasolineBarrel = new Item("gasoline-barrel", Color.valueOf("ffd166")){{ cost = 2.2f; hardness = 2; }};
+        heavyOilBarrel = new Item("heavy-oil-barrel", Color.valueOf("4a4340")){{ cost = 2.0f; hardness = 2; }};
         // 炉渣：吹炼/熔炼副产物，废料分选厂可回收金属
         slag = new Item("slag", Color.valueOf("6b6560")){{ cost = 0.8f; }};
         castIron         = new Item("cast-iron",         Color.valueOf("9a9a96")){{ cost = 2.0f; }};

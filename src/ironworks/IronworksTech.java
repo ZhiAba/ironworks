@@ -69,6 +69,11 @@ public class IronworksTech{
         produce(barrel, IronworksMaterials.moltenTitaniumBarrel);
         produce(barrel, IronworksMaterials.moltenSurgeBarrel);
         produce(barrel, IronworksMaterials.moltenAluminumBarrel);
+        produce(barrel, IronworksMaterials.gasolineBarrel);
+        produce(barrel, IronworksMaterials.heavyOilBarrel);
+        produce(iron, IronworksPetro.rubber);
+        produce(iron, IronworksPetro.plastic);
+        produce(iron, IronworksPetro.petcoke);
 
         // 硅基时代
         produce(iron, IronworksSilicon.silver);
@@ -160,6 +165,13 @@ public class IronworksTech{
         // 连铸机(铸铝锭/铸板)、轧机(铝板)、合金炉(铝合金/航空铝)，不再有铝专用方块。
         // 这里只补物品的产出节点。
         produce(iron, IronworksMaterials.slag);
+
+        // 石油化工：炼油厂 → 聚合车间
+        TechNode refinery = node(acid, IronworksPetro.refinery,
+            with(IronworksItems.steelPlate, 250, Items.silicon, 300, Items.metaglass, 200,
+                 IronworksMaterials.titaniumPlate, 80));
+        node(refinery, IronworksPetro.polymerWorks,
+            with(IronworksItems.steelPlate, 200, Items.silicon, 200, Items.titanium, 150));
 
         // ══════════════════ 原版材料闭环 ══════════════════
         TechNode siliconFurnace = node(sep, IronworksVanillaLoops.siliconFurnace,
