@@ -1,0 +1,11 @@
+displayName: "铁流工业"
+name: "ironworks"
+
+author: "DSH"
+description: "冶金产线 + 弹药链 + 战术支援：从铁砂到钢板，从弹壳到穿甲弹，再到能给单位挂状态的光环方块。"
+
+version: 0.53.0
+minGameVersion: 160
+java: true
+
+main: "ironworks.IronworksMod"
