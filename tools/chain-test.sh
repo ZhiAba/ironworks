@@ -626,5 +626,21 @@ cd "$TESTDIR" || exit 1
   sleep 12
   echo 'js "T75 sinterAl=" + sial.items.get(Vars.content.item("ironworks-aluminum")) + " recipes=" + Vars.content.block("ironworks-aluminum-plant").recipes.length'
 
+  # ---- 76. 聚合釜：钛 + 石油 -> 塑钢 ----
+  echo 'js Vars.world.tile(18,96).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(20,96).setBlock(Vars.content.block("ironworks-polymerizer"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var pw=Vars.world.tile(20,96).build; pw.items.add(Vars.content.item("titanium"), 6); pw.liquids.add(Vars.content.liquid("oil"), 30)'
+  sleep 12
+  echo 'js "T76 plastanium=" + pw.items.get(Vars.content.item("plastanium"))'
+  
+  # ---- 77. 相织机：钍 + 沙 -> 相织物 ----
+  echo 'js Vars.world.tile(26,96).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(28,96).setBlock(Vars.content.block("ironworks-phase-weaver"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var pv=Vars.world.tile(28,96).build; pv.items.add(Vars.content.item("thorium"), 8); pv.items.add(Vars.content.item("sand"), 16)'
+  sleep 12
+  echo 'js "T77 phaseFabric=" + pv.items.get(Vars.content.item("phase-fabric"))'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
