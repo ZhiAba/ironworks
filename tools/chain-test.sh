@@ -542,46 +542,49 @@ cd "$TESTDIR" || exit 1
   # ---- 65. 电弧塔过热机制字段 ----
   echo 'js var at=Vars.content.block("ironworks-arc-tower"); Log.info("ARC overheat=" + at.overheatTime + " speedup=" + at.maxSpeedupScl)'
 
-  # ---- 66. 铝线②溶出罐：铝土矿 + 酸 -> 铝酸钠溶液 + 赤泥 ----
-  echo 'js Vars.world.tile(22,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(24,80).setBlock(Vars.content.block("ironworks-digester"), Vars.state.rules.defaultTeam)'
+  # ---- 66. 铝线②溶出：电解车间拜耳法（铝土矿 + 酸 -> 铝酸钠 + 赤泥） ----
+  echo 'js Vars.world.tile(26,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(24,80).setBlock(Vars.content.block("ironworks-electrolysis-plant"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var dg=Vars.world.tile(24,80).build; dg.items.add(Vars.content.item("ironworks-bauxite"), 8); dg.liquids.add(Vars.content.liquid("ironworks-acid"), 40)'
+  echo 'js var dg=Vars.world.tile(24,80).build; dg.recipeIndex=3; dg.items.add(Vars.content.item("ironworks-bauxite"), 8); dg.liquids.add(Vars.content.liquid("ironworks-acid"), 40)'
   sleep 7
   echo 'js "T66 liquor=" + Math.round(dg.liquids.get(Vars.content.liquid("ironworks-sodium-aluminate"))) + " redMud=" + dg.items.get(Vars.content.item("ironworks-red-mud"))'
 
-  # ---- 67. 铝线③焙烧炉：铝酸钠溶液 -> 氧化铝 + 回收酸 ----
-  echo 'js Vars.world.tile(30,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(32,80).setBlock(Vars.content.block("ironworks-calciner"), Vars.state.rules.defaultTeam)'
+  # ---- 67. 铝线③焙烧：电解车间分解（铝酸钠 -> 氧化铝 + 回收酸） ----
+  echo 'js Vars.world.tile(34,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(32,80).setBlock(Vars.content.block("ironworks-electrolysis-plant"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var cl=Vars.world.tile(32,80).build; cl.liquids.add(Vars.content.liquid("ironworks-sodium-aluminate"), 40)'
+  echo 'js var cl=Vars.world.tile(32,80).build; cl.recipeIndex=4; cl.liquids.add(Vars.content.liquid("ironworks-sodium-aluminate"), 40)'
   sleep 7
   echo 'js "T67 alumina=" + cl.items.get(Vars.content.item("ironworks-alumina")) + " acidBack=" + Math.round(cl.liquids.get(Vars.content.liquid("ironworks-acid")))'
 
-  # ---- 68. 铝线④电解槽：氧化铝 + 冰晶石 + 石墨电极 -> 熔融铝 + 氧气 ----
-  echo 'js Vars.world.tile(38,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(40,80).setBlock(Vars.content.block("ironworks-hall-cell"), Vars.state.rules.defaultTeam)'
+  # ---- 68. 铝线④铝电解：电解车间（氧化铝 -> 熔融铝 + 氧气） ----
+  echo 'js Vars.world.tile(42,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(40,80).setBlock(Vars.content.block("ironworks-electrolysis-plant"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var hc=Vars.world.tile(40,80).build; hc.items.add(Vars.content.item("ironworks-alumina"), 8); hc.items.add(Vars.content.item("ironworks-cryolite"), 4); hc.items.add(Vars.content.item("ironworks-graphite-electrode"), 4)'
+  echo 'js var hc=Vars.world.tile(40,80).build; hc.recipeIndex=6; hc.items.add(Vars.content.item("ironworks-alumina"), 8); hc.items.add(Vars.content.item("ironworks-cryolite"), 4); hc.items.add(Vars.content.item("ironworks-graphite-electrode"), 4)'
   sleep 9
   echo 'js "T68 moltenAl=" + Math.round(hc.liquids.get(Vars.content.liquid("ironworks-molten-aluminum"))) + " oxygen=" + Math.round(hc.liquids.get(Vars.content.liquid("ironworks-oxygen")))'
 
-  # ---- 69. 铝线⑤铝厂铸造：熔融铝 -> 铝锭 -> 铝板 ----
-  echo 'js Vars.world.tile(46,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(48,80).setBlock(Vars.content.block("ironworks-aluminum-plant"), Vars.state.rules.defaultTeam)'
+  # ---- 69. 铝线⑤铸造：连铸机（熔融铝 -> 铝锭）；轧机（铝锭 -> 铝板） ----
+  echo 'js Vars.world.tile(50,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(48,80).setBlock(Vars.content.block("ironworks-caster"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var ap=Vars.world.tile(48,80).build; ap.liquids.add(Vars.content.liquid("ironworks-molten-aluminum"), 40)'
+  echo 'js var ap=Vars.world.tile(48,80).build; ap.recipeIndex=3; ap.liquids.add(Vars.content.liquid("ironworks-molten-aluminum"), 40)'
   sleep 6
   echo 'js "T69 aluminum=" + ap.items.get(Vars.content.item("ironworks-aluminum"))'
-  echo 'js ap.recipeIndex = 1; ap.items.add(Vars.content.item("ironworks-aluminum"), 6)'
-  sleep 5
-  echo 'js "T69b sheet=" + ap.items.get(Vars.content.item("ironworks-aluminum-sheet"))'
-
-  # ---- 70. 铝热炉：铝 + 铁精矿 -> 铁水 + 氧化铝（闭环回电解） ----
-  echo 'js Vars.world.tile(22,88).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(24,88).setBlock(Vars.content.block("ironworks-thermite-furnace"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(56,80).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(54,80).setBlock(Vars.content.block("ironworks-rolling-mill"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var tf=Vars.world.tile(24,88).build; tf.items.add(Vars.content.item("ironworks-aluminum"), 8); tf.items.add(Vars.content.item("ironworks-iron-concentrate"), 12)'
+  echo 'js var rm=Vars.world.tile(54,80).build; rm.recipeIndex=5; rm.items.add(Vars.content.item("ironworks-aluminum"), 6)'
+  sleep 5
+  echo 'js "T69b sheet=" + rm.items.get(Vars.content.item("ironworks-aluminum-sheet"))'
+
+  # ---- 70. 铝热炼铁：电弧炉（铝 + 铁精矿 -> 铁水 + 氧化铝） ----
+  echo 'js Vars.world.tile(22,88).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(24,88).setBlock(Vars.content.block("ironworks-arc-furnace"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var tf=Vars.world.tile(24,88).build; tf.recipeIndex=6; tf.items.add(Vars.content.item("ironworks-aluminum"), 8); tf.items.add(Vars.content.item("ironworks-iron-concentrate"), 12)'
   sleep 8
   echo 'js "T70 moltenIron=" + Math.round(tf.liquids.get(Vars.content.liquid("ironworks-molten-iron"))) + " aluminaBack=" + tf.items.get(Vars.content.item("ironworks-alumina"))'
 
@@ -618,29 +621,29 @@ cd "$TESTDIR" || exit 1
   echo 'js "T74 scrap=" + sw.items.get(Vars.content.item("scrap")) + " copperBack=" + sw.items.get(Vars.content.item("copper"))'
 
 
-  # ---- 75. 铝厂应急烧结路线（老存档没有铝土矿脉时的起步方案） ----
-  echo 'js Vars.world.tile(62,88).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(64,88).setBlock(Vars.content.block("ironworks-aluminum-plant"), Vars.state.rules.defaultTeam)'
+  # ---- 75. 应急烧结制铝：连铸机（沙 + 煤 -> 铝锭，老存档起步） ----
+  echo 'js Vars.world.tile(66,88).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(64,88).setBlock(Vars.content.block("ironworks-caster"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var sial=Vars.world.tile(64,88).build; sial.recipeIndex = 4; sial.items.add(Vars.content.item("sand"), 20); sial.items.add(Vars.content.item("coal"), 8)'
+  echo 'js var sial=Vars.world.tile(64,88).build; sial.recipeIndex=8; sial.items.add(Vars.content.item("sand"), 20); sial.items.add(Vars.content.item("coal"), 8)'
   sleep 12
-  echo 'js "T75 sinterAl=" + sial.items.get(Vars.content.item("ironworks-aluminum")) + " recipes=" + Vars.content.block("ironworks-aluminum-plant").recipes.length'
+  echo 'js "T75 sinterAl=" + sial.items.get(Vars.content.item("ironworks-aluminum")) + " recipes=" + Vars.content.block("ironworks-caster").recipes.length'
 
-  # ---- 76. 聚合釜：钛 + 石油 -> 塑钢 ----
-  echo 'js Vars.world.tile(18,96).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(20,96).setBlock(Vars.content.block("ironworks-polymerizer"), Vars.state.rules.defaultTeam)'
+  # ---- 78. 转炉巨浪合金熔炼：熔融铜铅钛 + 硅 + 氧 -> 合金熔体 + 炉渣 ----
+  echo 'js Vars.world.tile(70,92).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(72,92).setBlock(Vars.content.block("ironworks-converter"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var pw=Vars.world.tile(20,96).build; pw.items.add(Vars.content.item("titanium"), 6); pw.liquids.add(Vars.content.liquid("oil"), 30)'
-  sleep 12
-  echo 'js "T76 plastanium=" + pw.items.get(Vars.content.item("plastanium"))'
-  
-  # ---- 77. 相织机：钍 + 沙 -> 相织物 ----
-  echo 'js Vars.world.tile(26,96).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(28,96).setBlock(Vars.content.block("ironworks-phase-weaver"), Vars.state.rules.defaultTeam)'
+  echo 'js var cv=Vars.world.tile(72,92).build; cv.recipeIndex=1; cv.items.add(Vars.content.item("silicon"), 6); cv.liquids.add(Vars.content.liquid("ironworks-molten-copper"), 20); cv.liquids.add(Vars.content.liquid("ironworks-molten-lead"), 30); cv.liquids.add(Vars.content.liquid("ironworks-molten-titanium"), 20); cv.liquids.add(Vars.content.liquid("ironworks-oxygen"), 20)'
+  sleep 10
+  echo 'js "T78 surgeMelt=" + Math.round(cv.liquids.get(Vars.content.liquid("ironworks-molten-surge"))) + " slag=" + cv.items.get(Vars.content.item("ironworks-slag"))'
+
+  # ---- 79. 连铸巨浪合金：熔融合金 -> 巨浪合金 ----
+  echo 'js Vars.world.tile(80,92).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(78,92).setBlock(Vars.content.block("ironworks-caster"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var pv=Vars.world.tile(28,96).build; pv.items.add(Vars.content.item("thorium"), 8); pv.items.add(Vars.content.item("sand"), 16)'
-  sleep 12
-  echo 'js "T77 phaseFabric=" + pv.items.get(Vars.content.item("phase-fabric"))'
+  echo 'js var sc=Vars.world.tile(78,92).build; sc.recipeIndex=7; sc.liquids.add(Vars.content.liquid("ironworks-molten-surge"), 30)'
+  sleep 7
+  echo 'js "T79 surgeAlloy=" + sc.items.get(Vars.content.item("surge-alloy"))'
 
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

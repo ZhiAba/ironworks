@@ -36,7 +36,7 @@ public class IronworksVanillaLoops{
             itemCapacity = 20;
             liquidCapacity = 20f;
             recipes = new Recipe[]{
-                new Recipe("silicon-smelt", 60f)
+                new Recipe("silicon-smelt", 48f)
                     .items(with(Items.sand, 4, Items.coal, 2))
                     .power(2f)
                     .output(with(Items.silicon, 2))
@@ -51,7 +51,7 @@ public class IronworksVanillaLoops{
             itemCapacity = 20;
             liquidCapacity = 20f;
             recipes = new Recipe[]{
-                new Recipe("metaglass", 60f)
+                new Recipe("metaglass", 48f)
                     .items(with(Items.sand, 3, Items.lead, 2))
                     .power(1.5f)
                     .output(with(Items.metaglass, 2))
@@ -66,7 +66,7 @@ public class IronworksVanillaLoops{
             itemCapacity = 30;
             liquidCapacity = 20f;
             recipes = new Recipe[]{
-                new Recipe("graphite", 90f)
+                new Recipe("graphite", 72f)
                     .items(with(Items.coal, 4))
                     .power(3f)
                     .output(with(Items.graphite, 3))
@@ -81,7 +81,7 @@ public class IronworksVanillaLoops{
             itemCapacity = 30;
             liquidCapacity = 50f;
             recipes = new Recipe[]{
-                new Recipe("plastanium", 120f)
+                new Recipe("plastanium", 96f)
                     .items(with(Items.titanium, 2))
                     .liquids(new LiquidStack(Liquids.oil, 12f))
                     .power(6f)
@@ -97,7 +97,7 @@ public class IronworksVanillaLoops{
             itemCapacity = 30;
             liquidCapacity = 20f;
             recipes = new Recipe[]{
-                new Recipe("phase-fabric", 150f)
+                new Recipe("phase-fabric", 120f)
                     .items(with(Items.thorium, 4, Items.sand, 8))
                     .power(10f)
                     .output(with(Items.phaseFabric, 1))
@@ -112,10 +112,19 @@ public class IronworksVanillaLoops{
             itemCapacity = 40;
             liquidCapacity = 20f;
             recipes = new Recipe[]{
-                new Recipe("surge-alloy", 150f)
+                new Recipe("surge-alloy", 120f)
                     .items(with(Items.copper, 2, Items.lead, 3, Items.titanium, 2, Items.silicon, 4))
                     .power(12f)
-                    .output(with(Items.surgeAlloy, 2))
+                    .output(with(Items.surgeAlloy, 2)),
+                // 原铝厂的合金工序并入合金炉
+                new Recipe("aluminum-alloy", 75f)
+                    .items(with(IronworksAluminum.aluminum, 2, Items.copper, 1))
+                    .power(4f)
+                    .output(with(IronworksAluminum.aluminumAlloy, 1)),
+                new Recipe("aviation-aluminum", 90f)
+                    .items(with(IronworksAluminum.aluminumAlloy, 2, Items.titanium, 1, IronworksMaterials.graphene, 1))
+                    .power(6f)
+                    .output(with(IronworksAluminum.aviationAluminum, 1))
             };
         }};
 
@@ -127,11 +136,11 @@ public class IronworksVanillaLoops{
             itemCapacity = 20;
             liquidCapacity = 40f;
             recipes = new Recipe[]{
-                new Recipe("pyratite", 60f)
+                new Recipe("pyratite", 48f)
                     .items(with(Items.coal, 2, Items.lead, 2, Items.sand, 2))
                     .power(1.5f)
                     .output(with(Items.pyratite, 2)),
-                new Recipe("blast-compound", 90f)
+                new Recipe("blast-compound", 72f)
                     .items(with(Items.sporePod, 2, Items.pyratite, 2))
                     .liquids(new LiquidStack(Liquids.oil, 4f))
                     .power(3f)
@@ -148,20 +157,25 @@ public class IronworksVanillaLoops{
             itemCapacity = 30;
             liquidCapacity = 60f;
             recipes = new Recipe[]{
-                new Recipe("scrap-copper", 60f)
+                new Recipe("scrap-copper", 48f)
                     .items(with(Items.scrap, 5))
                     .power(2f)
                     .output(with(Items.copper, 2)),
-                new Recipe("scrap-lead", 60f)
+                new Recipe("scrap-lead", 48f)
                     .items(with(Items.scrap, 5))
                     .power(2f)
                     .output(with(Items.lead, 2)),
-                new Recipe("scrap-titanium", 90f)
+                new Recipe("scrap-titanium", 72f)
                     .items(with(Items.scrap, 8))
                     .liquids(new LiquidStack(IronworksLiquids.acid, 4f))
                     .power(3f)
                     .output(with(Items.titanium, 1)),
                 // 赤泥提钍：与铝线合流的闭环点
+                // 炉渣回收：转炉/熔炼的副产物在这里重新分选
+                new Recipe("slag-recovery", 90f)
+                    .items(with(IronworksMaterials.slag, 6))
+                    .power(4f)
+                    .output(with(Items.copper, 2, Items.lead, 2, Items.titanium, 1)),
                 new Recipe("scrap-thorium", 120f)
                     .items(with(Items.scrap, 10, IronworksAluminum.redMud, 2))
                     .liquids(new LiquidStack(IronworksLiquids.acid, 6f))

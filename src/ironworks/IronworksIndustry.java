@@ -51,7 +51,11 @@ public class IronworksIndustry{
                 // 铁板放在最后：不打乱旧存档里的 recipeIndex（steel 一直是 3）
                 new Recipe("iron-plate", 40f)
                     .items(with(IronworksItems.ironIngot, 2)).power(2f)
-                    .output(with(IronworksMaterials.ironPlate, 1))
+                    .output(with(IronworksMaterials.ironPlate, 1)),
+                // 铝板轧制（原铝厂的轧制工序并入轧机）
+                new Recipe("aluminum-sheet", 75f)
+                    .items(with(IronworksAluminum.aluminum, 2)).power(3f)
+                    .output(with(IronworksAluminum.aluminumSheet, 1))
             };
         }};
 
@@ -82,7 +86,37 @@ public class IronworksIndustry{
                     .items(with(IronworksMaterials.leadPlate, 1))
                     .liquids(new LiquidStack(Liquids.water, 15f))
                     .power(3f)
-                    .output(with(IronworksMaterials.pureLead, 1))
+                    .output(with(IronworksMaterials.pureLead, 1)),
+
+                // 拜耳法溶出：铝土矿 + 酸 → 铝酸钠溶液 + 赤泥
+                new Recipe("bayer", 90f)
+                    .items(with(IronworksAluminum.bauxite, 4))
+                    .liquids(new LiquidStack(IronworksLiquids.acid, 8f))
+                    .power(4f)
+                    .output(with(IronworksAluminum.redMud, 1))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.sodiumAluminate, 8f)),
+
+                // 焙烧分解：铝酸钠 → 氧化铝 + 回收酸（闭环）
+                new Recipe("calcination", 90f)
+                    .liquids(new LiquidStack(IronworksLiquids.sodiumAluminate, 8f))
+                    .power(5f)
+                    .output(with(IronworksAluminum.alumina, 4))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.acid, 6f)),
+
+                // 冰晶石合成：铝土矿 + 硫 + 酸
+                new Recipe("cryolite", 75f)
+                    .items(with(IronworksAluminum.bauxite, 2, IronworksMaterials.sulfur, 2))
+                    .liquids(new LiquidStack(IronworksLiquids.acid, 4f))
+                    .power(2f)
+                    .output(with(IronworksAluminum.cryolite, 1)),
+
+                // 铝电解：氧化铝 + 冰晶石 + 石墨电极 → 熔融铝 + 氧气
+                new Recipe("aluminum-electrolysis", 120f)
+                    .items(with(IronworksAluminum.alumina, 4, IronworksAluminum.cryolite, 1,
+                                 IronworksMaterials.graphiteElectrode, 1))
+                    .power(16f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenAluminum, 8f),
+                                  new LiquidStack(IronworksLiquids.oxygen, 4f))
             };
         }};
 
@@ -150,7 +184,17 @@ public class IronworksIndustry{
                 new Recipe("molten-steel", 120f)
                     .liquids(new LiquidStack(IronworksLiquids.moltenIron, 6f),
                              new LiquidStack(IronworksLiquids.oxygen, 3f))
-                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 6f))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 6f)),
+                // 巨浪合金熔炼：铜铅钛三熔体 + 硅，吹氧出渣
+                new Recipe("molten-surge", 120f)
+                    .items(with(Items.silicon, 2))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenCopper, 2f),
+                             new LiquidStack(IronworksLiquids.moltenLead, 3f),
+                             new LiquidStack(IronworksLiquids.moltenTitanium, 2f),
+                             new LiquidStack(IronworksLiquids.oxygen, 2f))
+                    .power(6f)
+                    .output(with(IronworksMaterials.slag, 1))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSurge, 6f))
             };
         }};
 
@@ -178,7 +222,35 @@ public class IronworksIndustry{
                     .items(with(Items.sand, 2))
                     .liquids(new LiquidStack(IronworksLiquids.moltenIron, 6f))
                     .power(2f)
-                    .output(with(IronworksMaterials.castIron, 2))
+                    .output(with(IronworksMaterials.castIron, 2)),
+                // 熔融铝 → 铝锭
+                new Recipe("aluminum", 60f)
+                    .liquids(new LiquidStack(IronworksLiquids.moltenAluminum, 8f))
+                    .power(1f)
+                    .output(with(IronworksAluminum.aluminum, 4)),
+                // 熔融金属直接铸板（比轧制省料，但要熔炼与物流）
+                new Recipe("copper-plate-cast", 60f)
+                    .liquids(new LiquidStack(IronworksLiquids.moltenCopper, 8f))
+                    .power(2f)
+                    .output(with(IronworksMaterials.copperPlate, 4)),
+                new Recipe("lead-plate-cast", 60f)
+                    .liquids(new LiquidStack(IronworksLiquids.moltenLead, 8f))
+                    .power(2f)
+                    .output(with(IronworksMaterials.leadPlate, 4)),
+                new Recipe("titanium-plate-cast", 75f)
+                    .liquids(new LiquidStack(IronworksLiquids.moltenTitanium, 6f))
+                    .power(3f)
+                    .output(with(IronworksMaterials.titaniumPlate, 2)),
+                // 熔融巨浪合金 → 巨浪合金
+                new Recipe("surge-alloy", 90f)
+                    .liquids(new LiquidStack(IronworksLiquids.moltenSurge, 6f))
+                    .power(3f)
+                    .output(with(Items.surgeAlloy, 2)),
+                // 应急烧结制铝（老存档没有铝土矿时起步）
+                new Recipe("aluminum-sinter", 120f)
+                    .items(with(Items.sand, 5, Items.coal, 2))
+                    .power(4f)
+                    .output(with(IronworksAluminum.aluminum, 2))
             };
         }};
 
@@ -205,7 +277,31 @@ public class IronworksIndustry{
                     .liquids(new LiquidStack(IronworksLiquids.moltenIron, 6f),
                              new LiquidStack(IronworksLiquids.oxygen, 2f))
                     .power(5f)
-                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 6f))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 6f)),
+                // 有色金属熔炼：固体 → 熔体
+                new Recipe("molten-copper", 60f)
+                    .items(with(Items.copper, 4))
+                    .power(4f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenCopper, 8f)),
+                new Recipe("molten-lead", 60f)
+                    .items(with(Items.lead, 4))
+                    .power(3f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenLead, 8f)),
+                new Recipe("molten-titanium", 75f)
+                    .items(with(Items.titanium, 3))
+                    .power(8f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenTitanium, 6f)),
+                // 铝热炼铁：铝还原铁精矿，氧化铝渣回电解车间
+                new Recipe("thermite-iron", 90f)
+                    .items(with(IronworksAluminum.aluminum, 2, IronworksItems.ironConcentrate, 3))
+                    .power(2f)
+                    .output(with(IronworksAluminum.alumina, 2))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenIron, 8f)),
+                // 再生铝合金
+                new Recipe("recycle-alloy", 75f)
+                    .items(with(Items.scrap, 4, IronworksAluminum.aluminum, 2))
+                    .power(3f)
+                    .output(with(IronworksAluminum.aluminumAlloy, 2))
             };
         }};
 

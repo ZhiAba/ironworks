@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -75,6 +75,37 @@ public class IronworksLiquids{
             heatCapacity = 1f;
             effect = StatusEffects.melting;
             lightColor = Color.valueOf("cfe3ff").a(0.35f);
+            blockReactive = false;
+        }};
+
+        // 熔融铜：铜熔炼炉出来的液态铜，铸造或合金用
+        moltenCopper = new Liquid("molten-copper", Color.valueOf("ff9a4d")){{
+            temperature = 1f; viscosity = 0.7f; heatCapacity = 1f;
+            effect = StatusEffects.melting;
+            lightColor = Color.valueOf("ff7a2e").a(0.3f);
+            blockReactive = false;
+        }};
+
+        // 熔融铅
+        moltenLead = new Liquid("molten-lead", Color.valueOf("b9c2d4")){{
+            temperature = 0.95f; viscosity = 0.75f; heatCapacity = 1f;
+            effect = StatusEffects.melting;
+            blockReactive = false;
+        }};
+
+        // 熔融钛：熔点高，需要电弧炉
+        moltenTitanium = new Liquid("molten-titanium", Color.valueOf("c8dcf0")){{
+            temperature = 1f; viscosity = 0.65f; heatCapacity = 1.2f;
+            effect = StatusEffects.melting;
+            lightColor = Color.valueOf("cfe6ff").a(0.3f);
+            blockReactive = false;
+        }};
+
+        // 巨浪合金熔体：铜铅钛硅四元合金
+        moltenSurge = new Liquid("molten-surge", Color.valueOf("d6e77a")){{
+            temperature = 1f; viscosity = 0.6f; heatCapacity = 1.2f;
+            effect = StatusEffects.melting;
+            lightColor = Color.valueOf("e8ff8a").a(0.35f);
             blockReactive = false;
         }};
 

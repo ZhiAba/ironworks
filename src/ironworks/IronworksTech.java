@@ -63,6 +63,12 @@ public class IronworksTech{
         produce(bauxite, IronworksAluminum.cryolite);
         produce(bauxite, IronworksAluminum.redMud);
         produce(bauxite, IronworksAluminum.aluminumSheet);
+        // 桶装液体物品
+        produce(barrel, IronworksMaterials.moltenCopperBarrel);
+        produce(barrel, IronworksMaterials.moltenLeadBarrel);
+        produce(barrel, IronworksMaterials.moltenTitaniumBarrel);
+        produce(barrel, IronworksMaterials.moltenSurgeBarrel);
+        produce(barrel, IronworksMaterials.moltenAluminumBarrel);
 
         // 硅基时代
         produce(iron, IronworksSilicon.silver);
@@ -150,17 +156,10 @@ public class IronworksTech{
             with(IronworksItems.steelPlate, 200, Items.silicon, 250, Items.metaglass, 200));
         TechNode chip = node(leach, IronworksSilicon.chipFab,
             with(IronworksItems.steelPlate, 400, Items.silicon, 500, Items.metaglass, 300, IronworksMaterials.ironPlate, 200));
-        // 铝全量：溶出 → 焙烧 → 电解 → 铸造；铝热炉把铝接回钢铁线
-        TechNode digester = node(hotPipe, IronworksAluminum.digester,
-            with(IronworksItems.steelPlate, 200, Items.silicon, 150, Items.copper, 250));
-        TechNode calciner = node(digester, IronworksAluminum.calciner,
-            with(IronworksItems.steelPlate, 180, Items.silicon, 150, Items.graphite, 120));
-        TechNode hallCell = node(calciner, IronworksAluminum.hallCell,
-            with(IronworksMaterials.graphiteElectrode, 60, Items.silicon, 300, Items.titanium, 200));
-        node(hallCell, IronworksAluminum.thermiteFurnace,
-            with(IronworksItems.steelPlate, 200, Items.silicon, 200, Items.graphite, 150));
-        node(chip, IronworksAluminum.aluminumPlant,
-            with(IronworksItems.steelPlate, 150, Items.silicon, 200, Items.metaglass, 120));
+        // 铝线已并入老机器：电解车间(溶出/焙烧/冰晶石/铝电解)、电弧炉(铝热/再生铝)、
+        // 连铸机(铸铝锭/铸板)、轧机(铝板)、合金炉(铝合金/航空铝)，不再有铝专用方块。
+        // 这里只补物品的产出节点。
+        produce(iron, IronworksMaterials.slag);
 
         // ══════════════════ 原版材料闭环 ══════════════════
         TechNode siliconFurnace = node(sep, IronworksVanillaLoops.siliconFurnace,
@@ -177,7 +176,7 @@ public class IronworksTech{
             with(IronworksItems.steelPlate, 150, Items.silicon, 250, Items.titanium, 200));
         TechNode phaseWeaver = node(sep, IronworksVanillaLoops.phaseWeaver,
             with(Items.titanium, 300, Items.silicon, 300, Items.thorium, 150));
-        node(hallCell, IronworksVanillaLoops.scrapWorks,
+        node(chip, IronworksVanillaLoops.scrapWorks,
             with(IronworksItems.steelPlate, 200, Items.silicon, 250, Items.metaglass, 120));
         node(chip, IronworksSilicon.arcTower,
             with(IronworksSilicon.basicChip, 20, IronworksItems.steelPlate, 300, Items.silicon, 400, Items.titanium, 300));

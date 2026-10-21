@@ -11,7 +11,9 @@ public class IronworksMaterials{
     public static Item casing, copperHead, leadHead, titaniumHead, alloyHead;
     public static Item castIron, ironPlate, graphene;
     public static Item titaniumPlate;
-    public static Item waterBarrel, oilBarrel, moltenIronBarrel, moltenSteelBarrel;
+    public static Item waterBarrel, oilBarrel, moltenIronBarrel, moltenSteelBarrel,
+        moltenCopperBarrel, moltenLeadBarrel, moltenTitaniumBarrel, moltenSurgeBarrel, moltenAluminumBarrel;
+    public static Item slag;
     public static Item siliconCarbide, graphiteElectrode;
 
     public static void load(){
@@ -42,6 +44,13 @@ public class IronworksMaterials{
         oilBarrel   = new Item("oil-barrel",   Color.valueOf("78706a")){{ cost = 1.5f; }};
         moltenIronBarrel = new Item("molten-iron-barrel", Color.valueOf("ff8a3d")){{ cost = 2.6f; hardness = 3; }};
         moltenSteelBarrel= new Item("molten-steel-barrel",Color.valueOf("9fd8ff")){{ cost = 3.4f; hardness = 3; }};
+        moltenCopperBarrel = new Item("molten-copper-barrel", Color.valueOf("ff9a4d")){{ cost = 2.8f; hardness = 3; }};
+        moltenLeadBarrel   = new Item("molten-lead-barrel",   Color.valueOf("b9c2d4")){{ cost = 2.8f; hardness = 3; }};
+        moltenTitaniumBarrel = new Item("molten-titanium-barrel", Color.valueOf("c8dcf0")){{ cost = 3.6f; hardness = 4; }};
+        moltenSurgeBarrel  = new Item("molten-surge-barrel",  Color.valueOf("d6e77a")){{ cost = 4.0f; hardness = 4; }};
+        moltenAluminumBarrel = new Item("molten-aluminum-barrel", Color.valueOf("dfe8f2")){{ cost = 3.0f; hardness = 3; }};
+        // 炉渣：吹炼/熔炼副产物，废料分选厂可回收金属
+        slag = new Item("slag", Color.valueOf("6b6560")){{ cost = 0.8f; }};
         castIron         = new Item("cast-iron",         Color.valueOf("9a9a96")){{ cost = 2.0f; }};
         ironPlate        = new Item("iron-plate",        Color.valueOf("a8aeb8")){{ cost = 1.4f; hardness = 2; }};
         graphene         = new Item("graphene",          Color.valueOf("6f8f88")){{ cost = 2.5f; hardness = 3; }};

@@ -45,7 +45,32 @@ public class IronworksBarrels{
                     .items(with(IronworksItems.steelPlate, 1))
                     .liquids(new LiquidStack(IronworksLiquids.moltenSteel, 30f))
                     .power(2f)
-                    .output(with(IronworksMaterials.moltenSteelBarrel, 1))
+                    .output(with(IronworksMaterials.moltenSteelBarrel, 1)),
+                new Recipe("molten-copper-barrel", 60f)
+                    .items(with(IronworksMaterials.copperPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenCopper, 30f))
+                    .power(2f)
+                    .output(with(IronworksMaterials.moltenCopperBarrel, 1)),
+                new Recipe("molten-lead-barrel", 60f)
+                    .items(with(IronworksMaterials.leadPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenLead, 30f))
+                    .power(2f)
+                    .output(with(IronworksMaterials.moltenLeadBarrel, 1)),
+                new Recipe("molten-titanium-barrel", 70f)
+                    .items(with(IronworksMaterials.titaniumPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenTitanium, 30f))
+                    .power(3f)
+                    .output(with(IronworksMaterials.moltenTitaniumBarrel, 1)),
+                new Recipe("molten-surge-barrel", 70f)
+                    .items(with(IronworksItems.steelPlate, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenSurge, 30f))
+                    .power(3f)
+                    .output(with(IronworksMaterials.moltenSurgeBarrel, 1)),
+                new Recipe("molten-aluminum-barrel", 60f)
+                    .items(with(IronworksAluminum.aluminumSheet, 1))
+                    .liquids(new LiquidStack(IronworksLiquids.moltenAluminum, 30f))
+                    .power(2f)
+                    .output(with(IronworksMaterials.moltenAluminumBarrel, 1))
             };
         }};
 
@@ -71,7 +96,27 @@ public class IronworksBarrels{
                 new Recipe("molten-steel-barrel", 40f)
                     .items(with(IronworksMaterials.moltenSteelBarrel, 1))
                     .power(2f)
-                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 30f))
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSteel, 30f)),
+                new Recipe("molten-copper-barrel", 40f)
+                    .items(with(IronworksMaterials.moltenCopperBarrel, 1))
+                    .power(2f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenCopper, 30f)),
+                new Recipe("molten-lead-barrel", 40f)
+                    .items(with(IronworksMaterials.moltenLeadBarrel, 1))
+                    .power(2f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenLead, 30f)),
+                new Recipe("molten-titanium-barrel", 50f)
+                    .items(with(IronworksMaterials.moltenTitaniumBarrel, 1))
+                    .power(3f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenTitanium, 30f)),
+                new Recipe("molten-surge-barrel", 50f)
+                    .items(with(IronworksMaterials.moltenSurgeBarrel, 1))
+                    .power(3f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenSurge, 30f)),
+                new Recipe("molten-aluminum-barrel", 40f)
+                    .items(with(IronworksMaterials.moltenAluminumBarrel, 1))
+                    .power(2f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.moltenAluminum, 30f))
             };
         }};
     }
