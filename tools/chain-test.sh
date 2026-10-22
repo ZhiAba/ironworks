@@ -888,5 +888,12 @@ cd "$TESTDIR" || exit 1
   sleep 3
   echo 'js var hot=Vars.content.liquid("ironworks-hot-coolant"); var t=Vars.world.tile(205,200).build; var tf=Vars.world.tile(200,200).build; Log.info("T111 tankHot=" + Math.round(t.liquids.get(hot)) + " turretLeft=" + Math.round(tf.hotStored))'
 
+  # ---- 112. 2×2 链接块：只查锚点会吞掉另一格建筑（整块占地都要检查） ----
+  echo 'js for(var y=232;y<=246;y++){for(var x=154;x<=170;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(160,237).setBlock(Vars.content.block("thorium-wall"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(160,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var link=Vars.content.block("ironworks-compute-cluster-link"); var wall=Vars.content.block("thorium-wall"); Log.info("T112 wall=" + (Vars.world.tile(160,237).block()==wall) + " leftLink=" + (Vars.world.tile(159,237).block()==link) + " rightLink=" + (Vars.world.tile(161,237).block()==link))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

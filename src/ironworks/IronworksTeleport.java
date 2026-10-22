@@ -243,6 +243,8 @@ public class IronworksTeleport{
         public int linkPos = -1;
         /** 客户端：配置面板是否打开（用于显示射程圈）。 */
         public boolean showRange;
+        /** 箭头沿线进度 0~1，按 tick 累加（不依赖 Time.time 的单位）。 */
+        public float arrowProgress;
         float flushTimer;
 
         public TeleportNode node(){
@@ -319,6 +321,8 @@ public class IronworksTeleport{
 
         @Override
         public void updateTile(){
+            updateArrow();
+
             flushTimer += delta();
             if(flushTimer >= 2f){
                 flushTimer = 0f;
@@ -327,6 +331,22 @@ public class IronworksTeleport{
 
             if(efficiency <= 0.0001f) return;
             if(mode == modePull) pullOutputs();
+        }
+
+        void updateArrow(){
+            Building t = target();
+            if(t == null){
+                arrowProgress = 0f;
+                return;
+            }
+            float len = Mathf.len(t.x - x, t.y - y);
+            if(len <= 16f){
+                arrowProgress = 0f;
+                return;
+            }
+            //16 世界单位/秒 = 2 格/秒；每 tick 走 16/60 单位
+            arrowProgress += delta() * (16f / 60f) / len;
+            if(arrowProgress >= 1f) arrowProgress -= 1f;
         }
 
         /** 取出连接建筑的产出并直接分发给四邻。 */
@@ -361,8 +381,7 @@ public class IronworksTeleport{
             float dx = t.x - x, dy = t.y - y;
             float len = Mathf.len(dx, dy);
             if(len > 16f){
-                //2 格/秒 = 16 世界单位/秒
-                float prog = (Time.time * 16f / len) % 1f;
+                float prog = arrowProgress;
                 float px, py;
                 if(mode == modeSend){
                     px = x + dx * prog;

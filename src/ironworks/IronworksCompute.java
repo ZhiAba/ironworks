@@ -235,8 +235,25 @@ public class IronworksCompute{
             if(t == null) continue;
             if(t.block() == linkBlock) continue;
 
-            if(!t.block().isAir()){
-                IronworksLog.event("linkBlocked " + host.block.name + "@" + ax + "," + ay + " by " + t.block().name);
+            //链接块是 2×2 时，必须检查整个占地，不能只看锚点——否则 setBlock 会清掉另一格上的建筑
+            int ls = l[2], lo = (ls - 1) / 2;
+            boolean blocked = false;
+            String blocker = null;
+            for(int sx = -lo; sx < ls - lo; sx++){
+                for(int sy = -lo; sy < ls - lo; sy++){
+                    Tile st = Vars.world.tile(ax + sx, ay + sy);
+                    if(st == null){ blocked = true; blocker = "out-of-map"; break; }
+                    if(st.block() == linkBlock) continue;
+                    if(!st.block().isAir()){
+                        blocked = true;
+                        blocker = st.block().name;
+                        break;
+                    }
+                }
+                if(blocked) break;
+            }
+            if(blocked){
+                IronworksLog.event("linkBlocked " + host.block.name + "@" + ax + "," + ay + " by " + blocker);
                 continue;
             }
 

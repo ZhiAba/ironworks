@@ -31,3 +31,4 @@
 109	T109 src=[0-9]+ dst=[1-9][0-9]*
 110	T110 tankHot=[1-9][0-9]*
 111	T111 tankHot=[1-9][0-9]* turretLeft=[0-9]+
+112	T112 wall=true leftLink=false rightLink=true
