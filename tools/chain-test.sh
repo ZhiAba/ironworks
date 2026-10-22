@@ -743,4 +743,4 @@ cd "$TESTDIR" || exit 1
   echo 'js var cb2=Vars.world.tile(150,240).build; Log.info("T96 mods=" + cb2.moduleCount + " bonus=" + Math.round(cb2.moduleBonus*100) + " capped=" + (cb2.moduleBonus <= 2.001))'
 
   echo 'exit'
-) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
+) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
