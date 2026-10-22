@@ -688,5 +688,8 @@ cd "$TESTDIR" || exit 1
   # ---- 85. 天罚：参数与四炮口配置 ----
   echo 'js var tf=Vars.content.block("ironworks-tianfa"); Log.info("T85 size=" + tf.size + " range=" + tf.range + " power=" + tf.consumePower + " muzzles=" + tf.muzzleX.length + " coolant=" + tf.coolantLiquids.length + " overload=" + (Vars.content.statusEffects().find(function(s){return s.name.equals("ironworks-overload")}) != null))'
 
+  # ---- 86. 所有炮塔必须有 shootType 或 ammoTypes（否则详情页 StatValues.ammo 会 NPE 崩游戏） ----
+  echo 'js function isTurret(b){var c=b.getClass(); while(c!=null){if(c.getName().indexOf("Turret")>=0) return true; c=c.getSuperclass();} return false;} var bad=[]; var bs=Vars.content.blocks(); for(var i=0;i<bs.size;i++){var b=bs.get(i); if(b.minfo==null||b.minfo.mod==null||!isTurret(b)) continue; var st=b.shootType; var am=b.ammoTypes; if(st==null && am==null) bad.push(b.name);} Log.info("T86 noAmmoOrShoot=" + bad.length + " :: " + bad.join(","))'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

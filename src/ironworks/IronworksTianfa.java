@@ -57,6 +57,12 @@ public class IronworksTianfa{
             hotLiquid = null;
             hotLiquidTier = -1;
 
+            // 直接结算炮塔也必须给一个 BulletType：
+            // 原版详情页的"弹药"统计会读 BulletType.spawnUnit，null 会直接 NPE 崩游戏。
+            shootType = new mindustry.entities.bullet.BulletType(0.001f, 370f){{
+                lifetime = 1f;
+            }};
+
             shotDamage = 370f;
             overloadDuration = 60f;
             chainTargets = 3;
