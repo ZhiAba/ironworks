@@ -126,7 +126,23 @@ public class OverheatTurret extends PowerTurret{
         ));
     }
 
-    public class OverheatTurretBuild extends PowerTurretBuild{
+    public class OverheatTurretBuild extends PowerTurretBuild implements IronworksTeleport.JumpSource{
+
+        @Override
+        public float jumpLiquid(Liquid liquid){
+            if(virtualHot && liquid == IronworksLiquids.hotCoolant) return hotStored;
+            if(hotLiquid != null && liquid == hotLiquid) return liquids.get(liquid);
+            return 0f;
+        }
+
+        @Override
+        public float jumpExtract(Liquid liquid, float amount){
+            float take = Math.min(amount, jumpLiquid(liquid));
+            if(take <= 0f) return 0f;
+            if(virtualHot && liquid == IronworksLiquids.hotCoolant) hotStored -= take;
+            else liquids.remove(liquid, take);
+            return take;
+        }
         public float overheat, speedupScl, slowDownReload, hotStored;
         public boolean requireCompleteCooling;
         public boolean cooling;

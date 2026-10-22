@@ -698,7 +698,19 @@ public class IronworksCompute{
             ));
         }
 
-        public class ComputeClusterBuild extends Building{
+        public class ComputeClusterBuild extends Building implements IronworksTeleport.JumpSource{
+
+            @Override
+            public float jumpLiquid(Liquid liquid){
+                return liquid == IronworksLiquids.hotCoolant ? liquids.get(liquid) : 0f;
+            }
+
+            @Override
+            public float jumpExtract(Liquid liquid, float amount){
+                float take = Math.min(amount, jumpLiquid(liquid));
+                if(take > 0f) liquids.remove(liquid, take);
+                return take;
+            }
             public int moduleCount;
             public float moduleBonus, modulePower;
             public float appliedBoost;

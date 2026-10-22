@@ -56,6 +56,36 @@ public class IronworksTeleport{
     public static final int configSend = -1, configPull = -2, configClear = -3;
     public static final int modeSend = 0, modePull = 1;
 
+    /**
+     * 可被跃迁节点抽取的方块实现这个接口。
+     * 以后新增的方块只要实现 jumpLiquid / jumpExtract（要抽物品再加 jumpItem / jumpExtractItem），
+     * 液体/物品节点就会自动识别，不需要再改节点代码。
+     */
+    public interface JumpSource{
+        float jumpLiquid(Liquid liquid);
+        float jumpExtract(Liquid liquid, float amount);
+
+        default int jumpItem(Item item){ return 0; }
+        default int jumpExtractItem(Item item, int amount){ return 0; }
+    }
+
+    /** 连接建筑当前可被抽取的量。 */
+    public static float availableFrom(Building b, Liquid liquid){
+        if(b == null) return 0f;
+        if(b instanceof JumpSource js) return js.jumpLiquid(liquid);
+        return (b.block != null && b.block.hasLiquids && b.liquids != null) ? b.liquids.get(liquid) : 0f;
+    }
+
+    /** 真正抽走液体（接口方块走自己的实现）。 */
+    public static void extractFrom(Building b, Liquid liquid, float amount){
+        if(b == null || amount <= 0f) return;
+        if(b instanceof JumpSource js){
+            js.jumpExtract(liquid, amount);
+        }else if(b.liquids != null){
+            b.liquids.remove(liquid, amount);
+        }
+    }
+
     public static final Color itemColor = Color.valueOf("7ff0d0");
     public static final Color liquidColor = Color.valueOf("7fb6ff");
 
@@ -119,6 +149,7 @@ public class IronworksTeleport{
 
     public static boolean isOutputLiquid(Building b, Liquid liquid){
         if(b == null || b.block == null) return false;
+        if(b instanceof JumpSource js) return js.jumpLiquid(liquid) > 0.1f;
         Block bl = b.block;
 
         if(bl instanceof MultiCrafter mc){
@@ -148,6 +179,9 @@ public class IronworksTeleport{
         if(bl instanceof SolidPump sp) return sp.result == liquid;
         if(b instanceof Pump.PumpBuild p) return p.liquidDrop == liquid;
         if(b instanceof LiquidSource.LiquidSourceBuild src) return src.source == liquid;
+
+        //通用兜底：只要方块有液体、且不消耗这种液体（储罐/液体源/热液缓冲等），就允许抽
+        if(bl.hasLiquids && !bl.consumesLiquid(liquid)) return true;
 
         return false;
     }
@@ -507,7 +541,7 @@ public class IronworksTeleport{
 
             for(int i = 0; i < Vars.content.liquids().size; i++){
                 Liquid liq = Vars.content.liquids().get(i);
-                float amount = t.liquids.get(liq);
+                float amount = availableFrom(t, liq);
                 if(amount <= 0.1f || !isOutputLiquid(t, liq)) continue;
 
                 for(Building b : proximity){
@@ -520,7 +554,7 @@ public class IronworksTeleport{
 
                     float flow = Math.min(Math.min(amount, space), 20f);
                     b.handleLiquid(this, liq, flow);
-                    t.liquids.remove(liq, flow);
+                    extractFrom(t, liq, flow);
                     return;
                 }
                 return;

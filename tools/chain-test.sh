@@ -876,5 +876,17 @@ cd "$TESTDIR" || exit 1
   sleep 4
   echo 'js var hot=Vars.content.liquid("ironworks-hot-coolant"); var t=Vars.world.tile(205,218).build; Log.info("T110 tankHot=" + Math.round(t.liquids.get(hot)))'
 
+  # ---- 111. 液体节点·吸取：从炮塔的虚拟热槽抽热冷却液 ----
+  echo 'js for(var y=192;y<=210;y++){for(var x=190;x<=216;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(200,200).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(203,200).setBlock(Vars.content.block("ironworks-mct-liquid-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(203,201).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(205,200).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(200,200).build.hotStored = 600'
+  echo 'js var n=Vars.world.tile(203,200).build; n.linkTo(Vars.world.tile(200,200).build); n.setMode(1)'
+  sleep 3
+  echo 'js var hot=Vars.content.liquid("ironworks-hot-coolant"); var t=Vars.world.tile(205,200).build; var tf=Vars.world.tile(200,200).build; Log.info("T111 tankHot=" + Math.round(t.liquids.get(hot)) + " turretLeft=" + Math.round(tf.hotStored))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

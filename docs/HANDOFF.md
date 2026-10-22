@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-22，v0.64.3）
+# 铁流工业 交接文档（2026-10-22，v0.64.4）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -43,6 +43,12 @@
 - 传送模式：acceptItem/acceptLiquid 只对连接处判断，handle 直接转发，节点不存
 - 吸取模式：`isOutputItem/isOutputLiquid` 只认产出（MultiCrafter 配方 / GenericCrafter / 分离机 / 钻头 / 泵 / 液体源），从目标移除后交给四邻
 - 绘制：连接时 `Drawf.laser` 脉冲激光
+
+## 让新方块支持跃迁吸取（一劳永逸）
+- 节点通过 `IronworksTeleport.JumpSource` 识别来源：`jumpLiquid(Liquid)` 返回可抽量，`jumpExtract(Liquid, float)` 实际扣除；物品对应 `jumpItem/jumpExtractItem`
+- 不实现接口也可以：只要方块有液体且**不消耗**该液体（储罐/液体源/热液缓冲），通用兜底会自动允许抽取
+- 物品仍按 MultiCrafter 配方产出 / GenericCrafter / 分离机 / 钻头识别
+- 炮塔：`OverheatTurretBuild` 已实现接口（virtualHot 走 hotStored，真实热液走 liquids）
 
 ## 已修复的典型坑
 - 配方索引只追加，不插队
