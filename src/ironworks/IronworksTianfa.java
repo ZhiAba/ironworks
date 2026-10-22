@@ -67,7 +67,7 @@ public class IronworksTianfa{
             overloadDuration = 60f;
             chainTargets = 3;
             chainRange = 20f;          // 2.5 格
-            boltScale = 0.6f;          // 闪电更细
+            boltScale = 0.4f;          // 闪电更细（电弧塔的 40%）
         }};
     }
 }

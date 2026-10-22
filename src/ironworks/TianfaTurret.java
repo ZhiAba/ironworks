@@ -26,15 +26,16 @@ public class TianfaTurret extends OverheatTurret{
     public int chainTargets = 3;
     public float chainRange = 20f;
     public float overloadDuration = 60f;
-    public float boltScale = 0.6f;
+    public float boltScale = 0.4f;
 
     /** 底座贴图：不随炮塔旋转 */
     public TextureRegion baseRegion;
 
     /** 4 个炮口的局部坐标（相对方块中心，炮口在贴图上方） */
-    // 炮口局部坐标：X 向右为正，Y 向上为正（世界坐标），贴图里炮口在顶部所以 Y 是正的
-    public float[] muzzleX = {-28f, -9f, 9f, 28f};
-    public float[] muzzleY = {34f, 38f, 38f, 34f};
+    // 炮口局部坐标（世界单位，1 格 = 8 单位；贴图 128px = 32 单位）
+    // 由 128x128 贴图上四个炮口尖端的像素位置换算：px/4
+    public float[] muzzleX = {-7.5f, -1.75f, 3.25f, 8.75f};
+    public float[] muzzleY = {11.5f, 12.75f, 12.25f, 11.5f};
 
     public TianfaTurret(String name){
         super(name);
