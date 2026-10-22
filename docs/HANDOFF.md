@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-21，v0.59.2）
+# 铁流工业 交接文档（2026-10-21，v0.59.3）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -40,6 +40,10 @@
 3. 芯片作为精密建筑建材分档（T1/T2/T3 建筑）
 4. 铝/合金进一步进入更多建筑成本与弹药配方
 5. 新内容实机检查：数据库图标、配方表、铝土矿矿脉生成
+
+## 文档约定
+- 任何文档/内容/工具改动都要同步 `docs/CHANGELOG.md`（见 `docs/WORKFLOW.md`）
+- 发版前过 `docs/RELEASE-CHECKLIST.md`
 
 ## 环境注意
 - Android + proot 容器；无 systemd/GUI；Shizuku 提供特权 shell（`phone_sh`）

@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v0.59.2，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v0.59.3，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -78,6 +78,8 @@ Mindustry 模组「铁流工业」v0.59.2，Java 编写，自研多配方库 + �
 - `tools/check-keys.js`：本地化键静态检查（中英各 140+ 键）
 - `docs/TEST-INDEX.md`：T 编号 → 验证内容索引
 - `docs/RELEASE-CHECKLIST.md`：发布前验收清单（单位/空值/配方/存档/部署）
+- `docs/CHANGELOG.md`：全量版本记录（0.0.1→0.59.3，含根因与测试编号）
+- `docs/WORKFLOW.md`：改动必做清单（**文档/内容/工具改动必须同步 CHANGELOG**）
 - `tools/balance.js`：造价/弹耗/DPS/效率 + 装甲成本
 - `/root/tools/genstatus.js`、`/root/tools/genarmor.js`：贴图生成
 
