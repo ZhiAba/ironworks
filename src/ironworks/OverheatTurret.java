@@ -297,8 +297,17 @@ public class OverheatTurret extends PowerTurret{
             return liquids == null || liquids.current() == null ? 0f : liquids.current().heatCapacity;
         }
 
+        boolean hotFull(){
+            return virtualHot && hotStored >= hotCapacity - 0.01f;
+        }
+
         @Override
         protected void updateShooting(){
+            // 热冷却液堆满 = 热量排不出去，强制过热停机
+            if(hotFull()){
+                overheat = Mathf.approachDelta(overheat, overheatTime, 3f / 60f);
+                return;
+            }
             if(reloadCounter >= reload){
                 BulletType type = peekAmmo() != null ? peekAmmo() : shootType;
                 shoot(type);

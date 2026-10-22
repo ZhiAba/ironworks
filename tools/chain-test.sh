@@ -696,13 +696,16 @@ cd "$TESTDIR" || exit 1
 
   # ---- 88. 天罚远程连锁：射程 45 格、最多 12 连、每连 120 伤害 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T88 range=" + tb.range + " chain=" + tb.chainTargets + " chainDmg=" + tb.chainDamage + " chainR=" + tb.chainRange)'
-  # ---- 90. 天罚闲置不喝冷却液（修复"送不进去"） ----
-  echo 'js Vars.world.tile(220,220).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
-  sleep 1
-  echo 'js var th=Vars.world.tile(220,220).build; th.liquids.add(Vars.content.liquid("ironworks-chiller"), 300); Log.info("T90 add=" + Math.round(th.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
-  sleep 3
-  echo 'js Log.info("T90b idleKeep=" + Math.round(Vars.world.tile(220,220).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
-
+  # ---- 90. 天罚真实供给：液体源 + 导管（不是直接投液），闲置时应当存住 ----
+  echo 'js Vars.world.tile(100,200).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(101,200).setBlock(Vars.content.block("conduit"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(102,200).setBlock(Vars.content.block("conduit"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(103,200).setBlock(Vars.content.block("conduit"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(105,200).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var src=Vars.world.tile(100,200).build; src.source=Vars.content.liquid("ironworks-chiller"); Log.info("T90 srcSet=" + (src.source != null))'
+  sleep 8
+  echo 'js Log.info("T90b turret=" + Math.round(Vars.world.tile(105,200).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
   # ---- 91. 天罚冷却配置：1440 容量 / 120 每秒 / 虚拟热槽 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T91 cap=" + tb.liquidCapacity + " use=" + tb.coolantUse + " hotCap=" + tb.hotCapacity + " virtualHot=" + tb.virtualHot + " consumeOnlyFiring=" + tb.consumeOnlyWhenFiring)'
 
@@ -712,6 +715,14 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var cv=Vars.world.tile(55,130).build; var w=Vars.content.liquid("water"); var fe=Vars.content.liquid("ironworks-molten-iron"); Log.info("T92 waterAcc=" + cv.acceptLiquid(cv, w) + " ironAcc=" + cv.acceptLiquid(cv, fe))'
 
+  # ---- 93. 热冷却液堆满 → 强制过热、停止开火 ----
+  echo 'js Vars.world.tile(130,200).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(133,200).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var hb=Vars.world.tile(130,200).build; hb.hotStored=1440; Log.info("T93 hot=" + Math.round(hb.hotStored))'
+  echo 'js var dt=null; var us=Vars.content.units(); for(var i=0;i<us.size;i++){if(us.get(i).name=="dagger") dt=us.get(i);} var tgt=dt.spawn(Vars.state.rules.waveTeam, 140*8, 200*8); Log.info("T93b spawnHp=" + Math.round(tgt.health))'
+  sleep 4
+  echo 'js Log.info("T93c heat=" + Math.round(Vars.world.tile(130,200).build.overheat) + " hot=" + Math.round(Vars.world.tile(130,200).build.hotStored))'
 
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
