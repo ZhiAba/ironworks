@@ -161,6 +161,42 @@ public class Gen{
         return im;
     }
 
+
+    /** 1x1 跃迁节点：暗色基座 + 中央菱形光环（物品=青绿，液体=蓝） */
+    static BufferedImage node(boolean liquid){
+        BufferedImage im = img(32, 32);
+        Color accent = liquid ? new Color(0x7fb6ff) : new Color(0x7ff0d0);
+        Color accentDim = liquid ? new Color(0x3d6fa8) : new Color(0x3f9e88);
+
+        // 四角刻线
+        for(int cx = 0; cx < 2; cx++) for(int cy = 0; cy < 2; cy++){
+            rect(5 + cx * 20, 5 + cy * 20, 3, 3, GREY);
+        }
+
+        ring(16, 16, 11, OUT);
+        ring(16, 16, 9, accentDim);
+        ring(16, 16, 7, DARK);
+        ring(16, 16, 6, accent);
+
+        // 菱形
+        g.setColor(accent);
+        for(int dy = -4; dy <= 4; dy++){
+            int w = 4 - Math.abs(dy);
+            g.drawLine(16 - w, 16 + dy, 16 + w, 16 + dy);
+        }
+        g.setColor(OUT);
+        for(int dy = -2; dy <= 2; dy++){
+            int w = 2 - Math.abs(dy);
+            g.drawLine(16 - w, 16 + dy, 16 + w, 16 + dy);
+        }
+        rect(15, 15, 2, 2, accent);
+
+        // 底部指示灯
+        rect(11, 27, 10, 2, OUT);
+        rect(12, 27, 3, 2, accent);
+        return im;
+    }
+
     static void save(BufferedImage img, String path) throws Exception{
         ImageIO.write(img, "png", new File(path));
         System.out.println("wrote " + path + " " + img.getWidth() + "x" + img.getHeight());
@@ -174,5 +210,7 @@ public class Gen{
         save(advIcon(), dir + "compute-advanced-ui.png");
         save(linkTile(64, 2), dir + "compute-cluster-link.png");
         save(linkTile(32, 1), dir + "compute-advanced-link.png");
+        save(node(false), dir + "mct-item-node.png");
+        save(node(true), dir + "mct-liquid-node.png");
     }
 }

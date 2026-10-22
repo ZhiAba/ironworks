@@ -25,6 +25,7 @@ public class IronworksMod extends Mod{
         IronworksSilicon.load();   // 硅基时代：贵金属 / 钛合金 / 三级芯片 / 电弧塔
         IronworksTianfa.load();   // 天罚（四炮口电弧塔，依赖硅基时代物品）
         IronworksCompute.load();  // 全域算力集群 + 算力模块
+        IronworksTeleport.load(); // MCT 跃迁节点（物品/液体）
         IronworksBelts.load();     // 通液传送带全套（带 / 路由器 / 带桥 ×2 档）
         IronworksDebug.load();     // 调试：液体计量器
         IronworksSupport.load();   // 战术支援方块（状态光环形）

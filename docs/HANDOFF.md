@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-22，v0.63.4）
+# 铁流工业 交接文档（2026-10-22，v0.64.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -9,7 +9,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`4a23c8407dbf62ccd67c003394054542`（0.63.4）
+- 当前 jar md5：`5dc3a4b54a38bdecfa05d999e0d02d21`（0.64.0）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
@@ -35,6 +35,14 @@
 - 贴合判定：包围盒 + 整边覆盖；方向 dir 指「主集群相对模块的方向」（0 上 / 1 右 / 2 下 / 3 左）
 - 0.63.2：链接块展示委托（名称/图标/血条/消耗 → 主块）、共享 items/liquids 池、isHidden 恒真；放置幽灵只由 drawPlan 画（半透明+闪白）
 - 0.63.0：主块画整张一体贴图（`region` 即 4×6 / 2×3 大图），链接块 `draw()` 留空；`*-ui` 为建造菜单方形图标；`drawPlace`/`drawPlanRegion` 按包围盒居中画幽灵
+
+## MCT 跃迁节点（0.64.0）
+- 两个 1×1 方块：`mct-item-node` / `mct-liquid-node`，耗电 18/tick
+- 连接：`onConfigureBuildTapped` + config(Integer pos)，12 格内、同队伍
+- 配置用负值区分模式：-1 传送 / -2 吸取 / -3 断开，>=0 为连接目标 pos
+- 传送模式：acceptItem/acceptLiquid 只对连接处判断，handle 直接转发，节点不存
+- 吸取模式：`isOutputItem/isOutputLiquid` 只认产出（MultiCrafter 配方 / GenericCrafter / 分离机 / 钻头 / 泵 / 液体源），从目标移除后交给四邻
+- 绘制：连接时 `Drawf.laser` 脉冲激光
 
 ## 已修复的典型坑
 - 配方索引只追加，不插队

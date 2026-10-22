@@ -21,3 +21,8 @@
 101a	T101a cap=2000 boost=50
 101b	T101b hot2=[1-9][0-9][0-9]
 102	T102 links=2 clamped=true cold=[0-9]+ hot=[0-9]+ tankHot=[1-9][0-9]*
+103	T103 accept=true node=0 target=1 mode=0
+104	T104 graphite=[1-9][0-9]* node=0
+105	T105 tank=[1-9][0-9]* node=0
+106	T106 pulled=[1-9][0-9]*
+107	T107 item=1080 liquid=1080 desc=true size=1

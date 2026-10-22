@@ -799,5 +799,50 @@ cd "$TESTDIR" || exit 1
   sleep 6
   echo 'js var c=Vars.world.tile(200,240).build; var t=Vars.world.tile(201,235).build; var cold=Vars.content.liquid("ironworks-graphene-coolant"); var hot=Vars.content.liquid("ironworks-hot-coolant"); Log.info("T102 links=" + ((Vars.world.tile(199,237).build!=null?1:0)+(Vars.world.tile(201,237).build!=null?1:0)) + " clamped=" + (c.liquids.get(cold) <= c.block.liquidCapacity + 1) + " cold=" + Math.round(c.liquids.get(cold)) + " hot=" + Math.round(c.liquids.get(hot)) + " tankHot=" + Math.round(t.liquids.get(hot)))'
 
+  # ---- 103. 物品跃迁节点·传送：不储存，直接送到连接处 ----
+  echo 'js Vars.state.rules.waves = false; var wt=Vars.state.rules.waveTeam; var us=wt.data().units; for(var ui=us.size-1;ui>=0;ui--){us.get(ui).kill();} for(var y=194;y<=212;y++){for(var x=140;x<=200;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(150,200).setBlock(Vars.content.block("ironworks-mct-item-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(149,200).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(152,200).setBlock(Vars.content.block("container"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js var n=Vars.world.tile(150,200).build; var c=Vars.world.tile(152,200).build; n.linkTo(c); var cu=Vars.content.item("copper"); var ok=n.acceptItem(c, cu); n.handleItem(c, cu); Log.info("T103 accept=" + ok + " node=" + n.items.total() + " target=" + c.items.get(cu) + " mode=" + n.mode)'
+
+  # ---- 104. 物品跃迁节点·吸取：只抽产出，向四邻分发 ----
+  echo 'js Vars.world.tile(160,200).setBlock(Vars.content.block("graphite-press"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(159,200).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(162,200).setBlock(Vars.content.block("ironworks-mct-item-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(163,200).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(162,201).setBlock(Vars.content.block("container"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(160,200).build.items.add(Vars.content.item("coal"), 20)'
+  echo 'js var n=Vars.world.tile(162,200).build; n.linkTo(Vars.world.tile(160,200).build); n.setMode(1)'
+  sleep 6
+  echo 'js var n=Vars.world.tile(162,200).build; var c=Vars.world.tile(162,201).build; Log.info("T104 graphite=" + c.items.get(Vars.content.item("graphite")) + " node=" + n.items.total() + " coalLeft=" + Vars.world.tile(160,200).build.items.get(Vars.content.item("coal")))'
+
+  # ---- 105. 液体跃迁节点·传送：管道液体直接送到连接处 ----
+  echo 'js Vars.world.tile(171,200).setBlock(Vars.content.block("ironworks-mct-liquid-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(170,200).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(171,201).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(173,200).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(170,200).build.source=Vars.content.liquid("water")'
+  echo 'js var n=Vars.world.tile(171,200).build; n.linkTo(Vars.world.tile(173,200).build)'
+  sleep 5
+  echo 'js var w=Vars.content.liquid("water"); var n=Vars.world.tile(171,200).build; var t=Vars.world.tile(173,200).build; Log.info("T105 tank=" + Math.round(t.liquids.get(w)) + " node=" + Math.round(n.liquids.get(w)))'
+
+  # ---- 106. 液体跃迁节点·吸取：抽取产出液体并向四邻分发 ----
+  echo 'js Vars.world.tile(180,200).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(181,200).setBlock(Vars.content.block("ironworks-mct-liquid-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(181,201).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(183,200).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(180,200).build.source=Vars.content.liquid("water")'
+  echo 'js var n=Vars.world.tile(181,200).build; n.linkTo(Vars.world.tile(180,200).build); n.setMode(1)'
+  sleep 5
+  echo 'js var w=Vars.content.liquid("water"); var t=Vars.world.tile(183,200).build; Log.info("T106 pulled=" + Math.round(t.liquids.get(w)))'
+
+  # ---- 107. 跃迁节点参数：耗电 1080/秒、描述、连接距离 ----
+  echo 'js var b=Vars.content.block("ironworks-mct-item-node"); var l=Vars.content.block("ironworks-mct-liquid-node"); Log.info("T107 item=" + (b.consPower.usage*60) + " liquid=" + (l.consPower.usage*60) + " desc=" + (b.description.indexOf("MCT")>=0) + " size=" + b.size)'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

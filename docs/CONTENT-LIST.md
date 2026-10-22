@@ -6,13 +6,13 @@
 |---|---|
 | 物品 | 64 |
 | 液体 | 15 |
-| 方块 | 70 |
+| 方块 | 72 |
 | 状态效果 | 8 |
 | 单位 | 0 |
 
-**合计 157 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
+**合计 159 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
 
-## 方块（70）
+## 方块（72）
 
 | 分组 | 数量 | 内容 |
 |---|---|---|
@@ -28,6 +28,7 @@
 | 支援 | 3 | `nano-field` 纳米修复场<br>`jade-beacon` 玉碎信标<br>`critical-device` 临界装置 |
 | 装甲 | 2 | `armor-press` 装甲压制机<br>`armor-dock` 外挂装甲坞 |
 | 算力（0.62.0） | 7 | `compute-cluster` 全域算力集群（4×4 核心，占地 4×6）<br>`compute-micro` 微型算力集群 1×1<br>`compute-basic` 基础算力集群 3×3<br>`compute-advanced` 高级算力集群（2×2 核心，占地 2×3）<br>`compute-quantum` 量子算力集群 2×2<br>`compute-cluster-link` 主集群链接块 2×2（隐藏）<br>`compute-advanced-link` 高级模块通风块 1×1（隐藏） |
+| 跃迁（0.64.0） | 2 | `mct-item-node` 物品跃迁节点 1×1<br>`mct-liquid-node` 液体跃迁节点 1×1 |
 | 调试 | 2 | `liquid-monitor` 液体计量器<br>`verbose-logger` 全量日志器 |
 | 矿脉/环境 | 2 | `iron-ore` 铁矿脉<br>`bauxite-ore` 铝土矿脉 |
 
