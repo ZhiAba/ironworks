@@ -1,17 +1,29 @@
 package ironworks;
 
 import arc.Core;
+import arc.func.Intc2;
+import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
+import arc.struct.IntSet;
+import arc.util.Time;
+import arc.util.io.Reads;
+import arc.util.io.Writes;
+import mindustry.Vars;
 import mindustry.content.Items;
+import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.graphics.Pal;
 import mindustry.type.Category;
+import mindustry.type.Liquid;
 import mindustry.ui.Bar;
 import mindustry.world.Block;
+import mindustry.world.Tile;
 import mindustry.world.blocks.defense.Wall;
 import mindustry.world.consumers.ConsumePowerDynamic;
+import mindustry.world.meta.BlockGroup;
+import mindustry.world.meta.BuildVisibility;
 import mindustry.world.meta.Stat;
 
 import static mindustry.type.ItemStack.with;
@@ -19,50 +31,65 @@ import static mindustry.type.ItemStack.with;
 /**
  * 全域算力集群：区块级超速装置。
  *
- * 引擎限制：Mindustry 的方块只能是正方形（size 是单个数），4×6 与 2×3 无法在纯原版实现，
- * 主集群用 6×6、高级模块用 3×3 替代。
+ * 矩形占地方案（0.62.0 起，参考 NewHorizon 的 BasicMultiBlock）：
+ * 引擎的 Block.size 只能是正方形，所以 4×6 / 2×3 由**核心块 + 链接块**拼出来：
+ * <ul>
+ *   <li>主集群：4×4 核心 + 底排两个 2×2 链接块 → 占地 4×6；</li>
+ *   <li>高级模块：2×2 核心 + 底排两个 1×1 通风块 → 占地 2×3。</li>
+ * </ul>
+ * 链接块是隐藏方块：不能建造、不能拆除、会把液体转发给核心；核心被拆/被毁时一起清掉，
+ * 读档后按相对坐标重新绑定核心（相对坐标可随蓝图一起平移）。
  *
- * 挂载规则（0.61.0 起）：
- * - 模块必须有**至少一条完整的边**贴合主集群（3×3 模块要 3 格连续贴边，只贴 1 格不算）；
- * - 贴合后模块换成 "名称-2" 变体贴图，并按贴合方向自动旋转（0=上 1=右 2=下 3=左）；
+ * 挂载规则：
+ * - 模块必须有**至少一条完整的边**贴合主集群（含链接块）的包围盒；
+ * - 贴合后模块按方向更换/绘制接口效果（0=上 1=右 2=下 3=左，指主集群相对模块的方向）；
  * - 加成与功率由主集群统计，加成总上限 +200%。
  */
 public class IronworksCompute{
 
     public static Block cluster;
     public static ComputeModule micro, basic, advanced, quantum;
+    public static LinkBlock clusterLink, moduleLink;
 
     public static final float basePower = 32460f;
     public static final float moduleCap = 2.0f;
     public static final float coolantUse = 1f;
 
+    /** 4×6：核心 4×4 + 底排两个 2×2（相对核心锚点）。 */
+    public static final int[][] CLUSTER_LAYOUT = {{-1, -3, 2}, {1, -3, 2}};
+    /** 2×3：核心 2×2 + 底排两个 1×1。 */
+    public static final int[][] ADVANCED_LAYOUT = {{0, -1, 1}, {1, -1, 1}};
+
     public static void load(){
-        micro = new ComputeModule("compute-micro", 1, 0.0135f, 930f);
+        clusterLink = new LinkBlock("compute-cluster-link", 2);
+        moduleLink = new LinkBlock("compute-advanced-link", 1);
+
+        micro = new ComputeModule("compute-micro", 1, 0.0135f, 930f, null, null);
         micro.requirements(Category.effect, with(IronworksSilicon.basicChip, 2, Items.silicon, 20, Items.metaglass, 10));
         micro.health = 200;
 
-        basic = new ComputeModule("compute-basic", 3, 0.07f, 1950f);
+        basic = new ComputeModule("compute-basic", 3, 0.07f, 1950f, null, null);
         basic.requirements(Category.effect, with(IronworksSilicon.basicChip, 6, IronworksItems.steelPlate, 30,
             Items.silicon, 50, Items.metaglass, 30));
         basic.health = 900;
 
-        advanced = new ComputeModule("compute-advanced", 3, 0.14f, 6825f);
+        advanced = new ComputeModule("compute-advanced", 2, 0.14f, 6825f, ADVANCED_LAYOUT, moduleLink);
         advanced.requirements(Category.effect, with(IronworksSilicon.advancedChip, 4, IronworksItems.steelPlate, 80,
             IronworksMaterials.siliconCarbide, 30, Items.silicon, 100));
         advanced.health = 2200;
 
-        quantum = new ComputeModule("compute-quantum", 2, 0.20f, 12420f);
+        quantum = new ComputeModule("compute-quantum", 2, 0.20f, 12420f, null, null);
         quantum.requirements(Category.effect, with(IronworksSilicon.quantumCore, 2, IronworksMaterials.siliconCarbide, 50,
             IronworksAluminum.aviationAluminum, 20, Items.silicon, 150));
         quantum.health = 1500;
 
-        cluster = new ComputeCluster("compute-cluster"){{
+        cluster = new ComputeCluster("compute-cluster", CLUSTER_LAYOUT, clusterLink){{
             requirements(Category.effect,
                 with(IronworksSilicon.quantumCore, 10, IronworksMaterials.siliconCarbide, 200,
                      IronworksItems.steelPlate, 800, Items.silicon, 1200,
                      IronworksAluminum.aviationAluminum, 120));
 
-            size = 6;
+            size = 4;
             health = 12000;
             armor = 12f;
             solid = true;
@@ -76,91 +103,375 @@ public class IronworksCompute{
                 return (basePower + c.modulePower) / 60f;
             }));
         }};
+
+        clusterLink.hostBlock = cluster;
+        moduleLink.hostBlock = advanced;
+    }
+
+    // ------------------------------------------------------------------
+    // 几何：包围盒 / 整边贴合
+    // ------------------------------------------------------------------
+
+    /** 方块（含链接块）在 tile 坐标下的包围盒，写入 out = {x1, y1, x2, y2}。 */
+    public static void rectOf(Building b, int[] out){
+        int size = b.block.size, off = (size - 1) / 2;
+        int x1 = b.tileX() - off, y1 = b.tileY() - off;
+        int x2 = x1 + size - 1, y2 = y1 + size - 1;
+
+        int[][] layout = layoutOf(b.block);
+        if(layout != null){
+            for(int[] l : layout){
+                int ls = l[2], lo = (ls - 1) / 2;
+                int ax = b.tileX() + l[0] - lo, ay = b.tileY() + l[1] - lo;
+                x1 = Math.min(x1, ax);
+                y1 = Math.min(y1, ay);
+                x2 = Math.max(x2, ax + ls - 1);
+                y2 = Math.max(y2, ay + ls - 1);
+            }
+        }
+        out[0] = x1;
+        out[1] = y1;
+        out[2] = x2;
+        out[3] = y2;
+    }
+
+    public static int[][] layoutOf(Block b){
+        if(b instanceof ComputeCluster c) return c.linkLayout;
+        if(b instanceof ComputeModule m) return m.linkLayout;
+        return null;
     }
 
     /**
-     * 返回模块相对主集群的贴合方向（0=上 1=右 2=下 3=左），-1 表示没有整边贴合。
-     * 规则：模块的一条完整边必须与主集群的一条边重合且完全落在主集群范围内。
+     * 模块相对主集群的贴合方向（指主集群相对模块的方向：0=上 1=右 2=下 3=左），-1 表示没有整边贴合。
+     * 整边贴合 = 模块的整条接触边完全落在主集群那条边的范围内。
      */
-    public static int contactDir(Building host, int hostSize, Building mod, int modSize){
-        int hx1 = host.tileX() - (hostSize - 1) / 2, hy1 = host.tileY() - (hostSize - 1) / 2;
-        int hx2 = hx1 + hostSize - 1, hy2 = hy1 + hostSize - 1;
-        int mx1 = mod.tileX() - (modSize - 1) / 2, my1 = mod.tileY() - (modSize - 1) / 2;
-        int mx2 = mx1 + modSize - 1, my2 = my1 + modSize - 1;
+    public static int contactDir(int[] h, int[] m){
+        //完全重叠不算贴合（正常放置不会出现）
+        if(m[0] <= h[2] && m[2] >= h[0] && m[1] <= h[3] && m[3] >= h[1]) return -1;
 
-        // 模块在右 → 主集群在模块左边（3）
-        if(mx1 == hx2 + 1 && my1 >= hy1 && my2 <= hy2) return 3;
-        // 模块在左 → 主集群在右（1）
-        if(mx2 == hx1 - 1 && my1 >= hy1 && my2 <= hy2) return 1;
-        // 模块在下 → 主集群在上（0）
-        if(my1 == hy2 + 1 && mx1 >= hx1 && mx2 <= hx2) return 0;
-        // 模块在上 → 主集群在下（2）
-        if(my2 == hy1 - 1 && mx1 >= hx1 && mx2 <= hx2) return 2;
+        //模块在右 → 主集群在左（3）
+        if(m[0] == h[2] + 1 && m[1] >= h[1] && m[3] <= h[3]) return 3;
+        //模块在左 → 主集群在右（1）
+        if(m[2] == h[0] - 1 && m[1] >= h[1] && m[3] <= h[3]) return 1;
+        //模块在上 → 主集群在下（2）
+        if(m[1] == h[3] + 1 && m[0] >= h[0] && m[2] <= h[2]) return 2;
+        //模块在下 → 主集群在上（0）
+        if(m[3] == h[1] - 1 && m[0] >= h[0] && m[2] <= h[2]) return 0;
         return -1;
     }
 
+    /** 遍历包围盒外圈的所有 tile。 */
+    public static void forEachBorder(int[] r, Intc2 cons){
+        for(int x = r[0]; x <= r[2]; x++){
+            cons.get(x, r[1] - 1);
+            cons.get(x, r[3] + 1);
+        }
+        for(int y = r[1]; y <= r[3]; y++){
+            cons.get(r[0] - 1, y);
+            cons.get(r[2] + 1, y);
+        }
+    }
+
+    /** 链接块占用的 tile 是否都空着（放置前校验）。 */
+    public static boolean fitsExtra(int tx, int ty, int[][] layout){
+        if(layout == null) return true;
+        for(int[] l : layout){
+            int ls = l[2], lo = (ls - 1) / 2;
+            int ax = tx + l[0] - lo, ay = ty + l[1] - lo;
+            for(int x = ax; x < ax + ls; x++){
+                for(int y = ay; y < ay + ls; y++){
+                    Tile t = Vars.world.tile(x, y);
+                    if(t == null) return false;
+                    Block b = t.block();
+                    if(!b.isAir() && !b.alwaysReplace) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------------
+    // 链接块维护
+    // ------------------------------------------------------------------
+
+    /** 缺失的链接块补上；被别的建筑占住的位置就跳过。 */
+    public static void ensureLinks(Building host, int[][] layout, Block linkBlock){
+        if(layout == null || linkBlock == null || Vars.net.client()) return;
+
+        for(int[] l : layout){
+            int ax = host.tileX() + l[0], ay = host.tileY() + l[1];
+            Tile t = Vars.world.tile(ax, ay);
+            if(t == null) continue;
+            if(t.block() == linkBlock) continue;
+
+            Block there = t.block();
+            if(!there.isAir() && !there.alwaysReplace) continue;
+
+            t.setBlock(linkBlock, host.team, 0);
+            if(t.build instanceof LinkBlock.LinkBuild link){
+                link.relX = host.tileX() - ax;
+                link.relY = host.tileY() - ay;
+                link.host = host;
+            }
+        }
+    }
+
+    /** 主块消失时清掉自己的链接块。 */
+    public static void removeLinks(Building host, int[][] layout, Block linkBlock){
+        if(layout == null || linkBlock == null || Vars.net.client()) return;
+
+        for(int[] l : layout){
+            Tile t = Vars.world.tile(host.tileX() + l[0], host.tileY() + l[1]);
+            if(t != null && t.block() == linkBlock){
+                t.remove();
+            }
+        }
+    }
+
+    /** 某个相邻建筑如果是主集群（或它的链接块），返回主集群本体。 */
+    static Building clusterOf(Building b){
+        if(b.block == cluster) return b;
+        if(b.block == clusterLink && b instanceof LinkBlock.LinkBuild link) return link.host;
+        return null;
+    }
+
+    /** 某个相邻建筑如果算力模块（或它的链接块），返回模块本体。 */
+    static Building moduleOf(Building b){
+        if(b.block instanceof ComputeModule) return b;
+        if(b.block == moduleLink && b instanceof LinkBlock.LinkBuild link) return link.host;
+        return null;
+    }
+
+    // ------------------------------------------------------------------
+    // 链接块
+    // ------------------------------------------------------------------
+
+    /**
+     * 隐藏的链接块：把占地补成矩形。
+     * 不参与建造、不能拆除；液体转发给核心；核心没了就自己消失。
+     */
+    public static class LinkBlock extends Block{
+        /** 这个链接块属于哪种主块，读档时用它校验目标。 */
+        public Block hostBlock;
+
+        public LinkBlock(String name, int size){
+            super(name);
+            this.size = size;
+            update = true;
+            solid = true;
+            fillsTile = true;
+            rotate = false;
+            health = 1200;
+            armor = 8f;
+            group = BlockGroup.walls;
+            buildVisibility = BuildVisibility.hidden;
+            alwaysUnlocked = false;
+            hasLiquids = true;
+            liquidCapacity = 60f;
+            buildType = LinkBuild::new;
+        }
+
+        @Override
+        public void setBars(){
+            //隐藏块不显示任何条
+        }
+
+        public class LinkBuild extends Building{
+            public Building host;
+            /** 相对核心的偏移（随蓝图平移也能重新绑定） */
+            public int relX, relY;
+            float timer;
+
+            public void resolve(){
+                Building b = Vars.world.build(tile.x + relX, tile.y + relY);
+                host = (b != null && b != this && b.block == hostBlock) ? b : null;
+            }
+
+            @Override
+            public void updateTile(){
+                timer += delta();
+                if(timer < 10f) return;
+                timer = 0f;
+
+                if(host == null || host.dead || !host.isValid()) resolve();
+                if(host == null && !Vars.net.client()) tile.remove();
+            }
+
+            //液体从链接块旁进，直接进核心的液体池
+            @Override
+            public boolean acceptLiquid(Building source, Liquid liquid){
+                return host != null && host.acceptLiquid(this, liquid);
+            }
+
+            @Override
+            public void handleLiquid(Building source, Liquid liquid, float amount){
+                if(host != null) host.handleLiquid(this, liquid, amount);
+            }
+
+            @Override
+            public byte version(){
+                return 1;
+            }
+
+            @Override
+            public void write(Writes write){
+                super.write(write);
+                write.i(relX);
+                write.i(relY);
+            }
+
+            @Override
+            public void read(Reads read, byte revision){
+                super.read(read, revision);
+                if(revision >= 1){
+                    relX = read.i();
+                    relY = read.i();
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 算力模块
+    // ------------------------------------------------------------------
+
     public static class ComputeModule extends Wall{
         public float bonus, power;
+        public final int[][] linkLayout;
+        public final Block linkBlock;
+        public final boolean hasVariant;
         public TextureRegion variant;
 
-        public ComputeModule(String name, int size, float bonus, float power){
+        public ComputeModule(String name, int size, float bonus, float power, int[][] linkLayout, Block linkBlock){
             super(name);
             this.size = size;
             this.bonus = bonus;
             this.power = power;
+            this.linkLayout = linkLayout;
+            this.linkBlock = linkBlock;
+            this.hasVariant = linkLayout == null;
             update = true;
+            rotate = false;
             buildType = ComputeModuleBuild::new;
         }
 
         @Override
         public void load(){
             super.load();
-            variant = Core.atlas.find(name + "-2");
+            if(hasVariant) variant = Core.atlas.find(name + "-2");
+        }
+
+        @Override
+        public boolean canPlaceOn(Tile tile, Team team, int rotation){
+            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
         }
 
         public class ComputeModuleBuild extends WallBuild{
             public boolean attached;
+            /** 主集群相对本模块的方向：0=上 1=右 2=下 3=左，-1=未贴合 */
             public int dir = -1;
-            float checkTimer;
+            float timer;
 
             @Override
             public void updateTile(){
-                checkTimer += delta();
-                if(checkTimer < 10f) return;
-                checkTimer = 0f;
+                timer += delta();
+                if(timer < 10f) return;
+                timer = 0f;
 
+                ensureLinks(this, linkLayout, linkBlock);
+                checkAttach();
+            }
+
+            void checkAttach(){
                 attached = false;
                 dir = -1;
-                for(Building b : proximity){
-                    if(b.block == cluster){
-                        int d = contactDir(b, cluster.size, this, block.size);
-                        if(d >= 0){ attached = true; dir = d; break; }
+
+                int[] mr = new int[4];
+                rectOf(this, mr);
+
+                forEachBorder(mr, (x, y) -> {
+                    if(dir >= 0) return;
+                    Building b = Vars.world.build(x, y);
+                    if(b == null) return;
+                    Building host = clusterOf(b);
+                    if(host == null) return;
+
+                    int[] hr = new int[4];
+                    rectOf(host, hr);
+                    int d = contactDir(hr, mr);
+                    if(d >= 0){
+                        attached = true;
+                        dir = d;
                     }
-                }
+                });
             }
 
             @Override
             public void draw(){
                 if(attached && variant != null && variant.found()){
-                    float ang = -90f * dir;
-                    Draw.rect(variant, x, y, variant.width / 4f, variant.height / 4f, ang);
+                    Draw.rect(variant, x, y, variant.width / 4f, variant.height / 4f, -90f * dir);
                 }else{
                     super.draw();
+                    if(attached && (variant == null || !variant.found())) drawContactGlow();
                 }
+            }
+
+            /** 矩形模块不能靠旋转贴图表达朝向，改成在贴合边上画一条呼吸光带。 */
+            void drawContactGlow(){
+                int[] mr = new int[4];
+                rectOf(this, mr);
+
+                float x1 = mr[0] * 8f, y1 = mr[1] * 8f;
+                float x2 = (mr[2] + 1) * 8f, y2 = (mr[3] + 1) * 8f;
+                float t = 2f;
+
+                Draw.color(Color.valueOf("b6a8ff"), 0.4f + 0.25f * Mathf.absin(Time.time, 5f, 1f));
+                TextureRegion white = Core.atlas.white();
+                switch(dir){
+                    case 0 -> Draw.rect(white, (x1 + x2) / 2f, y2 - t / 2f, x2 - x1 - 4f, t);
+                    case 2 -> Draw.rect(white, (x1 + x2) / 2f, y1 + t / 2f, x2 - x1 - 4f, t);
+                    case 1 -> Draw.rect(white, x2 - t / 2f, (y1 + y2) / 2f, t, y2 - y1 - 4f);
+                    case 3 -> Draw.rect(white, x1 + t / 2f, (y1 + y2) / 2f, t, y2 - y1 - 4f);
+                    default -> {}
+                }
+                Draw.color();
+            }
+
+            @Override
+            public void onRemoved(){
+                super.onRemoved();
+                removeLinks(this, linkLayout, linkBlock);
             }
         }
     }
 
-    public static class ComputeCluster extends Block{
+    // ------------------------------------------------------------------
+    // 主集群
+    // ------------------------------------------------------------------
 
-        public ComputeCluster(String name){
+    public static class ComputeCluster extends Block{
+        public final int[][] linkLayout;
+        public final Block linkBlock;
+
+        public ComputeCluster(String name, int[][] linkLayout, Block linkBlock){
             super(name);
+            this.linkLayout = linkLayout;
+            this.linkBlock = linkBlock;
             buildType = ComputeClusterBuild::new;
+            rotate = false;
+            update = true;
+        }
+
+        @Override
+        public boolean canPlaceOn(Tile tile, Team team, int rotation){
+            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
         }
 
         @Override
         public void setStats(){
             super.setStats();
+            stats.remove(Stat.size);
+            stats.add(Stat.size, "4×6");
             stats.add(new Stat("ironworks-compute-base"), "50% ~ 250%");
             stats.add(new Stat("ironworks-compute-modules"), "上限 +200%（整边贴合）");
             stats.add(new Stat("ironworks-compute-coolant"), "石墨烯冷却液 60/秒");
@@ -186,45 +497,69 @@ public class IronworksCompute{
             public int moduleCount;
             public float moduleBonus, modulePower;
             public float appliedBoost;
-            float applyTimer;
+            float applyTimer, tickTimer;
 
             void recalcModules(){
-                int count = 0;
-                float bonus = 0f, power = 0f;
-                for(int i = 0; i < proximity.size; i++){
-                    Building b = proximity.get(i);
-                    if(!(b.block instanceof ComputeModule)) continue;
-                    if(contactDir(this, block.size, b, b.block.size) < 0) continue;
-                    ComputeModule m = (ComputeModule)b.block;
-                    count++;
-                    bonus += m.bonus;
-                    power += m.power;
-                }
-                moduleCount = count;
-                moduleBonus = Math.min(bonus, moduleCap);
-                modulePower = power;
+                int[] hr = new int[4];
+                rectOf(this, hr);
+
+                IntSet seen = new IntSet();
+                int[] count = new int[1];
+                float[] sum = new float[2];
+
+                forEachBorder(hr, (x, y) -> {
+                    Building b = Vars.world.build(x, y);
+                    if(b == null) return;
+                    Building mod = moduleOf(b);
+                    if(mod == null || !seen.add(mod.id)) return;
+
+                    int[] mr = new int[4];
+                    rectOf(mod, mr);
+                    if(contactDir(hr, mr) < 0) return;
+
+                    ComputeModule m = (ComputeModule)mod.block;
+                    count[0]++;
+                    sum[0] += m.bonus;
+                    sum[1] += m.power;
+                });
+
+                moduleCount = count[0];
+                moduleBonus = Math.min(sum[0], moduleCap);
+                modulePower = sum[1];
             }
 
             @Override
             public void updateTile(){
-                recalcModules();
+                tickTimer += delta();
+                if(tickTimer >= 10f){
+                    tickTimer = 0f;
+                    ensureLinks(this, linkLayout, linkBlock);
+                    recalcModules();
+                }
 
                 boolean working = efficiency > 0.001f;
                 float base = working ? 0.5f + 2.0f * Mathf.clamp(efficiency, 0f, 1f) : 0f;
                 appliedBoost = working ? base + moduleBonus : 0f;
 
-                if(working && appliedBoost > 0.001f){
+                if(appliedBoost > 0.001f){
                     applyTimer += delta();
                     if(applyTimer >= 4f){
                         applyTimer = 0f;
                         float boost = appliedBoost;
                         for(Building b : mindustry.gen.Groups.build){
                             if(b == this || b.dead) continue;
-                            if(b.block instanceof ComputeCluster || b.block instanceof ComputeModule) continue;
+                            if(b.block instanceof ComputeCluster || b.block instanceof ComputeModule
+                                || b.block instanceof LinkBlock) continue;
                             b.applyBoost(boost, 8f);
                         }
                     }
                 }
+            }
+
+            @Override
+            public void onRemoved(){
+                super.onRemoved();
+                removeLinks(this, linkLayout, linkBlock);
             }
 
             @Override
@@ -233,13 +568,13 @@ public class IronworksCompute{
             }
 
             @Override
-            public void write(arc.util.io.Writes write){
+            public void write(Writes write){
                 super.write(write);
                 write.f(moduleBonus);
             }
 
             @Override
-            public void read(arc.util.io.Reads read, byte revision){
+            public void read(Reads read, byte revision){
                 super.read(read, revision);
                 if(revision >= 1) moduleBonus = read.f();
             }

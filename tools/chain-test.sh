@@ -726,31 +726,48 @@ cd "$TESTDIR" || exit 1
   # ---- 94. 内容静态检查：颜色/容量/配方输出与液体方向 ----
   echo 'js function hasCls(b,n){var c=b.getClass(); while(c!=null){if(c.getName().indexOf(n)>=0) return true; c=c.getSuperclass();} return false;} var iss=[]; var bs=Vars.content.blocks(); for(var i=0;i<bs.size;i++){var b=bs.get(i); if(b.minfo==null||b.minfo.mod==null) continue; if(b.hasLiquids && b.liquidCapacity<=0) iss.push(b.name+":cap"); if(hasCls(b,"MultiCrafter")){for(var k=0;k<b.recipes.length;k++){var r=b.recipes[k]; if(r.outputs.length==0 && r.liquidOutputs.length==0) iss.push(b.name+"/"+r.name+":noOut"); if(r.liquidOutputs.length>1 && (b.liquidOutputDirections==null || b.liquidOutputDirections.length<r.liquidOutputs.length)) iss.push(b.name+"/"+r.name+":dirs");}}} var ls=Vars.content.liquids(); for(var j=0;j<ls.size;j++){var l=ls.get(j); if(l.minfo!=null && l.minfo.mod!=null && l.color==null) iss.push("liquid:"+l.name);} Log.info("T94 lintIssues=" + iss.length + " :: " + iss.join(","))'
 
-  # ---- 95. 全域算力集群：挂载量子模块 + 供电 + 冷却液 → 超速生效 ----
+  # ---- 95. 全域算力集群（4×4 核心 + 链接块拼 4×6）：挂载量子模块 + 供电 + 冷却液 → 超速生效 ----
   echo 'js Vars.world.tile(220,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(224,240).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(224,238).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(216,240).setBlock(Vars.content.block("ironworks-compute-quantum"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(223,240).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(223,241).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(217,240).setBlock(Vars.content.block("ironworks-compute-quantum"), Vars.state.rules.defaultTeam)'
   sleep 2
-  echo 'js Vars.world.tile(224,238).build.source=Vars.content.liquid("ironworks-graphene-coolant")'
+  echo 'js Vars.world.tile(223,241).build.source=Vars.content.liquid("ironworks-graphene-coolant")'
   sleep 5
   echo 'js var cb=Vars.world.tile(220,240).build; Log.info("T95 mods=" + cb.moduleCount + " bonus=" + Math.round(cb.moduleBonus*100) + " boost=" + Math.round(cb.appliedBoost*100) + " eff=" + cb.efficiency)'
 
-  # ---- 96. 挂载上限：一圈量子模块超出上限时加成封顶 200% ----
+  # ---- 96. 挂载上限：4×6 四周铺满 10 个量子模块（正好 200%）时加成封顶 ----
   echo 'js Vars.world.tile(150,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
-  echo 'js for(var yy=238;yy<=242;yy+=2){Vars.world.tile(146,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(154,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);} for(var xx=148;xx<=152;xx+=2){Vars.world.tile(xx,236).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(xx,244).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);}'
+  echo 'js for(var k=0;k<3;k++){Vars.world.tile(147,237+k*2).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(153,237+k*2).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);} for(var k=0;k<2;k++){Vars.world.tile(149+k*2,235).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(149+k*2,243).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);}'
   sleep 3
   echo 'js var cb2=Vars.world.tile(150,240).build; Log.info("T96 mods=" + cb2.moduleCount + " bonus=" + Math.round(cb2.moduleBonus*100) + " capped=" + (cb2.moduleBonus <= 2.001))'
-  # ---- 97. 整边贴合规则 + 方向识别：只贴 1 格不算，整边贴合才算 ----
-  echo 'js Vars.world.tile(180,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(185,236).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
-  sleep 2
-  echo 'js Log.info("T97a partial mods=" + Vars.world.tile(180,240).build.moduleCount)'
-  echo 'js Vars.world.tile(185,236).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam)'
-  echo 'js Vars.world.tile(185,240).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
-  sleep 2
-  echo 'js var mb=Vars.world.tile(185,240).build; Log.info("T97b full mods=" + Vars.world.tile(180,240).build.moduleCount + " attached=" + mb.attached + " dir=" + mb.dir)'
 
+  # ---- 97. 整边贴合 + 四方向识别：只贴 1 格不算；上下左右 dir = 0/1/2/3 ----
+  echo 'js Vars.world.tile(180,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(184,237).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js Log.info("T97a partial mods=" + Vars.world.tile(180,240).build.moduleCount + " attached=" + Vars.world.tile(184,237).build.attached)'
+  echo 'js Vars.world.tile(184,237).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(184,240).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(177,240).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(180,235).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(180,244).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js var rb=Vars.world.tile(184,240).build; var lb=Vars.world.tile(177,240).build; var bb=Vars.world.tile(180,235).build; var ub=Vars.world.tile(180,244).build; Log.info("T97b full mods=" + Vars.world.tile(180,240).build.moduleCount + " R=" + rb.dir + " L=" + lb.dir + " D=" + bb.dir + " U=" + ub.dir)'
+
+  # ---- 98. 矩形占地：主集群 4×6 / 高级模块 2×3 的链接块确实生成并绑定核心 ----
+  echo 'js Vars.world.tile(160,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(163,240).setBlock(Vars.content.block("ironworks-compute-advanced"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js var c=Vars.world.tile(160,240).build; var cl=Vars.world.tile(159,237).build; var cr=Vars.world.tile(162,238).build; var adv=Vars.world.tile(163,240).build; var al=Vars.world.tile(163,239).build; Log.info("T98 clusterLinks=" + (cl!=null && cl.host==c) + "," + (cr!=null && cr.host==c) + " advLink=" + (al!=null && al.host==adv) + " advAttached=" + adv.attached + " advDir=" + adv.dir)'
+
+  # ---- 99. 拆除主块时链接块一起消失（含模块的通风块） ----
+  echo 'js Vars.world.tile(160,240).remove()'
+  sleep 2
+  echo 'js var t=Vars.content.block("air"); var gone=(Vars.world.tile(159,237).block()==t) && (Vars.world.tile(162,238).block()==t); Log.info("T99a clusterLinksGone=" + gone)'
+  echo 'js Vars.world.tile(163,240).remove()'
+  sleep 2
+  echo 'js var agone=(Vars.world.tile(163,239).block()==Vars.content.block("air")); Log.info("T99b advLinkGone=" + agone)'
 
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

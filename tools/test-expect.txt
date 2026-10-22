@@ -10,5 +10,9 @@
 93	T93c heat=[1-9][0-9]*
 94	T94 lintIssues=0
 95	T95 mods=1 bonus=20 boost=270
-96	T96 mods=12 bonus=200 capped=true
-97	T97b full mods=1 attached=true dir=3
+96	T96 mods=10 bonus=200 capped=true
+97a	T97a partial mods=0 attached=false
+97b	T97b full mods=4 R=3 L=1 D=0 U=2
+98	T98 clusterLinks=true,true advLink=true advAttached=true advDir=3
+99a	T99a clusterLinksGone=true
+99b	T99b advLinkGone=true
