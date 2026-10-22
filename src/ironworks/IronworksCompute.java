@@ -731,25 +731,40 @@ public class IronworksCompute{
                 return super.acceptLiquid(source, liquid) && liquids.get(liquid) < block.liquidCapacity - 0.001f;
             }
 
-            /** 热冷却液从 4×6 整块的外圈排出——挂在链接块那一侧的管道也能接到。 */
+            /**
+             * 热冷却液只从**底部**排出。
+             * 原因：导管一次只能装一种液体，如果热液也往四周排，会把进液的导管堵成热液，
+             * 冷液就再也进不来了（实测 condCur=hot-coolant）。固定底部出口就能和进液管分开。
+             */
             void dumpHotFromBorder(){
                 int[] r = new int[4];
                 rectOf(this, r);
                 float fract = liquids.get(IronworksLiquids.hotCoolant) / block.liquidCapacity;
                 if(fract <= 0.0001f) return;
 
+                //底边
+                for(int x = r[0]; x <= r[2]; x++){
+                    dumpHotTo(Vars.world.build(x, r[1] - 1), fract);
+                }
+                //已经装着热液的邻格（比如热液管线接在别的边）继续排，避免断供
                 forEachBorder(r, (x, y) -> {
                     Building b = Vars.world.build(x, y);
-                    if(b == null || b == this) return;
-                    if(b.block == linkBlock || b.block instanceof ComputeCluster || b.block instanceof ComputeModule) return;
-                    if(!b.block.hasLiquids || b.liquids == null) return;
-                    if(!b.acceptLiquid(this, IronworksLiquids.hotCoolant)) return;
-
-                    float ofract = b.liquids.get(IronworksLiquids.hotCoolant) / b.block.liquidCapacity;
-                    if(ofract < fract){
-                        transferLiquid(b, (fract - ofract) * block.liquidCapacity / 2f, IronworksLiquids.hotCoolant);
+                    if(b != null && b.liquids != null && b.liquids.get(IronworksLiquids.hotCoolant) > 0.01f){
+                        dumpHotTo(b, fract);
                     }
                 });
+            }
+
+            void dumpHotTo(Building b, float fract){
+                if(b == null || b == this) return;
+                if(b.block == linkBlock || b.block instanceof ComputeCluster || b.block instanceof ComputeModule) return;
+                if(!b.block.hasLiquids || b.liquids == null) return;
+                if(!b.acceptLiquid(this, IronworksLiquids.hotCoolant)) return;
+
+                float ofract = b.liquids.get(IronworksLiquids.hotCoolant) / b.block.liquidCapacity;
+                if(ofract < fract){
+                    transferLiquid(b, (fract - ofract) * block.liquidCapacity / 2f, IronworksLiquids.hotCoolant);
+                }
             }
 
             /** 热冷却液存满了就停机，不再继续消耗冷却液。 */
