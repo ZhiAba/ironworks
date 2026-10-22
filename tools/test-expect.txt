@@ -1,0 +1,14 @@
+# 测试期望值：ID<TAB>正则（匹配该测试的结果行）
+# 只给稳定、可判定的用例写期望；没有期望的测试记为 UNCHECKED。
+85	T85 size=4 range=360
+86	T86 noAmmoOrShoot=0
+87	T87 muzzleInBounds=true
+88	T88 range=360 chain=12 chainDmg=120
+90	T90b turret=[1-9][0-9]*
+91	T91 cap=1440 use=2
+92	T92 waterAcc=false ironAcc=true
+93	T93c heat=[1-9][0-9]*
+94	T94 lintIssues=0
+95	T95 mods=1 bonus=20 boost=270
+96	T96 mods=12 bonus=200 capped=true
+97	T97b full mods=1 attached=true dir=3

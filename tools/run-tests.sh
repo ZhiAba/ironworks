@@ -45,10 +45,15 @@ echo $$ > "$LOCK"
 START=$(date +%s)
 trap 'rm -f "$LOCK" "$SNAP"' EXIT
 
-bash "$SNAP"
-CODE=$?
+LOG=/tmp/chain-test-run-$.log
+bash "$SNAP" 2>&1 | tee "$LOG"
+CODE=${PIPESTATUS[0]}
 END=$(date +%s)
 
+node "$DIR/tools/check-results.js" "$LOG"
+ACHK=$?
+
 LINES=$(wc -l < "$SNAP")
-echo "RESULT exit=$CODE selected_script_lines=$LINES elapsed=$((END-START))s"
-exit $CODE
+echo "RESULT exit=$CODE assert=$ACHK selected_script_lines=$LINES elapsed=$((END-START))s"
+rm -f "$LOG"
+[ $CODE -eq 0 ] && [ $ACHK -eq 0 ]

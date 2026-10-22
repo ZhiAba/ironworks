@@ -1,24 +1,18 @@
-# 回归测试索引（T1–T96）
+# 回归测试索引（T1–T97）
 
 > 由 tools/chain-test.sh 的注释自动提取。改测试注释后请重新生成。
 
-## 使用说明
+## 运行方式
 
-- 每次修复至少对应一条测试；提交信息里写 T 编号。
-- 一个编号只用于一个场景；新场景用新编号。
-- 无头端一次只能跑一个实例，用 tools/run-tests.sh（锁 + 脚本快照）。
+- 只跑指定用例：`bash tools/run-tests.sh 95 96`
+- 按分组：`bash tools/run-tests.sh group liquid`
+- 全量：`bash tools/run-tests.sh`（仅封版/部署前）
+- 列出编号：`bash tools/run-tests.sh list`
 
 ## 编号问题
 
 - 重复编号：9
 - 未使用编号区间：T55–61、T76–77、T89
-
-## 运行方式
-
-- 只跑指定用例：`bash tools/run-tests.sh 95 96`
-- 按分组：`bash tools/run-tests.sh group liquid`（liquid / power / turret / factory / multicrafter / content / ui）
-- 全量：`bash tools/run-tests.sh`（仅封版/部署前）
-- 列出编号：`bash tools/run-tests.sh list`
 
 ## 清单
 
@@ -112,3 +106,4 @@
 | T94 | 内容静态检查：颜色/容量/配方输出与液体方向 |
 | T95 | 全域算力集群：挂载量子模块 + 供电 + 冷却液 → 超速生效 |
 | T96 | 挂载上限：一圈量子模块超出上限时加成封顶 200% |
+| T97 | 整边贴合规则 + 方向识别：只贴 1 格不算，整边贴合才算 |

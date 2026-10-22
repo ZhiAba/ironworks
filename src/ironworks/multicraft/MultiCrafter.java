@@ -123,9 +123,11 @@ public class MultiCrafter extends Block{
     public void buildStats(Table stat){
         if(recipes.length == 0) return;
 
+        int recipeNo = 0;
         for(Recipe r : recipes){
+            recipeNo++;
             String name = Core.bundle.get("recipe.ironworks." + r.name, r.name);
-            stat.add("[accent]" + name + "[]").left().padTop(8f).row();
+            stat.add("[accent][" + recipeNo + "] " + name + "[]").left().padTop(8f).row();
 
             Table row = new Table();
             row.background(mindustry.gen.Tex.whiteui);
@@ -168,7 +170,11 @@ public class MultiCrafter extends Block{
             t.add(StatValues.displayItem(stack.item, stack.amount)).left().pad(1f).row();
         }
         for(LiquidStack stack : (input ? r.liquidInputs : r.liquidOutputs)){
-            t.add(StatValues.displayLiquid(stack.liquid, stack.amount, false)).left().pad(1f).row();
+            Table liq = new Table();
+            liq.add(StatValues.displayLiquid(stack.liquid, stack.amount, false)).left();
+            float rate = stack.amount * 60f / Math.max(r.craftTime, 1f);
+            liq.add("[lightgray]" + arc.util.Strings.autoFixed(rate, 1) + "/秒").padLeft(3f);
+            t.add(liq).left().pad(1f).row();
         }
         if(input && r.power > 0){
             Table p = new Table();

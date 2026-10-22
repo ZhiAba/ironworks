@@ -741,6 +741,16 @@ cd "$TESTDIR" || exit 1
   echo 'js for(var yy=238;yy<=242;yy+=2){Vars.world.tile(146,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(154,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);} for(var xx=148;xx<=152;xx+=2){Vars.world.tile(xx,236).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(xx,244).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);}'
   sleep 3
   echo 'js var cb2=Vars.world.tile(150,240).build; Log.info("T96 mods=" + cb2.moduleCount + " bonus=" + Math.round(cb2.moduleBonus*100) + " capped=" + (cb2.moduleBonus <= 2.001))'
+  # ---- 97. 整边贴合规则 + 方向识别：只贴 1 格不算，整边贴合才算 ----
+  echo 'js Vars.world.tile(180,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(185,236).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js Log.info("T97a partial mods=" + Vars.world.tile(180,240).build.moduleCount)'
+  echo 'js Vars.world.tile(185,236).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(185,240).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var mb=Vars.world.tile(185,240).build; Log.info("T97b full mods=" + Vars.world.tile(180,240).build.moduleCount + " attached=" + mb.attached + " dir=" + mb.dir)'
+
 
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
