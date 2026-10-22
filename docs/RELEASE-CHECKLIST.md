@@ -22,7 +22,7 @@
 ## 二、构建与测试
 
 - [ ] `bash build.sh` 无报错（Android 需 `.class` + `classes.dex`）
-- [ ] `bash tools/run-tests.sh` 全绿（单实例锁 + 脚本快照，避免边跑边改）
+- [ ] **封版全量回归**：`bash tools/run-tests.sh` 全绿（日常用冒烟/集成，只有封版与部署前跑全量）
 - [ ] 新增/修复的功能有对应 `T` 编号，并更新 `docs/TEST-INDEX.md`
 - [ ] 大重构附带迁移说明（旧存档/旧蓝图）
 

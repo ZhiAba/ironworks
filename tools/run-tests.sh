@@ -1,10 +1,22 @@
 #!/bin/bash
-# 回归测试运行器：单实例锁 + 脚本快照。
-# 为什么需要快照：bash 是边读边执行脚本的，跑到一半改 chain-test.sh 会读坏脚本（已踩过）。
+# 回归测试运行器（分级 + 参数化 + 单实例锁 + 脚本快照）
+#
+# 用法：
+#   bash tools/run-tests.sh                 # 全量回归（封版/部署前）
+#   bash tools/run-tests.sh 95 96           # 冒烟：只跑指定编号
+#   bash tools/run-tests.sh group liquid    # 集成：按分组跑
+#   bash tools/run-tests.sh list            # 列出全部测试
+#
+# 分组：liquid / power / turret / factory / multicrafter / content / ui
 set -u
-SRC=/sdcard/dsh/mindustry-mod/tools/chain-test.sh
-SNAP=/tmp/chain-test-snapshot-$$.sh
+DIR=/sdcard/dsh/mindustry-mod
 LOCK=/tmp/ironworks-chain-test.lock
+MODE="${1:-full}"
+
+if [ "$MODE" = "list" ]; then
+  node "$DIR/tools/select-tests.js" list
+  exit 0
+fi
 
 if [ -f "$LOCK" ]; then
   PID=$(cat "$LOCK" 2>/dev/null || true)
@@ -16,9 +28,27 @@ if [ -f "$LOCK" ]; then
   rm -f "$LOCK"
 fi
 
-cp "$SRC" "$SNAP" || exit 1
+SNAP=/tmp/chain-test-snap-$$.sh
+if [ "$MODE" = "full" ]; then
+  cp "$DIR/tools/chain-test.sh" "$SNAP" || exit 1
+  echo "[tier] full regression（T1–T96）"
+else
+  if [ "$MODE" = "group" ]; then
+    node "$DIR/tools/select-tests.js" group "$2" > "$SNAP" || exit 1
+  else
+    node "$DIR/tools/select-tests.js" "$@" > "$SNAP" || exit 1
+  fi
+  echo "[tier] subset: $*"
+fi
+
 echo $$ > "$LOCK"
+START=$(date +%s)
 trap 'rm -f "$LOCK" "$SNAP"' EXIT
 
-echo "运行快照：$SNAP"
 bash "$SNAP"
+CODE=$?
+END=$(date +%s)
+
+LINES=$(wc -l < "$SNAP")
+echo "RESULT exit=$CODE selected_script_lines=$LINES elapsed=$((END-START))s"
+exit $CODE

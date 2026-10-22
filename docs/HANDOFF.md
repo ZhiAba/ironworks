@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-21，v0.60.0）
+# 铁流工业 交接文档（2026-10-21，v0.60.1）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,7 +10,7 @@
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
 - 当前 jar md5：`PENDING`（0.53.0）
-- 测试：`bash tools/chain-test.sh`（T1–T96，无头端，单实例运行，内部 timeout 700s）
+- 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
   - 全量日志器 → `/sdcard/ironworks-tick.log`（每 tick：dt/ms、玩家、单位/建筑数、模组炮塔弹药/液体/目标、总量 [DELTA]、事件）

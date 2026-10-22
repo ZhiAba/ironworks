@@ -22,6 +22,18 @@
 
 ## 0.60.x
 
+### 0.60.1 — 测试策略重构（分级 + 参数化 + 日志精简）
+
+- **新增** `tools/select-tests.js`：从 chain-test.sh 中按编号或分组挑选用例，生成临时脚本。
+- **改造** `tools/run-tests.sh`：
+  - `bash tools/run-tests.sh 95 96` → 冒烟（只跑指定用例）
+  - `bash tools/run-tests.sh group liquid` → 集成（按分组）
+  - `bash tools/run-tests.sh` → 全量（封版/部署前）
+  - `bash tools/run-tests.sh list` → 列出编号
+- **日志**：只输出所选用例的结果行，末尾一行 `RESULT exit=.. elapsed=..`。
+- **文档**：WORKFLOW / TEST-INDEX / RELEASE-CHECKLIST 同步测试分级策略。
+- 实测：冒烟 T95+T96 仅 16 秒（全量约 10 分钟）。
+
 ### 0.60.0 — 全域算力集群（区块超速）
 
 - **新增**：主方块「全域算力集群」——设计 4×6，因引擎只支持正方形方块，实现为 **6×6**；

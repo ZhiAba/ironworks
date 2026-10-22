@@ -13,6 +13,13 @@
 - 重复编号：9
 - 未使用编号区间：T55–61、T76–77、T89
 
+## 运行方式
+
+- 只跑指定用例：`bash tools/run-tests.sh 95 96`
+- 按分组：`bash tools/run-tests.sh group liquid`（liquid / power / turret / factory / multicrafter / content / ui）
+- 全量：`bash tools/run-tests.sh`（仅封版/部署前）
+- 列出编号：`bash tools/run-tests.sh list`
+
 ## 清单
 
 | 编号 | 验证内容 |

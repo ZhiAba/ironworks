@@ -2,6 +2,18 @@
 
 > 本文件是「每次改动都要做的事」的清单，和 `RELEASE-CHECKLIST.md`（发版前）互补。
 
+## 〇、测试分级（0.60.1 起执行）
+
+| 级别 | 何时用 | 命令 | 耗时 |
+|---|---|---|---|
+| 冒烟 | 日常改动，只跑直接相关用例 | `bash tools/run-tests.sh 95 96` | 15~40 秒 |
+| 集成 | 改了公共逻辑（液体/电力/配方/UI） | `bash tools/run-tests.sh group liquid` | 1~4 分钟 |
+| 全量 | 封版、双端部署、重大重构 | `bash tools/run-tests.sh` | ~10 分钟 |
+
+- 分组：liquid / power / turret / factory / multicrafter / content / ui
+- 查看编号：`bash tools/run-tests.sh list`（或 `docs/TEST-INDEX.md`）
+- 只输出所选用例的结果行，不再打印全量调试日志。
+
 ## 一、改完必做
 
 1. **同步更新日志**：改 `docs/`、模组内容、工具脚本 → 必须在 `docs/CHANGELOG.md`
