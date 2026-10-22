@@ -29,7 +29,7 @@ public class IronworksTianfa{
                      IronworksSilicon.titaniumAlloy, 120));
 
             size = 4;
-            range = 200f;              // 25 格
+            range = 360f;              // 45 格
             reload = 40f;              // 1.5 发/秒
             shootCone = 30f;
             rotateSpeed = 2.2f;
@@ -65,9 +65,11 @@ public class IronworksTianfa{
 
             shotDamage = 370f;
             overloadDuration = 60f;
-            chainTargets = 3;
-            chainRange = 20f;          // 2.5 格
+            chainTargets = 12;         // 命中后最多连锁 12 个目标
+            chainDamage = 120f;        // 每个 120 伤害
+            chainRange = 40f;          // 5 格搜索半径
             boltScale = 0.4f;          // 闪电更细（电弧塔的 40%）
+            onHitKey = "stat.ironworks-on-hit.tianfa";
         }};
     }
 }

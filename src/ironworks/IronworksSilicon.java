@@ -112,6 +112,7 @@ public class IronworksSilicon{
             maxSpeedupScl = 5.5f;
             speedupPerShoot = 0.15f;
             slowDownReloadTime = 90f;
+            onHitKey = "stat.ironworks-on-hit.arc";
 
             // 点对点：从炮口沿瞄准方向（索敌点）打出一条雷电线，而不是连锁弹跳
             // 不发射任何弹体：攻击由 OverheatTurret.shoot 直接结算

@@ -9,6 +9,7 @@ import mindustry.graphics.Pal;
 import mindustry.type.Liquid;
 import mindustry.ui.Styles;
 import mindustry.world.meta.StatUnit;
+import mindustry.world.meta.Stat;
 import mindustry.world.meta.StatValue;
 
 /**
@@ -17,10 +18,56 @@ import mindustry.world.meta.StatValue;
  */
 public class IronworksStats{
 
+    /** 自定义统计项：最大射速 / 命中效果 */
+    public static final Stat maxFire = new Stat("ironworks-max-fire");
+    public static final Stat onHit = new Stat("ironworks-on-hit");
+
     /**
      * @param actionKey 文案 key（如开火速率 / 传送速度）
      * @param entries  三元组：Liquid, Float 倍率, Float 每秒消耗（<0 表示不消耗）
      */
+    /**
+     * 带"上限"的液体强化条目：四元组 Liquid, 倍率, 每秒消耗, 加成上限百分比（<0 不显示）。
+     * 详情页右侧显示两行：倍率 + 上限。
+     */
+    public static StatValue liquidBoostsCapped(String actionKey, Object... entries){
+        return table -> {
+            table.row();
+            table.table(c -> {
+                for(int i = 0; i + 3 < entries.length; i += 4){
+                    Liquid liquid = (Liquid)entries[i];
+                    float mult = (Float)entries[i + 1];
+                    float usage = (Float)entries[i + 2];
+                    float cap = (Float)entries[i + 3];
+
+                    c.table(Styles.grayPanel, b -> {
+                        b.image(liquid.uiIcon).size(40f).pad(10f).left().scaling(Scaling.fit);
+                        b.table(info -> {
+                            info.add(liquid.localizedName).left().row();
+                            if(usage >= 0f){
+                                info.add(Strings.autoFixed(usage, 2) + StatUnit.perSecond.localized())
+                                    .left().color(arc.graphics.Color.lightGray).padTop(2f);
+                            }
+                        }).left().growX().padLeft(4f);
+                        b.table(bt -> {
+                            Label value = new Label((int)(mult * 100f) + "% " + Core.bundle.get(actionKey), Styles.defaultLabel);
+                            value.setColor(Pal.accent);
+                            value.setFontScale(1.15f);
+                            bt.add(value).right().row();
+                            if(cap >= 0f){
+                                Label capLabel = new Label(Core.bundle.format("stat.ironworks-cap", (int)cap), Styles.defaultLabel);
+                                capLabel.setColor(Pal.accent);
+                                capLabel.setFontScale(0.95f);
+                                bt.add(capLabel).right().padTop(2f);
+                            }
+                        }).right().grow().padRight(8f);
+                    }).growX().pad(5f).row();
+                }
+            }).growX().colspan(table.getColumns());
+            table.row();
+        };
+    }
+
     public static StatValue liquidBoosts(String actionKey, Object... entries){
         return table -> {
             table.row();

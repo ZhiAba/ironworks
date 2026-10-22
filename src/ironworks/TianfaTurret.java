@@ -23,8 +23,9 @@ import mindustry.gen.Unit;
 public class TianfaTurret extends OverheatTurret{
 
     public float shotDamage = 370f;
-    public int chainTargets = 3;
-    public float chainRange = 20f;
+    public int chainTargets = 12;
+    public float chainDamage = 120f;
+    public float chainRange = 40f;
     public float overloadDuration = 60f;
     public float boltScale = 0.4f;
 
@@ -92,9 +93,8 @@ public class TianfaTurret extends OverheatTurret{
             Units.nearbyEnemies(team, tx, ty, chainRange, u -> {
                 if(remain[0] <= 0 || u.dead()) return;
                 remain[0]--;
-                u.damage(shotDamage);
-                u.apply(IronworksStatus.overload, overloadDuration);
-                u.apply(StatusEffects.shocked, 60f);
+                u.damage(chainDamage);
+                u.apply(StatusEffects.shocked, 90f);
                 mindustry.entities.Lightning.create(team, arc.graphics.Color.valueOf("b6a8ff"), fx, fy, u.x, u.y, 2);
             });
 

@@ -69,6 +69,8 @@ public class OverheatTurret extends PowerTurret{
     public int hotLiquidTier = 2;
     /** 有冷却液时，是否只有停火才降温（天罚用：开火时仍按发积热） */
     public boolean coolOnlyWhenIdle = false;
+    /** 命中附加效果的说明 key（详情页「命中效果」栏） */
+    public String onHitKey;
 
     public OverheatTurret(String name){
         super(name);
@@ -79,10 +81,16 @@ public class OverheatTurret extends PowerTurret{
     @Override
     public void setStats(){
         super.setStats();
-        stats.add(Stat.reload, (int)((1f + maxSpeedupScl) * 100f) + "%", StatUnit.percent);
+        // 白板最大射速（叠层上限）
+        stats.add(IronworksStats.maxFire, (int)((1f + noCoolantStackCap) * 100f) + "%");
+        // 每种冷却液：射速倍率 + 叠层上限，两行都写清楚
         for(int i = 0; i < coolantLiquids.length; i++){
-            stats.add(Stat.booster, IronworksStats.liquidBoosts("stat.ironworks-action-fire",
-                coolantLiquids[i], coolantFireMult[i], coolantUse * 60f));
+            stats.add(Stat.booster, IronworksStats.liquidBoostsCapped("stat.ironworks-action-fire",
+                coolantLiquids[i], coolantFireMult[i], coolantUse * 60f,
+                (1f + coolantStackCap[i]) * 100f));
+        }
+        if(onHitKey != null){
+            stats.add(IronworksStats.onHit, Core.bundle.get(onHitKey));
         }
     }
 

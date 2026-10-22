@@ -694,5 +694,8 @@ cd "$TESTDIR" || exit 1
   # ---- 87. 天罚炮口坐标：必须朝上且在方块范围内（世界单位，半宽 = size*4） ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); var half=tb.size*4; var ok=true; for(var i=0;i<tb.muzzleY.length;i++){ if(tb.muzzleY[i] <= 0 || tb.muzzleY[i] > half || Math.abs(tb.muzzleX[i]) > half) ok=false; } Log.info("T87 muzzleInBounds=" + ok + " half=" + half + " y0=" + tb.muzzleY[0] + " x0=" + tb.muzzleX[0])'
 
+  # ---- 88. 天罚远程连锁：射程 45 格、最多 12 连、每连 120 伤害 ----
+  echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T88 range=" + tb.range + " chain=" + tb.chainTargets + " chainDmg=" + tb.chainDamage + " chainR=" + tb.chainRange)'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
