@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v0.59.1，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v0.59.2，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -97,6 +97,13 @@ Mindustry 模组「铁流工业」v0.59.1，Java 编写，自研多配方库 + �
 2. 迫击炮（最小射程盲区，需自定义 Turret）
 3. 给自研库加 hjson 解析
 4. 战役/许可/地图（已搁置）
+
+## 0.59.2 崩溃修复：液体条颜色为 null
+- 症状：打开多配方机器（拆封机等）后界面持续刷新时崩溃，栈顶是 arc.graphics.Color.set(Color) ← mindustry.ui.Bar
+- 根因：0.59.0 新加的「按配方过滤的液体条」直接把 \`liquid.barColor\` 传给 Bar，
+  自定义液体的 barColor 字段可能为 null
+- 修复：\`liquid.barColor != null ? liquid.barColor : liquid.color\`
+- 教训：所有 Bar 的颜色回调必须保证非 null
 
 ## 0.59.1 天罚冷却反馈与真实供给测试
 - 热冷却液条改名：热冷却液 {0}/{1}

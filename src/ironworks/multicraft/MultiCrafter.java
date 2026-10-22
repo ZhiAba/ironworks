@@ -204,7 +204,7 @@ public class MultiCrafter extends Block{
                 if(!used) return null;
                 return new mindustry.ui.Bar(
                     () -> liquid.localizedName + " " + (int)e.liquids.get(liquid) + "/" + (int)liquidCapacity,
-                    () -> liquid.barColor,
+                    () -> liquid.barColor != null ? liquid.barColor : liquid.color,
                     () -> Mathf.clamp(e.liquids.get(liquid) / Math.max(liquidCapacity, 1f))
                 );
             });
