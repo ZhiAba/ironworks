@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-22，v0.63.1）
+# 铁流工业 交接文档（2026-10-22，v0.63.2）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -9,7 +9,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`0764bd78ff93ba5d750f3a6ce099ef16`（0.63.1）
+- 当前 jar md5：`616d93baf7c020f338c3ba1dbf4317f5`（0.63.2）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
@@ -33,6 +33,7 @@
 - 链接块：`BuildVisibility.hidden`、不可建造、不可拆除、液体转发给核心、`relX/relY` 相对坐标读档重绑
 - 放置校验 `canPlaceOn` 检查链接块占地；拆主块 `onRemoved` 连带清链接块；遗留链接块 10 tick 自毁
 - 贴合判定：包围盒 + 整边覆盖；方向 dir 指「主集群相对模块的方向」（0 上 / 1 右 / 2 下 / 3 左）
+- 0.63.2：链接块展示委托（名称/图标/血条/消耗 → 主块）、共享 items/liquids 池、isHidden 恒真；放置幽灵只由 drawPlan 画（半透明+闪白）
 - 0.63.0：主块画整张一体贴图（`region` 即 4×6 / 2×3 大图），链接块 `draw()` 留空；`*-ui` 为建造菜单方形图标；`drawPlace`/`drawPlanRegion` 按包围盒居中画幽灵
 
 ## 已修复的典型坑

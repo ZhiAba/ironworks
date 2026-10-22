@@ -6,6 +6,7 @@ import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
+import arc.scene.ui.layout.Table;
 import arc.struct.IntSet;
 import arc.util.Eachable;
 import arc.util.Time;
@@ -234,7 +235,7 @@ public class IronworksCompute{
             if(t.build instanceof LinkBlock.LinkBuild link){
                 link.relX = host.tileX() - ax;
                 link.relY = host.tileY() - ay;
-                link.host = host;
+                link.bind(host);
             }
         }
     }
@@ -289,9 +290,21 @@ public class IronworksCompute{
             group = BlockGroup.walls;
             buildVisibility = BuildVisibility.hidden;
             alwaysUnlocked = false;
+            inEditor = false;
             hasLiquids = true;
             liquidCapacity = 60f;
             buildType = LinkBuild::new;
+        }
+
+        /** 永远隐藏：沙盒/编辑器里也不再出现在方块列表里。 */
+        @Override
+        public boolean isHidden(){
+            return true;
+        }
+
+        @Override
+        public boolean unlockedNow(){
+            return false;
         }
 
         @Override
@@ -307,7 +320,36 @@ public class IronworksCompute{
 
             public void resolve(){
                 Building b = Vars.world.build(tile.x + relX, tile.y + relY);
-                host = (b != null && b != this && b.block == hostBlock) ? b : null;
+                bind((b != null && b != this && b.block == hostBlock) ? b : null);
+            }
+
+            /** 绑定主块：物品/液体池直接共享，外部看就是同一台机器。 */
+            public void bind(Building target){
+                host = target;
+                if(target != null){
+                    items = target.items;
+                    liquids = target.liquids;
+                }
+            }
+
+            @Override
+            public TextureRegion getDisplayIcon(){
+                return host != null ? host.getDisplayIcon() : block.uiIcon;
+            }
+
+            @Override
+            public String getDisplayName(){
+                return host != null ? host.block.localizedName : block.localizedName;
+            }
+
+            @Override
+            public void displayBars(Table table){
+                if(host != null) host.displayBars(table);
+            }
+
+            @Override
+            public void displayConsumption(Table table){
+                if(host != null) host.displayConsumption(table);
             }
 
             @Override
@@ -412,11 +454,6 @@ public class IronworksCompute{
                 return;
             }
             drawPotentialLinks(x, y);
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, r);
-            Draw.color(valid ? Color.white : Pal.remove);
-            Draw.rect(region, centerX(r), centerY(r));
-            Draw.color();
         }
 
         @Override
@@ -544,12 +581,9 @@ public class IronworksCompute{
 
         @Override
         public void drawPlace(int x, int y, int rotation, boolean valid){
+            //幽灵贴图由 drawPlan -> drawPlanRegion 统一绘制（半透明 + 原版闪白），
+            //这里不能再画一份不透明的，否则会盖住地块选择标线。
             drawPotentialLinks(x, y);
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, r);
-            Draw.color(valid ? Color.white : Pal.remove);
-            Draw.rect(region, centerX(r), centerY(r));
-            Draw.color();
         }
 
         @Override
