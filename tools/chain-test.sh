@@ -920,5 +920,16 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var C=Vars.content.block("ironworks-compute-cluster"), L=Vars.content.block("ironworks-compute-cluster-link"); var n=0,x1=99,x2=-1,y1=99,y2=-1; for(var y=0;y<=12;y++){for(var x=0;x<=12;x++){var b=Vars.world.tile(x,y).block(); if(b==C||b==L){n++; if(x<x1)x1=x; if(x>x2)x2=x; if(y<y1)y1=y; if(y>y2)y2=y;}}} var bb=Vars.world.tile(6,6).build; Log.info("T114c clusterTiles=" + n + " box=" + (x2-x1+1) + "x" + (y2-y1+1) + " dx=" + Math.round((x1+x2)/2*8 - bb.x) + " dy=" + Math.round((y1+y2)/2*8 - bb.y))'
 
+  # ---- 115. 链接块不可被「合法替换」：墙/模块不能压在 2×3 占地上 ----
+  echo 'js var A=Vars.content.block("ironworks-compute-advanced"), C=Vars.content.block("ironworks-compute-cluster"), AL=Vars.content.block("ironworks-compute-advanced-link"), CL=Vars.content.block("ironworks-compute-cluster-link"), W=Vars.content.block("thorium-wall"); Log.info("T115a wallOnLink=" + W.canReplace(AL) + "," + W.canReplace(CL) + " advOnWall=" + A.canReplace(W) + " clusterOnLink=" + C.canReplace(CL) + " repl=" + AL.replaceable + " groups=" + A.group + "/" + C.group + "/" + AL.group)'
+
+  # 115b. 链接块被强行清掉（模拟沙盒调色板/蓝图）必须自动补回，模块不许停在 2×2
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=0;y<=11;y++){for(var x=0;x<=11;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), T);}}'
+  echo 'js Vars.world.tile(5,5).setBlock(Vars.content.block("ironworks-compute-advanced"), T)'
+  sleep 2
+  echo 'js Vars.world.tile(5,4).remove(); Vars.world.tile(6,4).remove()'
+  sleep 2
+  echo 'js var A=Vars.content.block("ironworks-compute-advanced"), L=Vars.content.block("ironworks-compute-advanced-link"); var n=0; for(var y=0;y<=11;y++){for(var x=0;x<=11;x++){var b=Vars.world.tile(x,y).block(); if(b==A||b==L)n++;}} var t1=Vars.world.tile(5,4).block(), t2=Vars.world.tile(6,4).block(); Log.info("T115b tiles=" + n + " links=" + (t1==L) + "," + (t2==L) + " solid=" + (t1.solid && t2.solid))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

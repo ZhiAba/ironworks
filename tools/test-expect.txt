@@ -37,3 +37,5 @@
 114a	T114a cached=false/false dyn=true/true over=true/true same=true
 114b	T114b advTiles=6 box=2x3 dx=0 dy=-4
 114c	T114c clusterTiles=24 box=4x6 dx=0 dy=-8
+115a	T115a wallOnLink=false,false advOnWall=false clusterOnLink=false repl=false groups=none/none/none
+115b	T115b tiles=6 links=true,true solid=true

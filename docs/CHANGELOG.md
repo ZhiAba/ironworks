@@ -24,6 +24,13 @@
 
 ## 0.64.x
 
+### 0.64.8 — 算力模块占地锁死 2×3（真凶：同组方块可「合法替换」）
+
+- **根因**：链接块当初设了 `group = BlockGroup.walls`，而引擎的 `validPlace` 允许「同组方块互相替换」（`Block.canReplace`：`group != none && other.group == 同组`，且新方块包围盒要**包含**旧方块）。于是 1×1 的墙、甚至另一台 2×2 算力模块，都能把预览压在链接块上显示可建，一点击就把链接块清掉 —— 模块随即缩回 2×2（贴图和碰撞箱一起缩）。这才是"修了半天修不好"的真正原因。
+- **修复**：链接块改成 `group = BlockGroup.none` + `replaceable = false`；算力模块也把继承自 `Wall` 的 `group = walls` 改回 `none`。现在墙不能压在链接块上、模块也不能压在墙上（放置预览直接红色不可建）。
+- **修复**：`ensureLinks` 改为**每 tick** 校验（日志仍按 10 tick 节流），链接块被任何手段清掉（沙盒调色板、蓝图粘贴、拆除工具）都会立刻补回，模块不会停在 2×2；补回时也允许覆盖 `alwaysReplace` 方块（与放置校验 `fitsExtra` 一致）。
+- **测试**：T115a（墙/模块/集群三个方向的 `canReplace` 全 false）、T115b（强删两个链接块后自动补回，仍是 6 格 2×3 且 solid）。
+
 ### 0.64.7 — 统一集群/模块的渲染路径 + 删除白色外框
 
 - **修复（实现不一致）**：高级算力模块 `extends Wall`，而 `Wall.init()` 会**强制** `drawCached = true`、`drawDynamic = false`，于是它的贴图走 30×30 区块的 `SpriteCache`（只在换块事件时重建、超出区块边界会被裁），`canOverdrive` 也被设成 false；而全域算力集群是普通 `Block`，逐帧绘制。两者因此不是"只差尺寸"。现在在 `ComputeModule.init()` 里把 `drawCached/drawDynamic` 改回逐帧绘制，`canOverdrive` 与集群统一为 true。

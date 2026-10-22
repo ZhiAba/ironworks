@@ -239,6 +239,13 @@ public class IronworksCompute{
 
     /** 缺失的链接块补上；被别的建筑占住的位置就跳过。 */
     public static void ensureLinks(Building host, int[][] layout, Block linkBlock){
+        ensureLinks(host, layout, linkBlock, true);
+    }
+
+    /**
+     * @param log 是否写诊断日志。缺块时每 tick 都会重试，日志只按 10 tick 节流写，避免刷屏。
+     */
+    public static void ensureLinks(Building host, int[][] layout, Block linkBlock, boolean log){
         if(layout == null || linkBlock == null || Vars.net.client()) return;
 
         for(int[] l : layout){
@@ -256,7 +263,8 @@ public class IronworksCompute{
                     Tile st = Vars.world.tile(ax + sx, ay + sy);
                     if(st == null){ blocked = true; blocker = "out-of-map"; break; }
                     if(st.block() == linkBlock) continue;
-                    if(!st.block().isAir()){
+                    //alwaysReplace 的方块（正在施工的脚手架等）本来就可以被替换，和 fitsExtra 的判定保持一致
+                    if(!st.block().isAir() && !st.block().alwaysReplace){
                         blocked = true;
                         blocker = st.block().name;
                         break;
@@ -265,11 +273,11 @@ public class IronworksCompute{
                 if(blocked) break;
             }
             if(blocked){
-                IronworksLog.event("linkBlocked " + host.block.name + "@" + ax + "," + ay + " by " + blocker);
+                if(log) IronworksLog.event("linkBlocked " + host.block.name + "@" + ax + "," + ay + " by " + blocker);
                 continue;
             }
 
-            IronworksLog.event("linkCreate " + host.block.name + "@" + ax + "," + ay);
+            if(log) IronworksLog.event("linkCreate " + host.block.name + "@" + ax + "," + ay);
             t.setBlock(linkBlock, host.team, 0);
             if(t.build instanceof LinkBlock.LinkBuild link){
                 link.relX = host.tileX() - ax;
@@ -336,7 +344,15 @@ public class IronworksCompute{
             rotate = false;
             health = 1200;
             armor = 8f;
-            group = BlockGroup.walls;
+            /**
+             * 必须是 none + replaceable=false：
+             * 之前是 BlockGroup.walls，于是「同类方块可以互相替换」这条规则生效——
+             * 玩家（或任何 1×1 墙 / 另一台算力方块）可以把墙**合法地**预放置压在链接块上，
+             * 一点击就把链接块清掉，模块就缩回 2×2。见 T115。
+             */
+            group = BlockGroup.none;
+            replaceable = false;
+            alwaysReplace = false;
             buildVisibility = BuildVisibility.hidden;
             alwaysUnlocked = false;
             inEditor = false;
@@ -486,6 +502,9 @@ public class IronworksCompute{
             this.hasVariant = linkLayout == null;
             update = true;
             rotate = false;
+            //Wall 会把 group 设成 walls（同组方块可以互相「合法替换」）；集群是 none，这里对齐，
+            //否则模块能被墙替换，也会把墙当成可替换目标（放置预览压在建筑上一点就清掉）
+            group = BlockGroup.none;
             //Wall 会把 canOverdrive 设成 false，这里和集群（普通 Block，默认 true）保持一致
             canOverdrive = true;
             buildType = ComputeModuleBuild::new;
@@ -560,11 +579,13 @@ public class IronworksCompute{
             @Override
             public void updateTile(){
                 timer += delta();
-                if(timer < 10f) return;
-                timer = 0f;
+                boolean due = timer >= 10f;
+                if(due) timer = 0f;
 
-                ensureLinks(this, linkLayout, linkBlock);
-                checkAttach();
+                //每 tick 都确认一遍链接块：被强行清掉（沙盒调色板/蓝图粘贴/拆墙工具）也立刻补回来，
+                //模块不能停在 2×2——日志按 10 tick 节流，只在 due 时写
+                ensureLinks(this, linkLayout, linkBlock, due);
+                if(due) checkAttach();
             }
 
             void checkAttach(){
@@ -790,11 +811,10 @@ public class IronworksCompute{
             @Override
             public void updateTile(){
                 tickTimer += delta();
-                if(tickTimer >= 10f){
-                    tickTimer = 0f;
-                    ensureLinks(this, linkLayout, linkBlock);
-                    recalcModules();
-                }
+                boolean due = tickTimer >= 10f;
+                if(due) tickTimer = 0f;
+                ensureLinks(this, linkLayout, linkBlock, due);
+                if(due) recalcModules();
 
                 boolean working = efficiency > 0.001f;
                 appliedBoost = working ? Math.min(baseBoost + moduleBonus, maxBoost) : 0f;
