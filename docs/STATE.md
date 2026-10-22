@@ -73,7 +73,11 @@ Mindustry 模组「铁流工业」v0.59.2，Java 编写，自研多配方库 + �
 22. 多配方机器要限制 `acceptLiquid` + `liquidOutputDirections`，否则相邻机器互相倒灌卡线
 
 ## 工具脚本
-- `tools/chain-test.sh`：无头端回归 T1–T93（内部 timeout 520s）
+- `tools/chain-test.sh`：无头端回归 T1–T94（内部 timeout 520s）
+- `tools/run-tests.sh`：带单实例锁 + 脚本快照的回归运行器（避免边跑边改读坏脚本）
+- `tools/check-keys.js`：本地化键静态检查（中英各 140+ 键）
+- `docs/TEST-INDEX.md`：T 编号 → 验证内容索引
+- `docs/RELEASE-CHECKLIST.md`：发布前验收清单（单位/空值/配方/存档/部署）
 - `tools/balance.js`：造价/弹耗/DPS/效率 + 装甲成本
 - `/root/tools/genstatus.js`、`/root/tools/genarmor.js`：贴图生成
 

@@ -723,6 +723,9 @@ cd "$TESTDIR" || exit 1
   echo 'js var dt=null; var us=Vars.content.units(); for(var i=0;i<us.size;i++){if(us.get(i).name=="dagger") dt=us.get(i);} var tgt=dt.spawn(Vars.state.rules.waveTeam, 140*8, 200*8); Log.info("T93b spawnHp=" + Math.round(tgt.health))'
   sleep 4
   echo 'js Log.info("T93c heat=" + Math.round(Vars.world.tile(130,200).build.overheat) + " hot=" + Math.round(Vars.world.tile(130,200).build.hotStored))'
+  # ---- 94. 内容静态检查：颜色/容量/配方输出与液体方向 ----
+  echo 'js function hasCls(b,n){var c=b.getClass(); while(c!=null){if(c.getName().indexOf(n)>=0) return true; c=c.getSuperclass();} return false;} var iss=[]; var bs=Vars.content.blocks(); for(var i=0;i<bs.size;i++){var b=bs.get(i); if(b.minfo==null||b.minfo.mod==null) continue; if(b.hasLiquids && b.liquidCapacity<=0) iss.push(b.name+":cap"); if(hasCls(b,"MultiCrafter")){for(var k=0;k<b.recipes.length;k++){var r=b.recipes[k]; if(r.outputs.length==0 && r.liquidOutputs.length==0) iss.push(b.name+"/"+r.name+":noOut"); if(r.liquidOutputs.length>1 && (b.liquidOutputDirections==null || b.liquidOutputDirections.length<r.liquidOutputs.length)) iss.push(b.name+"/"+r.name+":dirs");}}} var ls=Vars.content.liquids(); for(var j=0;j<ls.size;j++){var l=ls.get(j); if(l.minfo!=null && l.minfo.mod!=null && l.color==null) iss.push("liquid:"+l.name);} Log.info("T94 lintIssues=" + iss.length + " :: " + iss.join(","))'
+
 
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
