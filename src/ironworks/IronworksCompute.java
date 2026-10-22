@@ -155,6 +155,13 @@ public class IronworksCompute{
         out[3] = y2;
     }
 
+    /** 详情页用的尺寸文案，例如 4×6 / 2×3。 */
+    public static String sizeText(int size, int[][] layout){
+        int[] r = new int[4];
+        unionRect(0, 0, size, layout, r);
+        return (r[2] - r[0] + 1) + "×" + (r[3] - r[1] + 1);
+    }
+
     /** 包围盒中心的 world 坐标（Mindustry 的 tile 中心就在 x*8 / y*8）。 */
     public static float centerX(int[] r){ return (r[0] + r[2]) / 2f * 8f; }
     public static float centerY(int[] r){ return (r[1] + r[3]) / 2f * 8f; }
@@ -323,13 +330,9 @@ public class IronworksCompute{
                 bind((b != null && b != this && b.block == hostBlock) ? b : null);
             }
 
-            /** 绑定主块：物品/液体池直接共享，外部看就是同一台机器。 */
+            /** 绑定主块：对外展示全部委托给主块。 */
             public void bind(Building target){
                 host = target;
-                if(target != null){
-                    items = target.items;
-                    liquids = target.liquids;
-                }
             }
 
             @Override
@@ -362,15 +365,19 @@ public class IronworksCompute{
                 if(host == null && !Vars.net.client()) tile.remove();
             }
 
-            //液体从链接块旁进，直接进核心的液体池
+            //液体从链接块旁进，直接进核心的液体池（必须按主块剩余容量截断，否则会溢出上限）
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return host != null && host.acceptLiquid(this, liquid);
+                if(host == null || !host.acceptLiquid(this, liquid)) return false;
+                return host.liquids.get(liquid) < host.block.liquidCapacity - 0.001f;
             }
 
             @Override
             public void handleLiquid(Building source, Liquid liquid, float amount){
-                if(host != null) host.handleLiquid(this, liquid, amount);
+                if(host == null) return;
+                float space = host.block.liquidCapacity - host.liquids.get(liquid);
+                if(space <= 0.001f) return;
+                host.handleLiquid(this, liquid, Math.min(amount, space));
             }
 
             //整张机器贴图由主块一体绘制，链接块不画任何东西（和新视界一致）
@@ -445,6 +452,17 @@ public class IronworksCompute{
             super.load();
             if(hasVariant) variant = Core.atlas.find(name + "-2");
             uiIcon = fullIcon = Core.atlas.find(name + "-ui", region);
+        }
+
+        @Override
+        public void setStats(){
+            super.setStats();
+            if(linkLayout != null){
+                stats.remove(Stat.size);
+                stats.add(Stat.size, sizeText(size, linkLayout));
+            }
+            stats.add(new Stat("ironworks-compute-bonus"), "+" + Mathf.round(bonus * 100f) + "%");
+            stats.add(new Stat("ironworks-compute-power"), (int)power + "/秒");
         }
 
         @Override
@@ -597,7 +615,7 @@ public class IronworksCompute{
         public void setStats(){
             super.setStats();
             stats.remove(Stat.size);
-            stats.add(Stat.size, "4×6");
+            stats.add(Stat.size, sizeText(size, linkLayout));
             stats.add(new Stat("ironworks-compute-base"), "基础 50%，全局上限 250%");
             stats.add(new Stat("ironworks-compute-modules"), "模块加成计入上限（整边贴合）");
             stats.add(new Stat("ironworks-compute-coolant"), "石墨烯冷却液 240/秒 → 热冷却液（存量 2000）");
@@ -606,6 +624,9 @@ public class IronworksCompute{
         @Override
         public void setBars(){
             super.setBars();
+            //原版会为 ConsumeLiquid 自动加一条 "liquid-<name>"，这里去掉，改用带数值的自定义条
+            removeBar("liquid-" + IronworksLiquids.grapheneCoolant.name);
+            removeBar("liquid");
             addBar("compute-boost", (ComputeClusterBuild e) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-compute-boost", Mathf.round(e.appliedBoost * 100f)),
                 () -> Pal.accent,
@@ -618,12 +639,14 @@ public class IronworksCompute{
                 () -> Mathf.clamp(e.moduleBonus / moduleCap)
             ));
             addBar("compute-coolant", (ComputeClusterBuild e) -> e.liquids.get(IronworksLiquids.grapheneCoolant) <= 0.01f ? null : new Bar(
-                () -> Core.bundle.format("bar.ironworks-compute-coolant", Mathf.round(e.liquids.get(IronworksLiquids.grapheneCoolant))),
+                () -> Core.bundle.format("bar.ironworks-compute-coolant", Mathf.round(e.liquids.get(IronworksLiquids.grapheneCoolant)),
+                    Mathf.round(e.block.liquidCapacity)),
                 () -> IronworksLiquids.grapheneCoolant.color,
                 () -> Mathf.clamp(e.liquids.get(IronworksLiquids.grapheneCoolant) / e.block.liquidCapacity)
             ));
             addBar("compute-hot", (ComputeClusterBuild e) -> e.liquids.get(IronworksLiquids.hotCoolant) <= 0.01f ? null : new Bar(
-                () -> Core.bundle.format("bar.ironworks-compute-hot", Mathf.round(e.liquids.get(IronworksLiquids.hotCoolant))),
+                () -> Core.bundle.format("bar.ironworks-compute-hot", Mathf.round(e.liquids.get(IronworksLiquids.hotCoolant)),
+                    Mathf.round(e.block.liquidCapacity)),
                 () -> IronworksLiquids.hotCoolant.color,
                 () -> Mathf.clamp(e.liquids.get(IronworksLiquids.hotCoolant) / e.block.liquidCapacity)
             ));
@@ -685,7 +708,7 @@ public class IronworksCompute{
                     }
                 }
                 if(liquids.get(IronworksLiquids.hotCoolant) > 0.01f){
-                    dumpLiquid(IronworksLiquids.hotCoolant);
+                    dumpHotFromBorder();
                 }
 
                 if(appliedBoost > 0.001f){
@@ -701,6 +724,32 @@ public class IronworksCompute{
                         }
                     }
                 }
+            }
+
+            @Override
+            public boolean acceptLiquid(Building source, Liquid liquid){
+                return super.acceptLiquid(source, liquid) && liquids.get(liquid) < block.liquidCapacity - 0.001f;
+            }
+
+            /** 热冷却液从 4×6 整块的外圈排出——挂在链接块那一侧的管道也能接到。 */
+            void dumpHotFromBorder(){
+                int[] r = new int[4];
+                rectOf(this, r);
+                float fract = liquids.get(IronworksLiquids.hotCoolant) / block.liquidCapacity;
+                if(fract <= 0.0001f) return;
+
+                forEachBorder(r, (x, y) -> {
+                    Building b = Vars.world.build(x, y);
+                    if(b == null || b == this) return;
+                    if(b.block == linkBlock || b.block instanceof ComputeCluster || b.block instanceof ComputeModule) return;
+                    if(!b.block.hasLiquids || b.liquids == null) return;
+                    if(!b.acceptLiquid(this, IronworksLiquids.hotCoolant)) return;
+
+                    float ofract = b.liquids.get(IronworksLiquids.hotCoolant) / b.block.liquidCapacity;
+                    if(ofract < fract){
+                        transferLiquid(b, (fract - ofract) * block.liquidCapacity / 2f, IronworksLiquids.hotCoolant);
+                    }
+                });
             }
 
             /** 热冷却液存满了就停机，不再继续消耗冷却液。 */

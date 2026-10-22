@@ -788,5 +788,16 @@ cd "$TESTDIR" || exit 1
   sleep 3
   echo 'js var h=Vars.content.liquid("ironworks-hot-coolant"); var c=Vars.world.tile(140,220).build; Log.info("T101b hot2=" + Math.round(c.liquids.get(h)) + " cold=" + Math.round(c.liquids.get(Vars.content.liquid("ironworks-graphene-coolant"))))'
 
+  # ---- 102. 冷却液不超上限；热冷却液能从链接块一侧排进管道/储罐 ----
+  echo 'js for(var y=235;y<=244;y++){for(var x=196;x<=207;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(200,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(203,240).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(198,237).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(204,237).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(198,237).build.source=Vars.content.liquid("ironworks-graphene-coolant")'
+  sleep 6
+  echo 'js var c=Vars.world.tile(200,240).build; var t=Vars.world.tile(204,237).build; var cold=Vars.content.liquid("ironworks-graphene-coolant"); var hot=Vars.content.liquid("ironworks-hot-coolant"); Log.info("T102 links=" + ((Vars.world.tile(199,237).build!=null?1:0)+(Vars.world.tile(201,237).build!=null?1:0)) + " clamped=" + (c.liquids.get(cold) <= c.block.liquidCapacity + 1) + " cold=" + Math.round(c.liquids.get(cold)) + " hot=" + Math.round(c.liquids.get(hot)) + " tankHot=" + Math.round(t.liquids.get(hot)))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
