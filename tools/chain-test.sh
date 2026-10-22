@@ -726,6 +726,21 @@ cd "$TESTDIR" || exit 1
   # ---- 94. 内容静态检查：颜色/容量/配方输出与液体方向 ----
   echo 'js function hasCls(b,n){var c=b.getClass(); while(c!=null){if(c.getName().indexOf(n)>=0) return true; c=c.getSuperclass();} return false;} var iss=[]; var bs=Vars.content.blocks(); for(var i=0;i<bs.size;i++){var b=bs.get(i); if(b.minfo==null||b.minfo.mod==null) continue; if(b.hasLiquids && b.liquidCapacity<=0) iss.push(b.name+":cap"); if(hasCls(b,"MultiCrafter")){for(var k=0;k<b.recipes.length;k++){var r=b.recipes[k]; if(r.outputs.length==0 && r.liquidOutputs.length==0) iss.push(b.name+"/"+r.name+":noOut"); if(r.liquidOutputs.length>1 && (b.liquidOutputDirections==null || b.liquidOutputDirections.length<r.liquidOutputs.length)) iss.push(b.name+"/"+r.name+":dirs");}}} var ls=Vars.content.liquids(); for(var j=0;j<ls.size;j++){var l=ls.get(j); if(l.minfo!=null && l.minfo.mod!=null && l.color==null) iss.push("liquid:"+l.name);} Log.info("T94 lintIssues=" + iss.length + " :: " + iss.join(","))'
 
+  # ---- 95. 全域算力集群：挂载量子模块 + 供电 + 冷却液 → 超速生效 ----
+  echo 'js Vars.world.tile(220,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(224,240).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(224,238).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(216,240).setBlock(Vars.content.block("ironworks-compute-quantum"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js Vars.world.tile(224,238).build.source=Vars.content.liquid("ironworks-graphene-coolant")'
+  sleep 5
+  echo 'js var cb=Vars.world.tile(220,240).build; Log.info("T95 mods=" + cb.moduleCount + " bonus=" + Math.round(cb.moduleBonus*100) + " boost=" + Math.round(cb.appliedBoost*100) + " eff=" + cb.efficiency)'
+
+  # ---- 96. 挂载上限：一圈量子模块超出上限时加成封顶 200% ----
+  echo 'js Vars.world.tile(150,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js for(var yy=238;yy<=242;yy+=2){Vars.world.tile(146,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(154,yy).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);} for(var xx=148;xx<=152;xx+=2){Vars.world.tile(xx,236).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam); Vars.world.tile(xx,244).setBlock(Vars.content.block("ironworks-compute-quantum"),Vars.state.rules.defaultTeam);}'
+  sleep 3
+  echo 'js var cb2=Vars.world.tile(150,240).build; Log.info("T96 mods=" + cb2.moduleCount + " bonus=" + Math.round(cb2.moduleBonus*100) + " capped=" + (cb2.moduleBonus <= 2.001))'
 
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

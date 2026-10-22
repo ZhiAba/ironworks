@@ -166,6 +166,19 @@ public class IronworksTech{
         // 这里只补物品的产出节点。
         produce(iron, IronworksMaterials.slag);
 
+        // 全域算力集群（0.60.0）
+        TechNode clusterNode = node(chip, IronworksCompute.cluster,
+            with(IronworksSilicon.quantumCore, 5, IronworksMaterials.siliconCarbide, 150,
+                 IronworksItems.steelPlate, 600, Items.silicon, 800));
+        node(clusterNode, IronworksCompute.quantum,
+            with(IronworksSilicon.quantumCore, 2, IronworksMaterials.siliconCarbide, 40, Items.silicon, 120));
+        node(clusterNode, IronworksCompute.advanced,
+            with(IronworksSilicon.advancedChip, 4, IronworksItems.steelPlate, 60, Items.silicon, 80));
+        TechNode basicNode = node(clusterNode, IronworksCompute.basic,
+            with(IronworksSilicon.basicChip, 6, IronworksItems.steelPlate, 30, Items.silicon, 50));
+        node(basicNode, IronworksCompute.micro,
+            with(IronworksSilicon.basicChip, 2, Items.silicon, 20, Items.metaglass, 10));
+
         // 石油化工：炼油厂 → 聚合车间
         TechNode refinery = node(acid, IronworksPetro.refinery,
             with(IronworksItems.steelPlate, 250, Items.silicon, 300, Items.metaglass, 200,
