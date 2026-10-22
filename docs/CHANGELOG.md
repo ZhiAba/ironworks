@@ -24,6 +24,12 @@
 
 ## 0.64.x
 
+### 0.64.7 — 统一集群/模块的渲染路径 + 删除白色外框
+
+- **修复（实现不一致）**：高级算力模块 `extends Wall`，而 `Wall.init()` 会**强制** `drawCached = true`、`drawDynamic = false`，于是它的贴图走 30×30 区块的 `SpriteCache`（只在换块事件时重建、超出区块边界会被裁），`canOverdrive` 也被设成 false；而全域算力集群是普通 `Block`，逐帧绘制。两者因此不是"只差尺寸"。现在在 `ComputeModule.init()` 里把 `drawCached/drawDynamic` 改回逐帧绘制，`canOverdrive` 与集群统一为 true。
+- **修改（UI）**：删除放置预览与选中时的**白色 2px 外框**（集群与模块都删），真实占地只保留链接块那一圈淡紫色格子提示；选中框两个方块统一走 `drawFootprint()`（Pal.accent / 1.5px）。
+- **测试**：新增 T114a/b/c —— 逐项比对模块与集群的 `drawCached/drawDynamic/canOverdrive/solid`，并实测占地（模块 6 格 2×3、集群 24 格 4×6）与贴图相对引擎中心的下移量（-4 / -8）。
+
 ### 0.64.6 — 修复 2×2 链接块吞建筑 + 箭头速度按 tick 计算
 
 - **修复**：主集群的链接块是 2×2，但之前只检查了锚点那一格是否为空；当 2×2 的另一格有建筑时，`setBlock` 会把整个 2×2 清掉，把那一格的建筑吞掉。现在会检查链接块的**完整占地**，任何一格被占就跳过不生成。

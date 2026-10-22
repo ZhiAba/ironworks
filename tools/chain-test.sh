@@ -895,5 +895,30 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var link=Vars.content.block("ironworks-compute-cluster-link"); var wall=Vars.content.block("thorium-wall"); Log.info("T112 wall=" + (Vars.world.tile(160,237).block()==wall) + " leftLink=" + (Vars.world.tile(159,237).block()==link) + " rightLink=" + (Vars.world.tile(161,237).block()==link))'
 
+  # ---- 113. 高级模块链接行有钍墙：不生成链接、墙保留、拆除后墙还在 ----
+  echo 'js for(var y=0;y<=8;y++){for(var x=0;x<=8;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(5,1).setBlock(Vars.content.block("thorium-wall"), Vars.state.rules.defaultTeam); Vars.world.tile(6,1).setBlock(Vars.content.block("thorium-wall"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(5,2).setBlock(Vars.content.block("ironworks-compute-advanced"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var wall=Vars.content.block("thorium-wall"); var link=Vars.content.block("ironworks-compute-advanced-link"); Log.info("T113a walls=" + (Vars.world.tile(5,1).block()==wall) + "," + (Vars.world.tile(6,1).block()==wall) + " links=" + (Vars.world.tile(5,1).block()==link) + "," + (Vars.world.tile(6,1).block()==link))'
+  echo 'js Vars.world.tile(5,2).remove()'
+  sleep 1
+  echo 'js var wall=Vars.content.block("thorium-wall"); Log.info("T113b afterRemove=" + (Vars.world.tile(5,1).block()==wall) + "," + (Vars.world.tile(6,1).block()==wall))'
+
+  # ---- 114. 高级模块 vs 集群：逐个比对 Block 属性（父类不同带来的实现差距） ----
+  echo 'js var A=Vars.content.block("ironworks-compute-advanced"), C=Vars.content.block("ironworks-compute-cluster"); Log.info("T114a cached=" + A.drawCached + "/" + C.drawCached + " dyn=" + A.drawDynamic + "/" + C.drawDynamic + " over=" + A.canOverdrive + "/" + C.canOverdrive + " same=" + (A.drawCached==C.drawCached && A.drawDynamic==C.drawDynamic && A.canOverdrive==C.canOverdrive && A.solid==C.solid))'
+
+  # 114b. 模块实测占地（应为 6 格 / 2×3），贴图中心相对引擎中心的下移量
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=0;y<=11;y++){for(var x=0;x<=11;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), T);}}'
+  echo 'js Vars.world.tile(5,5).setBlock(Vars.content.block("ironworks-compute-advanced"), T)'
+  sleep 2
+  echo 'js var A=Vars.content.block("ironworks-compute-advanced"), L=Vars.content.block("ironworks-compute-advanced-link"); var n=0,x1=99,x2=-1,y1=99,y2=-1; for(var y=0;y<=11;y++){for(var x=0;x<=11;x++){var b=Vars.world.tile(x,y).block(); if(b==A||b==L){n++; if(x<x1)x1=x; if(x>x2)x2=x; if(y<y1)y1=y; if(y>y2)y2=y;}}} var bb=Vars.world.tile(5,5).build; Log.info("T114b advTiles=" + n + " box=" + (x2-x1+1) + "x" + (y2-y1+1) + " dx=" + Math.round((x1+x2)/2*8 - bb.x) + " dy=" + Math.round((y1+y2)/2*8 - bb.y))'
+
+  # 114c. 集群实测占地（应为 24 格 / 4×6），验证同一套下移规则
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=0;y<=12;y++){for(var x=0;x<=12;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), T);}}'
+  echo 'js Vars.world.tile(6,6).setBlock(Vars.content.block("ironworks-compute-cluster"), T)'
+  sleep 2
+  echo 'js var C=Vars.content.block("ironworks-compute-cluster"), L=Vars.content.block("ironworks-compute-cluster-link"); var n=0,x1=99,x2=-1,y1=99,y2=-1; for(var y=0;y<=12;y++){for(var x=0;x<=12;x++){var b=Vars.world.tile(x,y).block(); if(b==C||b==L){n++; if(x<x1)x1=x; if(x>x2)x2=x; if(y<y1)y1=y; if(y>y2)y2=y;}}} var bb=Vars.world.tile(6,6).build; Log.info("T114c clusterTiles=" + n + " box=" + (x2-x1+1) + "x" + (y2-y1+1) + " dx=" + Math.round((x1+x2)/2*8 - bb.x) + " dy=" + Math.round((y1+y2)/2*8 - bb.y))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

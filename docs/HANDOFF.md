@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-22，v0.64.6）
+# 铁流工业 交接文档（2026-10-22，v0.64.7）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -9,7 +9,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`e16ce0b3476ba71324a7836c18e635db`（0.64.1）
+- 当前 jar md5：`addbd77e94c542d33120fb53e49da0c8`（0.64.7，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`

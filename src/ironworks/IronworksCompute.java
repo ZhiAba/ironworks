@@ -4,6 +4,7 @@ import arc.Core;
 import arc.func.Intc2;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.scene.ui.layout.Table;
@@ -160,6 +161,17 @@ public class IronworksCompute{
         int[] r = new int[4];
         unionRect(0, 0, size, layout, r);
         return (r[2] - r[0] + 1) + "×" + (r[3] - r[1] + 1);
+    }
+
+    /**
+     * 画包围盒轮廓（world 坐标）。
+     * 集群和模块**必须共用这一个**，否则两者看起来就像两套不同的实现。
+     */
+    public static void drawFootprint(int[] r, Color color, float stroke){
+        Draw.color(color);
+        Lines.stroke(stroke);
+        Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f, (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+        Draw.color();
     }
 
     /** 包围盒中心的 world 坐标（Mindustry 的 tile 中心就在 x*8 / y*8）。 */
@@ -474,7 +486,22 @@ public class IronworksCompute{
             this.hasVariant = linkLayout == null;
             update = true;
             rotate = false;
+            //Wall 会把 canOverdrive 设成 false，这里和集群（普通 Block，默认 true）保持一致
+            canOverdrive = true;
             buildType = ComputeModuleBuild::new;
+        }
+
+        /**
+         * Wall.init 会**强制** drawCached = true、drawDynamic = false：
+         * 那样贴图走的是 30×30 区块的 SpriteCache（只在换块事件时重建，超出区块边界会被裁），
+         * 和全域算力集群（普通 Block，逐帧 draw）完全是两条渲染路径——这正是两者看起来不一致的根源。
+         * 这里统一成逐帧绘制。
+         */
+        @Override
+        public void init(){
+            super.init();
+            drawCached = false;
+            drawDynamic = true;
         }
 
         @Override
@@ -502,20 +529,12 @@ public class IronworksCompute{
                 return;
             }
             drawPotentialLinks(x, y);
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, r);
-            Draw.color(Color.white, 0.9f);
-            arc.graphics.g2d.Lines.stroke(2f);
-            arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
-                (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
-            //链接块格子（引擎选框不包含的部分）淡淡标出来
-            Draw.color(Pal.accent, 0.18f);
-            if(linkLayout != null){
-                for(int[] l : linkLayout){
-                    int ls = l[2], lo = (ls - 1) / 2;
-                    int ax = x + l[0] - lo, ay = y + l[1] - lo;
-                    arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
-                }
+            //只把链接块那一圈用淡紫色格子标出来（白色 2px 外框已按用户要求删除）
+            Draw.color(Pal.accent, 0.25f);
+            for(int[] l : linkLayout){
+                int ls = l[2], lo = (ls - 1) / 2;
+                int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
             }
             Draw.color();
         }
@@ -580,11 +599,7 @@ public class IronworksCompute{
                 }
                 int[] r = new int[4];
                 rectOf(this, r);
-                Draw.color(Color.white, 0.9f);
-                arc.graphics.g2d.Lines.stroke(2f);
-                arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
-                    (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
-                Draw.color();
+                drawFootprint(r, Pal.accent, 1.5f);
             }
 
             @Override
@@ -667,20 +682,12 @@ public class IronworksCompute{
             //幽灵贴图由 drawPlan -> drawPlanRegion 统一绘制（半透明 + 原版闪白），
             //这里不能再画一份不透明的，否则会盖住地块选择标线。
             drawPotentialLinks(x, y);
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, r);
-            Draw.color(Color.white, 0.9f);
-            arc.graphics.g2d.Lines.stroke(2f);
-            arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
-                (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
-            //链接块格子（引擎选框不包含的部分）淡淡标出来
-            Draw.color(Pal.accent, 0.18f);
-            if(linkLayout != null){
-                for(int[] l : linkLayout){
-                    int ls = l[2], lo = (ls - 1) / 2;
-                    int ax = x + l[0] - lo, ay = y + l[1] - lo;
-                    arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
-                }
+            //只把链接块那一圈用淡紫色格子标出来（白色 2px 外框已按用户要求删除）
+            Draw.color(Pal.accent, 0.25f);
+            for(int[] l : linkLayout){
+                int ls = l[2], lo = (ls - 1) / 2;
+                int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
             }
             Draw.color();
         }
@@ -869,11 +876,7 @@ public class IronworksCompute{
             public void drawSelect(){
                 int[] r = new int[4];
                 rectOf(this, r);
-                Draw.color(Pal.accent);
-                arc.graphics.g2d.Lines.stroke(1.5f);
-                arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
-                    (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
-                Draw.color();
+                drawFootprint(r, Pal.accent, 1.5f);
             }
 
             @Override

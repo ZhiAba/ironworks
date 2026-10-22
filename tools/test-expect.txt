@@ -32,3 +32,8 @@
 110	T110 tankHot=[1-9][0-9]*
 111	T111 tankHot=[1-9][0-9]* turretLeft=[0-9]+
 112	T112 wall=true leftLink=false rightLink=true
+113a	T113a walls=true,true links=false,false
+113b	T113b afterRemove=true,true
+114a	T114a cached=false/false dyn=true/true over=true/true same=true
+114b	T114b advTiles=6 box=2x3 dx=0 dy=-4
+114c	T114c clusterTiles=24 box=4x6 dx=0 dy=-8
