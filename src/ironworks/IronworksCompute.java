@@ -235,8 +235,7 @@ public class IronworksCompute{
             if(t == null) continue;
             if(t.block() == linkBlock) continue;
 
-            Block there = t.block();
-            if(!there.isAir() && !there.alwaysReplace) continue;
+            if(!t.block().isAir()) continue;
 
             t.setBlock(linkBlock, host.team, 0);
             if(t.build instanceof LinkBlock.LinkBuild link){
@@ -245,6 +244,16 @@ public class IronworksCompute{
                 link.bind(host);
             }
         }
+    }
+
+    /** 链接块是否齐全（缺了就不能画整张一体贴图，否则会盖住旁边建筑）。 */
+    public static boolean linksComplete(Building host, int[][] layout, Block linkBlock){
+        if(layout == null) return true;
+        for(int[] l : layout){
+            Tile t = Vars.world.tile(host.tileX() + l[0], host.tileY() + l[1]);
+            if(t == null || t.block() != linkBlock) return false;
+        }
+        return true;
     }
 
     /** 主块消失时清掉自己的链接块。 */
@@ -472,6 +481,13 @@ public class IronworksCompute{
                 return;
             }
             drawPotentialLinks(x, y);
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, r);
+            Draw.color(valid ? Pal.accent : Pal.remove, 0.85f);
+            arc.graphics.g2d.Lines.stroke(1f);
+            arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
+                (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+            Draw.color();
         }
 
         @Override
@@ -531,10 +547,14 @@ public class IronworksCompute{
                 if(hasVariant && attached && variant != null && variant.found()){
                     Draw.rect(variant, x, y, variant.width / 4f, variant.height / 4f, -90f * dir);
                 }else if(linkLayout != null){
-                    int[] r = new int[4];
-                    rectOf(this, r);
-                    Draw.rect(region, centerX(r), centerY(r));
-                    if(attached) drawContactGlow();
+                    if(linksComplete(this, linkLayout, linkBlock)){
+                        int[] r = new int[4];
+                        rectOf(this, r);
+                        Draw.rect(region, centerX(r), centerY(r));
+                        if(attached) drawContactGlow();
+                    }else{
+                        Draw.rect(uiIcon, x, y);
+                    }
                 }else{
                     super.draw();
                 }
@@ -602,6 +622,13 @@ public class IronworksCompute{
             //幽灵贴图由 drawPlan -> drawPlanRegion 统一绘制（半透明 + 原版闪白），
             //这里不能再画一份不透明的，否则会盖住地块选择标线。
             drawPotentialLinks(x, y);
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, r);
+            Draw.color(valid ? Pal.accent : Pal.remove, 0.85f);
+            arc.graphics.g2d.Lines.stroke(1f);
+            arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
+                (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+            Draw.color();
         }
 
         @Override
@@ -774,9 +801,14 @@ public class IronworksCompute{
 
             @Override
             public void draw(){
-                int[] r = new int[4];
-                rectOf(this, r);
-                Draw.rect(block.region, centerX(r), centerY(r));
+                if(linksComplete(this, linkLayout, linkBlock)){
+                    int[] r = new int[4];
+                    rectOf(this, r);
+                    Draw.rect(block.region, centerX(r), centerY(r));
+                }else{
+                    //链接块缺失（被占用/被拆）：只画 4×4 核心，避免整图盖住别的建筑
+                    Draw.rect(block.uiIcon, x, y);
+                }
             }
 
             @Override

@@ -26,3 +26,7 @@
 105	T105 tank=[1-9][0-9]* node=0
 106	T106 pulled=[1-9][0-9]*
 107	T107 item=1080 liquid=1080 desc=true size=1
+108a	T108a canPlace=false
+108b	T108b conv=true link0=true link1=false
+109	T109 src=[0-9]+ dst=[1-9][0-9]*
+110	T110 tankHot=[1-9][0-9]*

@@ -844,5 +844,37 @@ cd "$TESTDIR" || exit 1
   # ---- 107. 跃迁节点参数：耗电 1080/秒、描述、连接距离 ----
   echo 'js var b=Vars.content.block("ironworks-mct-item-node"); var l=Vars.content.block("ironworks-mct-liquid-node"); Log.info("T107 item=" + (b.consPower.usage*60) + " liquid=" + (l.consPower.usage*60) + " desc=" + (b.description.indexOf("MCT")>=0) + " size=" + b.size)'
 
+  # ---- 108. 链接块位置被占：不能放置；强制放置不吃掉已有建筑 ----
+  echo 'js for(var y=234;y<=246;y++){for(var x=154;x<=168;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(161,239).setBlock(Vars.content.block("conveyor"), Vars.state.rules.defaultTeam)'
+  echo 'js var adv=Vars.content.block("ironworks-compute-advanced"); Log.info("T108a canPlace=" + adv.canPlaceOn(Vars.world.tile(160,240), Vars.state.rules.defaultTeam, 0))'
+  echo 'js Vars.world.tile(160,240).setBlock(Vars.content.block("ironworks-compute-advanced"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var link=Vars.content.block("ironworks-compute-advanced-link"); var conv=Vars.content.block("conveyor"); Log.info("T108b conv=" + (Vars.world.tile(161,239).block()==conv) + " link0=" + (Vars.world.tile(160,239).block()==link) + " link1=" + (Vars.world.tile(161,239).block()==link))'
+
+  # ---- 109. 液体节点·吸取：从储液罐抽水并向四邻分发 ----
+  echo 'js for(var y=214;y<=226;y++){for(var x=172;x<=192;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(180,220).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(182,220).setBlock(Vars.content.block("ironworks-mct-liquid-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(182,221).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(184,220).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js Vars.world.tile(180,220).build.liquids.add(Vars.content.liquid("water"), 1200)'
+  echo 'js var n=Vars.world.tile(182,220).build; n.linkTo(Vars.world.tile(180,220).build); n.setMode(1)'
+  sleep 4
+  echo 'js var w=Vars.content.liquid("water"); var src=Vars.world.tile(180,220).build; var dst=Vars.world.tile(184,220).build; Log.info("T109 src=" + Math.round(src.liquids.get(w)) + " dst=" + Math.round(dst.liquids.get(w)))'
+
+  # ---- 110. 液体节点·吸取：从全域算力集群抽热冷却液 ----
+  echo 'js for(var y=210;y<=224;y++){for(var x=196;x<=210;x++){Vars.world.tile(x,y).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam);}}'
+  echo 'js Vars.world.tile(200,218).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(203,218).setBlock(Vars.content.block("ironworks-mct-liquid-node"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(203,219).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(205,218).setBlock(Vars.content.block("liquid-tank"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(200,218).build.liquids.add(Vars.content.liquid("ironworks-hot-coolant"), 900)'
+  echo 'js var n=Vars.world.tile(203,218).build; n.linkTo(Vars.world.tile(200,218).build); n.setMode(1)'
+  sleep 4
+  echo 'js var hot=Vars.content.liquid("ironworks-hot-coolant"); var t=Vars.world.tile(205,218).build; Log.info("T110 tankHot=" + Math.round(t.liquids.get(hot)))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

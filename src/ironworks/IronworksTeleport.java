@@ -3,6 +3,7 @@ package ironworks;
 import arc.Core;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Lines;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.scene.ui.TextButton;
@@ -24,6 +25,7 @@ import mindustry.type.Liquid;
 import mindustry.type.LiquidStack;
 import mindustry.ui.Styles;
 import mindustry.world.Block;
+import mindustry.world.blocks.liquid.LiquidBlock;
 import mindustry.world.blocks.production.Drill;
 import mindustry.world.blocks.production.GenericCrafter;
 import mindustry.world.blocks.production.Pump;
@@ -53,6 +55,9 @@ public class IronworksTeleport{
     /** 配置值：模式与断开（真实连接用建筑 pos，pos 恒 >= 0）。 */
     public static final int configSend = -1, configPull = -2, configClear = -3;
     public static final int modeSend = 0, modePull = 1;
+
+    public static final Color itemColor = Color.valueOf("7ff0d0");
+    public static final Color liquidColor = Color.valueOf("7fb6ff");
 
     public static void load(){
         itemNode = new TeleportNode("mct-item-node", true){{
@@ -135,6 +140,11 @@ public class IronworksTeleport{
             return false;
         }
 
+        //储液罐/储液容器：里面的液体就是可抽的产出
+        if(bl instanceof LiquidBlock && bl.size >= 2) return true;
+        //全域算力集群的产出是热冷却液
+        if(bl == IronworksCompute.cluster) return liquid == IronworksLiquids.hotCoolant;
+
         if(bl instanceof SolidPump sp) return sp.result == liquid;
         if(b instanceof Pump.PumpBuild p) return p.liquidDrop == liquid;
         if(b instanceof LiquidSource.LiquidSourceBuild src) return src.source == liquid;
@@ -181,6 +191,13 @@ public class IronworksTeleport{
             super.setStats();
             stats.add(new Stat("mct-link-range"), (int)linkRangeTiles + " 格");
         }
+
+        @Override
+        public void drawPlace(int x, int y, int rotation, boolean valid){
+            super.drawPlace(x, y, rotation, valid);
+            Drawf.dashCircle(x * 8f, y * 8f, linkRangeTiles * 8f, itemMode ? itemColor : liquidColor);
+            Draw.color();
+        }
     }
 
     // ------------------------------------------------------------------
@@ -190,6 +207,8 @@ public class IronworksTeleport{
     public static abstract class NodeBuild extends Building{
         public int mode = modeSend;
         public int linkPos = -1;
+        /** 客户端：配置面板是否打开（用于显示射程圈）。 */
+        public boolean showRange;
         float flushTimer;
 
         public TeleportNode node(){
@@ -231,6 +250,7 @@ public class IronworksTeleport{
 
         @Override
         public void buildConfiguration(Table table){
+            showRange = true;
             table.defaults().pad(3f);
 
             TextButton send = new TextButton(Core.bundle.get("mct.mode.send"), Styles.flatTogglet);
@@ -253,6 +273,12 @@ public class IronworksTeleport{
             table.add(Core.bundle.get("mct.hint")).wrap().width(240f).padTop(2f).row();
 
             table.button(Core.bundle.get("mct.disconnect"), () -> configure(configClear)).size(168f, 32f).padTop(4f).row();
+        }
+
+        @Override
+        public void onConfigureClosed(){
+            showRange = false;
+            super.onConfigureClosed();
         }
 
         // ---------------- 每帧 ----------------
@@ -282,14 +308,49 @@ public class IronworksTeleport{
             super.draw();
 
             Building t = target();
-            if(t != null){
-                float pulse = 0.7f + Mathf.absin(Time.time, 7f, 0.3f);
-                Draw.z(Layer.power);
-                Draw.color(node().itemMode ? Color.valueOf("7ff0d0") : Color.valueOf("7fb6ff"));
-                Drawf.laser(node().laser, node().laserEnd, x, y, t.x, t.y, 0.3f * pulse);
+            if(t != null) drawLink(t);
+
+            if(showRange){
+                Drawf.dashCircle(x, y, linkRangeTiles * 8f, node().itemMode ? itemColor : liquidColor);
                 Draw.color();
-                Draw.z(Layer.block);
             }
+        }
+
+        /** 连线 + 移动方向箭头（两条对称斜线，吸取模式方向反转）。 */
+        void drawLink(Building t){
+            float pulse = 0.7f + Mathf.absin(Time.time, 7f, 0.3f);
+
+            Draw.z(Layer.power);
+            Draw.color(node().itemMode ? itemColor : liquidColor, 0.9f);
+            Drawf.laser(node().laser, node().laserEnd, x, y, t.x, t.y, 0.3f * pulse);
+
+            float dx = t.x - x, dy = t.y - y;
+            float len = Mathf.len(dx, dy);
+            if(len > 16f){
+                float prog = (Time.time * 0.35f) % 1f;
+                float px, py;
+                if(mode == modeSend){
+                    px = x + dx * prog;
+                    py = y + dy * prog;
+                }else{
+                    px = t.x - dx * prog;
+                    py = t.y - dy * prog;
+                }
+
+                float fx = (mode == modeSend ? dx : -dx) / len;
+                float fy = (mode == modeSend ? dy : -dy) / len;
+
+                float bx = px - fx * 7f, by = py - fy * 7f;
+                float ox = -fy * 4.5f, oy = fx * 4.5f;
+
+                Lines.stroke(2f);
+                Lines.line(px, py, bx + ox, by + oy);
+                Lines.line(px, py, bx - ox, by - oy);
+                Lines.stroke(1f);
+            }
+
+            Draw.color();
+            Draw.z(Layer.block);
         }
 
         @Override
