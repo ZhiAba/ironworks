@@ -769,5 +769,13 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var agone=(Vars.world.tile(163,239).block()==Vars.content.block("air")); Log.info("T99b advLinkGone=" + agone)'
 
+  # ---- 100. 读档重绑：链接块按相对坐标重新找到主块（host 置空后 10 tick 内恢复） ----
+  echo 'js Vars.world.tile(200,220).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js var lk=Vars.world.tile(199,217).build; Log.info("T100a link=" + (lk!=null) + " rel=" + (lk!=null ? (lk.relX + "," + lk.relY) : "-") + " bound=" + (lk!=null && lk.host!=null))'
+  echo 'js Vars.world.tile(199,217).build.host=null'
+  sleep 1
+  echo 'js var lk2=Vars.world.tile(199,217).build; Log.info("T100b rebound=" + (lk2!=null && lk2.host==Vars.world.tile(200,220).build))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

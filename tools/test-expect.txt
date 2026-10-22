@@ -16,3 +16,5 @@
 98	T98 clusterLinks=true,true advLink=true advAttached=true advDir=3
 99a	T99a clusterLinksGone=true
 99b	T99b advLinkGone=true
+100a	T100a link=true rel=1,3 bound=true
+100b	T100b rebound=true

@@ -31,7 +31,7 @@ fi
 SNAP=/tmp/chain-test-snap-$$.sh
 if [ "$MODE" = "full" ]; then
   cp "$DIR/tools/chain-test.sh" "$SNAP" || exit 1
-  echo "[tier] full regression（T1–T96）"
+  echo "[tier] full regression（T1–T100）"
 else
   if [ "$MODE" = "group" ]; then
     node "$DIR/tools/select-tests.js" group "$2" > "$SNAP" || exit 1
