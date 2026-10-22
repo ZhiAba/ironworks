@@ -487,10 +487,19 @@ public class IronworksCompute{
             drawPotentialLinks(x, y);
             int[] r = new int[4];
             unionRect(x, y, size, linkLayout, r);
-            Draw.color(valid ? Pal.accent : Pal.remove, 0.85f);
-            arc.graphics.g2d.Lines.stroke(1f);
+            Draw.color(Color.white, 0.9f);
+            arc.graphics.g2d.Lines.stroke(2f);
             arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
                 (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+            //链接块格子（引擎选框不包含的部分）淡淡标出来
+            Draw.color(Pal.accent, 0.18f);
+            if(linkLayout != null){
+                for(int[] l : linkLayout){
+                    int ls = l[2], lo = (ls - 1) / 2;
+                    int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                    arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
+                }
+            }
             Draw.color();
         }
 
@@ -554,8 +563,8 @@ public class IronworksCompute{
                 }
                 int[] r = new int[4];
                 rectOf(this, r);
-                Draw.color(Pal.accent);
-                arc.graphics.g2d.Lines.stroke(1.5f);
+                Draw.color(Color.white, 0.9f);
+                arc.graphics.g2d.Lines.stroke(2f);
                 arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
                     (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
                 Draw.color();
@@ -643,10 +652,19 @@ public class IronworksCompute{
             drawPotentialLinks(x, y);
             int[] r = new int[4];
             unionRect(x, y, size, linkLayout, r);
-            Draw.color(valid ? Pal.accent : Pal.remove, 0.85f);
-            arc.graphics.g2d.Lines.stroke(1f);
+            Draw.color(Color.white, 0.9f);
+            arc.graphics.g2d.Lines.stroke(2f);
             arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
                 (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+            //链接块格子（引擎选框不包含的部分）淡淡标出来
+            Draw.color(Pal.accent, 0.18f);
+            if(linkLayout != null){
+                for(int[] l : linkLayout){
+                    int ls = l[2], lo = (ls - 1) / 2;
+                    int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                    arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
+                }
+            }
             Draw.color();
         }
 
