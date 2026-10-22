@@ -235,8 +235,12 @@ public class IronworksCompute{
             if(t == null) continue;
             if(t.block() == linkBlock) continue;
 
-            if(!t.block().isAir()) continue;
+            if(!t.block().isAir()){
+                IronworksLog.event("linkBlocked " + host.block.name + "@" + ax + "," + ay + " by " + t.block().name);
+                continue;
+            }
 
+            IronworksLog.event("linkCreate " + host.block.name + "@" + ax + "," + ay);
             t.setBlock(linkBlock, host.team, 0);
             if(t.build instanceof LinkBlock.LinkBuild link){
                 link.relX = host.tileX() - ax;
@@ -543,6 +547,21 @@ public class IronworksCompute{
             }
 
             @Override
+            public void drawSelect(){
+                if(linkLayout == null){
+                    super.drawSelect();
+                    return;
+                }
+                int[] r = new int[4];
+                rectOf(this, r);
+                Draw.color(Pal.accent);
+                arc.graphics.g2d.Lines.stroke(1.5f);
+                arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
+                    (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+                Draw.color();
+            }
+
+            @Override
             public void draw(){
                 if(hasVariant && attached && variant != null && variant.found()){
                     Draw.rect(variant, x, y, variant.width / 4f, variant.height / 4f, -90f * dir);
@@ -797,6 +816,17 @@ public class IronworksCompute{
             /** 热冷却液存满了就停机，不再继续消耗冷却液。 */
             public boolean hotFull(){
                 return liquids.get(IronworksLiquids.hotCoolant) >= block.liquidCapacity - 0.001f;
+            }
+
+            @Override
+            public void drawSelect(){
+                int[] r = new int[4];
+                rectOf(this, r);
+                Draw.color(Pal.accent);
+                arc.graphics.g2d.Lines.stroke(1.5f);
+                arc.graphics.g2d.Lines.rect(r[0] * 8f - 4f, r[1] * 8f - 4f,
+                    (r[2] - r[0] + 1) * 8f, (r[3] - r[1] + 1) * 8f);
+                Draw.color();
             }
 
             @Override

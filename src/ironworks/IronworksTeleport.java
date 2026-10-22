@@ -327,7 +327,8 @@ public class IronworksTeleport{
             float dx = t.x - x, dy = t.y - y;
             float len = Mathf.len(dx, dy);
             if(len > 16f){
-                float prog = (Time.time * 0.35f) % 1f;
+                //2 格/秒 = 16 世界单位/秒
+                float prog = (Time.time * 16f / len) % 1f;
                 float px, py;
                 if(mode == modeSend){
                     px = x + dx * prog;
@@ -340,10 +341,10 @@ public class IronworksTeleport{
                 float fx = (mode == modeSend ? dx : -dx) / len;
                 float fy = (mode == modeSend ? dy : -dy) / len;
 
-                float bx = px - fx * 7f, by = py - fy * 7f;
-                float ox = -fy * 4.5f, oy = fx * 4.5f;
+                float bx = px - fx * 3.5f, by = py - fy * 3.5f;
+                float ox = -fy * 2.2f, oy = fx * 2.2f;
 
-                Lines.stroke(2f);
+                Lines.stroke(1f);
                 Lines.line(px, py, bx + ox, by + oy);
                 Lines.line(px, py, bx - ox, by - oy);
                 Lines.stroke(1f);
