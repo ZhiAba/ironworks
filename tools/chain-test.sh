@@ -697,14 +697,20 @@ cd "$TESTDIR" || exit 1
   # ---- 88. 天罚远程连锁：射程 45 格、最多 12 连、每连 120 伤害 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T88 range=" + tb.range + " chain=" + tb.chainTargets + " chainDmg=" + tb.chainDamage + " chainR=" + tb.chainRange)'
   # ---- 90. 天罚闲置不喝冷却液（修复"送不进去"） ----
-  echo 'js Vars.world.tile(40,124).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(220,220).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
   sleep 1
-  echo 'js var th=Vars.world.tile(40,124).build; th.liquids.add(Vars.content.liquid("ironworks-chiller"), 300); Log.info("T90 add=" + Math.round(th.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
+  echo 'js var th=Vars.world.tile(220,220).build; th.liquids.add(Vars.content.liquid("ironworks-chiller"), 300); Log.info("T90 add=" + Math.round(th.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
   sleep 3
-  echo 'js Log.info("T90b idleKeep=" + Math.round(Vars.world.tile(40,124).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
+  echo 'js Log.info("T90b idleKeep=" + Math.round(Vars.world.tile(220,220).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
 
   # ---- 91. 天罚冷却配置：1440 容量 / 120 每秒 / 虚拟热槽 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T91 cap=" + tb.liquidCapacity + " use=" + tb.coolantUse + " hotCap=" + tb.hotCapacity + " virtualHot=" + tb.virtualHot + " consumeOnlyFiring=" + tb.consumeOnlyWhenFiring)'
+
+  # ---- 92. 多配方机器只收当前配方的液体（转炉：1 号配方收熔融铜铅钛，不收水） ----
+  echo 'js Vars.world.tile(52,130).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(55,130).setBlock(Vars.content.block("ironworks-converter"), Vars.state.rules.defaultTeam)'
+  sleep 2
+  echo 'js var cv=Vars.world.tile(55,130).build; var w=Vars.content.liquid("water"); var fe=Vars.content.liquid("ironworks-molten-iron"); Log.info("T92 waterAcc=" + cv.acceptLiquid(cv, w) + " ironAcc=" + cv.acceptLiquid(cv, fe))'
 
 
   echo 'exit'

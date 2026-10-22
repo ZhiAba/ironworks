@@ -92,6 +92,17 @@ public class MultiCrafter extends Block{
         config(Integer.class, (MultiCrafterBuild tile, Integer index) -> {
             tile.recipeIndex = Mathf.clamp(index, 0, recipes.length - 1);
             tile.progress = 0f;
+            // 旧配方残留的液体不属于新配方：先尽量排给邻居，再清掉，避免隐形占容量
+            for(Liquid l : mindustry.Vars.content.liquids()){
+                float amt = tile.liquids.get(l);
+                if(amt <= 0.001f) continue;
+                boolean used = false;
+                for(LiquidStack s : tile.recipe().liquidInputs) if(s.liquid == l){ used = true; break; }
+                if(!used) for(LiquidStack s : tile.recipe().liquidOutputs) if(s.liquid == l){ used = true; break; }
+                if(used) continue;
+                tile.dumpLiquid(l, 20f);
+                tile.liquids.remove(l, tile.liquids.get(l));
+            }
         });
         configClear((MultiCrafterBuild tile) -> {
             tile.recipeIndex = 0;
@@ -184,8 +195,19 @@ public class MultiCrafter extends Block{
             for(LiquidStack stack : r.liquidInputs) seen.add(stack.liquid);
             for(LiquidStack stack : r.liquidOutputs) seen.add(stack.liquid);
         }
+        // 只显示「当前配方」涉及的液体：切到别的配方时，其余液体条直接不出现
         for(Liquid liquid : seen){
-            addLiquidBar(liquid);
+            addBar("liquid-" + liquid.name, (MultiCrafterBuild e) -> {
+                boolean used = false;
+                for(LiquidStack stack : e.recipe().liquidInputs) if(stack.liquid == liquid){ used = true; break; }
+                if(!used) for(LiquidStack stack : e.recipe().liquidOutputs) if(stack.liquid == liquid){ used = true; break; }
+                if(!used) return null;
+                return new mindustry.ui.Bar(
+                    () -> liquid.localizedName + " " + (int)e.liquids.get(liquid) + "/" + (int)liquidCapacity,
+                    () -> liquid.barColor,
+                    () -> Mathf.clamp(e.liquids.get(liquid) / Math.max(liquidCapacity, 1f))
+                );
+            });
         }
     }
 
@@ -324,7 +346,9 @@ public class MultiCrafter extends Block{
         @Override
         public void buildConfiguration(Table table){
             if(recipes.length <= 1) return;
-            table.defaults().pad(3f);
+
+            Table list = new Table();
+            list.defaults().pad(3f);
             for(int i = 0; i < recipes.length; i++){
                 int idx = i;
                 String label = arc.Core.bundle.get("recipe.ironworks." + recipes[i].name, recipes[i].name);
@@ -333,7 +357,18 @@ public class MultiCrafter extends Block{
                 // 高亮当前配方
                 b.setChecked(recipeIndex == idx);
                 b.update(() -> b.setChecked(recipeIndex == idx));
-                table.add(b).size(150f, 36f).row();
+                list.add(b).size(150f, 36f).row();
+            }
+
+            // 配方太多时限制可见高度（隐藏距离）并加滚动条
+            if(recipes.length <= 5){
+                table.add(list);
+            }else{
+                arc.scene.ui.ScrollPane pane = new arc.scene.ui.ScrollPane(list);
+                pane.setFadeScrollBars(false);
+                pane.setScrollingDisabled(true, false);
+                pane.setOverscroll(false, false);
+                table.add(pane).width(176f).maxHeight(5f * 42f + 6f);
             }
         }
 
