@@ -71,6 +71,11 @@ public class OverheatTurret extends PowerTurret{
     public boolean coolOnlyWhenIdle = false;
     /** 命中附加效果的说明 key（详情页「命中效果」栏） */
     public String onHitKey;
+    /** true = 只有开火时才消耗冷却液（停火不喝） */
+    public boolean consumeOnlyWhenFiring = false;
+    /** true = 热液存在独立的虚拟热槽里（不占冷液容量），并单独显示条 */
+    public boolean virtualHot = false;
+    public float hotCapacity = 1440f;
 
     public OverheatTurret(String name){
         super(name);
@@ -99,7 +104,15 @@ public class OverheatTurret extends PowerTurret{
         super.setBars();
         removeBar("liquid");
         for(Liquid l : coolantLiquids) addLiquidBar(l);
-        if(hotLiquid != null) addLiquidBar(hotLiquid);
+        if(hotLiquid != null && !virtualHot) addLiquidBar(hotLiquid);
+        if(virtualHot){
+            addBar("hot-storage", (OverheatTurretBuild e) -> e.hotStored <= 0.01f ? null : new Bar(
+                () -> Core.bundle.format("bar.ironworks-hot-storage", Strings.autoFixed(e.hotStored, 0),
+                    Strings.autoFixed(hotCapacity, 0)),
+                () -> Pal.orangeSpark,
+                () -> Mathf.clamp(e.hotStored / hotCapacity)
+            ));
+        }
 
         addBar("overheat", (OverheatTurretBuild e) -> e.overheat <= 0.01f ? null : new Bar(
             () -> Core.bundle.format("bar.ironworks-overheat", Strings.autoFixed(Mathf.clamp(e.overheat / overheatTime) * 100f, 0)),
@@ -114,12 +127,14 @@ public class OverheatTurret extends PowerTurret{
     }
 
     public class OverheatTurretBuild extends PowerTurretBuild{
-        public float overheat, speedupScl, slowDownReload;
+        public float overheat, speedupScl, slowDownReload, hotStored;
         public boolean requireCompleteCooling;
         public boolean cooling;
 
         @Override
         public boolean acceptLiquid(Building source, Liquid liquid){
+            // 邻居可能是空罐/空路由器，会带着 null 来问；不判空会在 updateProximity 里 NPE
+            if(liquid == null) return false;
             if(liquids.get(liquid) >= block.liquidCapacity - 0.001f) return false;
             for(Liquid l : coolantLiquids){
                 if(l == liquid) return true;
@@ -159,6 +174,24 @@ public class OverheatTurret extends PowerTurret{
         /** 尽可能往外吐热液：每个邻居能收多少就收多少，不看比例。 */
         void dumpHot(){
             if(hotLiquid == null) return;
+            if(virtualHot){
+                float hotRemain = hotStored;
+                if(hotRemain <= 0.001f) return;
+                float hotCap = Time.delta * 240f;
+                for(Building other : proximity){
+                    if(hotRemain <= 0.001f) break;
+                    Building dest = other.getLiquidDestination(this, hotLiquid);
+                    if(dest == null || dest == this || !dest.block.hasLiquids) continue;
+                    if(!dest.acceptLiquid(this, hotLiquid)) continue;
+                    float space = dest.block.liquidCapacity - dest.liquids.get(hotLiquid);
+                    if(space <= 0.001f) continue;
+                    float flow = Math.min(Math.min(hotRemain, space), hotCap);
+                    dest.handleLiquid(this, hotLiquid, flow);
+                    hotStored -= flow;
+                    hotRemain -= flow;
+                }
+                return;
+            }
             float remain = liquids.get(hotLiquid);
             if(remain <= 0.001f) return;
 
@@ -180,7 +213,9 @@ public class OverheatTurret extends PowerTurret{
         }
 
         boolean hotHasSpace(){
-            return hotLiquid != null && liquids.get(hotLiquid) < block.liquidCapacity - 0.001f;
+            if(hotLiquid == null) return false;
+            if(virtualHot) return hotStored < hotCapacity - 0.001f;
+            return liquids.get(hotLiquid) < block.liquidCapacity - 0.001f;
         }
 
         @Override
@@ -192,6 +227,7 @@ public class OverheatTurret extends PowerTurret{
             boolean firing = target != null || isShooting();
             cooling = hasCold && (overheat < overheatTime * 0.98f);
             if(coolOnlyWhenIdle) cooling = cooling && !firing;
+            if(consumeOnlyWhenFiring && !firing && !requireCompleteCooling) cooling = false;
             int ti = tier();
 
             if(requireCompleteCooling){
@@ -202,11 +238,16 @@ public class OverheatTurret extends PowerTurret{
                 if(liq != null){
                     float amount = Math.min(coolantUse * delta(), liquids.get(liq));
                     if(t == hotLiquidTier && hotLiquid != null){
-                        amount = Math.min(amount, Math.max(block.liquidCapacity - liquids.get(hotLiquid), 0f));
+                        amount = virtualHot
+                            ? Math.min(amount, Math.max(hotCapacity - hotStored, 0f))
+                            : Math.min(amount, Math.max(block.liquidCapacity - liquids.get(hotLiquid), 0f));
                     }
                     if(amount > 0f){
                         liquids.remove(liq, amount);
-                        if(t == hotLiquidTier && hotLiquid != null) liquids.add(hotLiquid, amount);
+                        if(t == hotLiquidTier && hotLiquid != null){
+                            if(virtualHot) hotStored = Math.min(hotCapacity, hotStored + amount);
+                            else liquids.add(hotLiquid, amount);
+                        }
                     }
                 }
                 overheat = Math.max(0f, overheat - overheatCoolAmount * 3f * Time.delta);
@@ -313,7 +354,7 @@ public class OverheatTurret extends PowerTurret{
 
         @Override
         public byte version(){
-            return 2;
+            return 3;
         }
 
         @Override
@@ -323,6 +364,7 @@ public class OverheatTurret extends PowerTurret{
             write.f(slowDownReload);
             write.f(speedupScl);
             write.bool(requireCompleteCooling);
+            write.f(hotStored);
         }
 
         @Override
@@ -333,6 +375,9 @@ public class OverheatTurret extends PowerTurret{
                 slowDownReload = read.f();
                 speedupScl = read.f();
                 requireCompleteCooling = read.bool();
+            }
+            if(revision >= 3){
+                hotStored = read.f();
             }
         }
     }

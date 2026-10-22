@@ -24,7 +24,7 @@ public class LiquidConveyor extends Conveyor{
     /** 是否接受任意冷却液（高级款）；false = 只收水。 */
     public boolean anyCoolant = false;
     /** 各种液体对应的速度倍率。 */
-    public float waterBoost = 1.15f, cryoBoost = 1.25f, grapheneBoost = 1.55f;
+    public float waterBoost = 1.15f, cryoBoost = 1.25f, grapheneBoost = 1.55f, chillerBoost = 1.25f;
     /** 液体每多少 tick 前进一步（越大越慢）。 */
     public float liquidStep = 20f;
     /** 每格每多少 tick 消耗 1 单位液体（默认 48 秒）。 */
@@ -43,10 +43,12 @@ public class LiquidConveyor extends Conveyor{
             stats.add(Stat.booster, IronworksStats.liquidBoosts("stat.ironworks-action-belt",
                 Liquids.water, waterBoost, -1f,
                 Liquids.cryofluid, cryoBoost, -1f,
+                IronworksLiquids.chiller, chillerBoost, -1f,
                 IronworksLiquids.grapheneCoolant, grapheneBoost, -1f));
         }else{
             stats.add(Stat.booster, IronworksStats.liquidBoosts("stat.ironworks-action-belt",
-                Liquids.water, waterBoost, -1f));
+                Liquids.water, waterBoost, -1f,
+                IronworksLiquids.chiller, chillerBoost, -1f));
         }
     }
 
@@ -54,12 +56,14 @@ public class LiquidConveyor extends Conveyor{
         if(liquid == null) return 1f;
         if(liquid == Liquids.water) return waterBoost;
         if(liquid == Liquids.cryofluid) return cryoBoost;
+        if(liquid == IronworksLiquids.chiller) return chillerBoost;
         if(liquid == IronworksLiquids.grapheneCoolant) return grapheneBoost;
         return 1f;
     }
 
     public boolean accepts(Liquid liquid){
-        if(liquid == Liquids.water) return true;
+        // 水与冷冻液是基础冷却液：两档传送带都收；高级款再收冰晶液与石墨烯冷却液
+        if(liquid == Liquids.water || liquid == IronworksLiquids.chiller) return true;
         return anyCoolant && (liquid == Liquids.cryofluid || liquid == IronworksLiquids.grapheneCoolant);
     }
 

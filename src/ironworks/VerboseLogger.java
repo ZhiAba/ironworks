@@ -39,8 +39,9 @@ public class VerboseLogger extends Block{
 
             Liquid cold = IronworksLiquids.grapheneCoolant;
             Liquid hot = IronworksLiquids.hotCoolant;
+            Liquid chill = IronworksLiquids.chiller;
 
-            float coldTotal = 0f, hotTotal = 0f;
+            float coldTotal = 0f, hotTotal = 0f, chillTotal = 0f;
             int modBuilds = 0;
             StringBuilder turrets = new StringBuilder();
             StringBuilder mods = new StringBuilder();
@@ -52,6 +53,7 @@ public class VerboseLogger extends Block{
                 if(b.liquids != null){
                     coldTotal += b.liquids.get(cold);
                     hotTotal += b.liquids.get(hot);
+                    chillTotal += b.liquids.get(chill);
                 }
 
                 if(b instanceof Turret.TurretBuild t){
@@ -59,6 +61,7 @@ public class VerboseLogger extends Block{
                         .append(" ammo=").append(t.totalAmmo)
                         .append(" C=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(cold)))
                         .append(" H=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(hot)))
+                        .append(" L=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(chill)))
                         .append(" tgt=").append(t.target != null)
                         .append(" heat=").append(t.isShooting() ? 1 : 0)
                         .append(" | ");
@@ -75,7 +78,7 @@ public class VerboseLogger extends Block{
                 player = Iround(u.x) + "," + Iround(u.y) + " hp=" + Iround(u.health);
             }
 
-            float total = coldTotal + hotTotal;
+            float total = coldTotal + hotTotal + chillTotal;
             String anomaly = "";
             if(lastCold >= 0f){
                 float d = total - (lastCold + lastHot);
@@ -92,6 +95,7 @@ public class VerboseLogger extends Block{
                 + " units=" + Groups.unit.size() + " builds=" + Groups.build.size() + " mod=" + modBuilds
                 + " player=" + player
                 + " cold=" + IronworksLog.fmt(coldTotal) + " hot=" + IronworksLog.fmt(hotTotal)
+                + " chill=" + IronworksLog.fmt(chillTotal)
                 + " total=" + IronworksLog.fmt(total) + anomaly
                 + " | " + turrets + mods);
 

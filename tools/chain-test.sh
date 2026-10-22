@@ -696,6 +696,16 @@ cd "$TESTDIR" || exit 1
 
   # ---- 88. 天罚远程连锁：射程 45 格、最多 12 连、每连 120 伤害 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T88 range=" + tb.range + " chain=" + tb.chainTargets + " chainDmg=" + tb.chainDamage + " chainR=" + tb.chainRange)'
+  # ---- 90. 天罚闲置不喝冷却液（修复"送不进去"） ----
+  echo 'js Vars.world.tile(40,124).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var th=Vars.world.tile(40,124).build; th.liquids.add(Vars.content.liquid("ironworks-chiller"), 300); Log.info("T90 add=" + Math.round(th.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
+  sleep 3
+  echo 'js Log.info("T90b idleKeep=" + Math.round(Vars.world.tile(40,124).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
+
+  # ---- 91. 天罚冷却配置：1440 容量 / 120 每秒 / 虚拟热槽 ----
+  echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T91 cap=" + tb.liquidCapacity + " use=" + tb.coolantUse + " hotCap=" + tb.hotCapacity + " virtualHot=" + tb.virtualHot + " consumeOnlyFiring=" + tb.consumeOnlyWhenFiring)'
+
 
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

@@ -35,15 +35,16 @@ public class IronworksTianfa{
             rotateSpeed = 2.2f;
             health = 6800;
             armor = 10f;
-            consumePower(4096f);       // 每秒 4096 电
+            // Mindustry 的 consumePower 参数是「每 tick」：4096/秒 = 68.267/刻
+            consumePower(4096f / 60f);
 
             shootSound = Sounds.shootArc;
             heatColor = Color.valueOf("8a7bff");
             heatEffect = mindustry.content.Fx.reactorsmoke;
             maxHeatEffectChance = 0.45f;
 
-            liquidCapacity = 120f;
-            coolantUse = 0.6f;
+            liquidCapacity = 1440f;     // 冷液容量
+            coolantUse = 2f;           // 2/刻 = 120/秒
             coolantLiquids = new mindustry.type.Liquid[]{
                 IronworksLiquids.chiller, IronworksLiquids.grapheneCoolant};
             coolantFireMult = new float[]{1.25f, 1.45f};
@@ -53,9 +54,13 @@ public class IronworksTianfa{
             noCoolantStackCap = 0.75f;
             shotHeat = true;
             shotHeatAmount = 0.05f;
-            coolOnlyWhenIdle = true;
-            hotLiquid = null;
-            hotLiquidTier = -1;
+            coolOnlyWhenIdle = false;
+            consumeOnlyWhenFiring = true;   // 停火不喝冷却液
+            // 石墨烯冷却液（下标 1）吸热后转成热液，存在独立的虚拟热槽里
+            hotLiquid = IronworksLiquids.hotCoolant;
+            hotLiquidTier = 1;
+            virtualHot = true;
+            hotCapacity = 1440f;
 
             // 直接结算炮塔也必须给一个 BulletType：
             // 原版详情页的"弹药"统计会读 BulletType.spawnUnit，null 会直接 NPE 崩游戏。
