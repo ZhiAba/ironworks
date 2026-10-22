@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v0.56.1，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v0.56.2，Java 编写，自研多配方库 + 状态/光环 + 外挂装甲，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -73,7 +73,7 @@ Mindustry 模组「铁流工业」v0.56.1，Java 编写，自研多配方库 + �
 22. 多配方机器要限制 `acceptLiquid` + `liquidOutputDirections`，否则相邻机器互相倒灌卡线
 
 ## 工具脚本
-- `tools/chain-test.sh`：无头端回归 T1–T86（内部 timeout 520s）
+- `tools/chain-test.sh`：无头端回归 T1–T87（内部 timeout 520s）
 - `tools/balance.js`：造价/弹耗/DPS/效率 + 装甲成本
 - `/root/tools/genstatus.js`、`/root/tools/genarmor.js`：贴图生成
 
@@ -97,6 +97,13 @@ Mindustry 模组「铁流工业」v0.56.1，Java 编写，自研多配方库 + �
 2. 迫击炮（最小射程盲区，需自定义 Turret）
 3. 给自研库加 hjson 解析
 4. 战役/许可/地图（已搁置）
+
+## 0.56.2 炮口位置修复
+- 症状：天罚开火时闪电从炮塔左下方发出，不在四根炮管上
+- 根因：炮口局部坐标按"屏幕坐标"写成 Y 负值，且旋转用的是 rotation 而不是 rotation-90
+  （Mindustry 炮塔贴图的上方对应 rotation=90°，世界坐标 Y 向上为正）
+- 修复：muzzleY 改为 +34/+38，局部坐标按 rotation-90 旋转
+- 防回归：T87 检查所有炮口 Y 必须为正
 
 ## 0.56.1 崩溃修复
 - 症状：点开「天罚」详情页，游戏直接崩溃（ContentInfoDialog → StatValues.ammo）

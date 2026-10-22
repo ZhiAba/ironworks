@@ -691,5 +691,8 @@ cd "$TESTDIR" || exit 1
   # ---- 86. 所有炮塔必须有 shootType 或 ammoTypes（否则详情页 StatValues.ammo 会 NPE 崩游戏） ----
   echo 'js function isTurret(b){var c=b.getClass(); while(c!=null){if(c.getName().indexOf("Turret")>=0) return true; c=c.getSuperclass();} return false;} var bad=[]; var bs=Vars.content.blocks(); for(var i=0;i<bs.size;i++){var b=bs.get(i); if(b.minfo==null||b.minfo.mod==null||!isTurret(b)) continue; var st=b.shootType; var am=b.ammoTypes; if(st==null && am==null) bad.push(b.name);} Log.info("T86 noAmmoOrShoot=" + bad.length + " :: " + bad.join(","))'
 
+  # ---- 87. 天罚炮口坐标必须朝上（世界坐标 Y 为正），否则开火位置会跑到左下方 ----
+  echo 'js var tb=Vars.content.block("ironworks-tianfa"); var ok=true; for(var i=0;i<tb.muzzleY.length;i++){ if(tb.muzzleY[i] <= 0) ok=false; } Log.info("T87 muzzleUp=" + ok + " n=" + tb.muzzleX.length)'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

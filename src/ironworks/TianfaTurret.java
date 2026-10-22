@@ -32,8 +32,9 @@ public class TianfaTurret extends OverheatTurret{
     public TextureRegion baseRegion;
 
     /** 4 个炮口的局部坐标（相对方块中心，炮口在贴图上方） */
+    // 炮口局部坐标：X 向右为正，Y 向上为正（世界坐标），贴图里炮口在顶部所以 Y 是正的
     public float[] muzzleX = {-28f, -9f, 9f, 28f};
-    public float[] muzzleY = {-34f, -38f, -38f, -34f};
+    public float[] muzzleY = {34f, 38f, 38f, 34f};
 
     public TianfaTurret(String name){
         super(name);
@@ -74,7 +75,9 @@ public class TianfaTurret extends OverheatTurret{
 
             int idx = Math.floorMod(muzzle, muzzleX.length);
             float ox = muzzleX[idx], oy = muzzleY[idx];
-            float cs = Mathf.cosDeg(rotation), sn = Mathf.sinDeg(rotation);
+            // 炮塔贴图的"上方"对应 rotation = 90°，所以局部坐标要按 rotation - 90 旋转
+            float rot = rotation - 90f;
+            float cs = Mathf.cosDeg(rot), sn = Mathf.sinDeg(rot);
             float mx = x + ox * cs - oy * sn;
             float my = y + ox * sn + oy * cs;
 
