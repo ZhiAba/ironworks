@@ -7,11 +7,13 @@ import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.struct.IntSet;
+import arc.util.Eachable;
 import arc.util.Time;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
 import mindustry.Vars;
 import mindustry.content.Items;
+import mindustry.entities.units.BuildPlan;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.graphics.Pal;
@@ -21,6 +23,7 @@ import mindustry.ui.Bar;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.defense.Wall;
+import mindustry.world.consumers.ConsumeLiquid;
 import mindustry.world.consumers.ConsumePowerDynamic;
 import mindustry.world.meta.BlockGroup;
 import mindustry.world.meta.BuildVisibility;
@@ -53,7 +56,12 @@ public class IronworksCompute{
 
     public static final float basePower = 32460f;
     public static final float moduleCap = 2.0f;
-    public static final float coolantUse = 1f;
+    /** 基础超速 50%。 */
+    public static final float baseBoost = 0.5f;
+    /** 全局最大超速 250%。 */
+    public static final float maxBoost = 2.5f;
+    /** 4/tick = 240/秒。 */
+    public static final float coolantUse = 4f;
 
     /** 4×6：核心 4×4 + 底排两个 2×2（相对核心锚点）。 */
     public static final int[][] CLUSTER_LAYOUT = {{-1, -3, 2}, {1, -3, 2}};
@@ -95,9 +103,16 @@ public class IronworksCompute{
             solid = true;
             update = true;
             hasLiquids = true;
-            liquidCapacity = 480f;
+            liquidCapacity = 2000f;
             hasPower = true;
-            consumeLiquid(IronworksLiquids.grapheneCoolant, coolantUse);
+            //冷却液 240/秒 → 热冷却液；热槽满时效率归零（不再白烧冷却液）
+            consume(new ConsumeLiquid(IronworksLiquids.grapheneCoolant, coolantUse){
+                @Override
+                public float efficiency(Building build){
+                    ComputeClusterBuild c = (ComputeClusterBuild)build;
+                    return c.hotFull() ? 0f : super.efficiency(build);
+                }
+            });
             consume(new ConsumePowerDynamic(b -> {
                 ComputeClusterBuild c = (ComputeClusterBuild)b;
                 return (basePower + c.modulePower) / 60f;
@@ -114,15 +129,19 @@ public class IronworksCompute{
 
     /** 方块（含链接块）在 tile 坐标下的包围盒，写入 out = {x1, y1, x2, y2}。 */
     public static void rectOf(Building b, int[] out){
-        int size = b.block.size, off = (size - 1) / 2;
-        int x1 = b.tileX() - off, y1 = b.tileY() - off;
+        unionRect(b.tileX(), b.tileY(), b.block.size, layoutOf(b.block), out);
+    }
+
+    /** 按锚点 tile 计算含链接块的包围盒（不需要 Building 实例，画幽灵/蓝图时用）。 */
+    public static void unionRect(int tx, int ty, int size, int[][] layout, int[] out){
+        int off = (size - 1) / 2;
+        int x1 = tx - off, y1 = ty - off;
         int x2 = x1 + size - 1, y2 = y1 + size - 1;
 
-        int[][] layout = layoutOf(b.block);
         if(layout != null){
             for(int[] l : layout){
                 int ls = l[2], lo = (ls - 1) / 2;
-                int ax = b.tileX() + l[0] - lo, ay = b.tileY() + l[1] - lo;
+                int ax = tx + l[0] - lo, ay = ty + l[1] - lo;
                 x1 = Math.min(x1, ax);
                 y1 = Math.min(y1, ay);
                 x2 = Math.max(x2, ax + ls - 1);
@@ -134,6 +153,10 @@ public class IronworksCompute{
         out[2] = x2;
         out[3] = y2;
     }
+
+    /** 包围盒中心的 world 坐标。 */
+    public static float centerX(int[] r){ return (r[0] + r[2] + 1) / 2f * 8f; }
+    public static float centerY(int[] r){ return (r[1] + r[3] + 1) / 2f * 8f; }
 
     public static int[][] layoutOf(Block b){
         if(b instanceof ComputeCluster c) return c.linkLayout;
@@ -308,6 +331,26 @@ public class IronworksCompute{
                 if(host != null) host.handleLiquid(this, liquid, amount);
             }
 
+            //整张机器贴图由主块一体绘制，链接块不画任何东西（和新视界一致）
+            @Override
+            public void draw(){
+            }
+
+            @Override
+            public void drawSelect(){
+                if(host != null) host.drawSelect();
+            }
+
+            @Override
+            public float handleDamage(float amount){
+                return host != null ? host.handleDamage(amount) : 0f;
+            }
+
+            @Override
+            public void damage(float amount){
+                if(host != null) host.damage(amount);
+            }
+
             @Override
             public byte version(){
                 return 1;
@@ -359,6 +402,28 @@ public class IronworksCompute{
         public void load(){
             super.load();
             if(hasVariant) variant = Core.atlas.find(name + "-2");
+            uiIcon = fullIcon = Core.atlas.find(name + "-ui", region);
+        }
+
+        @Override
+        public void drawPlace(int x, int y, int rotation, boolean valid){
+            if(linkLayout == null){
+                super.drawPlace(x, y, rotation, valid);
+                return;
+            }
+            drawPotentialLinks(x, y);
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, r);
+            Draw.color(valid ? Color.white : Pal.remove);
+            Draw.rect(region, centerX(r), centerY(r));
+            Draw.color();
+        }
+
+        @Override
+        public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
+            int[] r = new int[4];
+            unionRect(plan.x, plan.y, size, linkLayout, r);
+            Draw.rect(region, centerX(r), centerY(r));
         }
 
         @Override
@@ -408,11 +473,15 @@ public class IronworksCompute{
 
             @Override
             public void draw(){
-                if(attached && variant != null && variant.found()){
+                if(hasVariant && attached && variant != null && variant.found()){
                     Draw.rect(variant, x, y, variant.width / 4f, variant.height / 4f, -90f * dir);
+                }else if(linkLayout != null){
+                    int[] r = new int[4];
+                    rectOf(this, r);
+                    Draw.rect(region, centerX(r), centerY(r));
+                    if(attached) drawContactGlow();
                 }else{
                     super.draw();
-                    if(attached && (variant == null || !variant.found())) drawContactGlow();
                 }
             }
 
@@ -463,8 +532,31 @@ public class IronworksCompute{
         }
 
         @Override
+        public void load(){
+            super.load();
+            uiIcon = fullIcon = Core.atlas.find(name + "-ui", region);
+        }
+
+        @Override
         public boolean canPlaceOn(Tile tile, Team team, int rotation){
             return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
+        }
+
+        @Override
+        public void drawPlace(int x, int y, int rotation, boolean valid){
+            drawPotentialLinks(x, y);
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, r);
+            Draw.color(valid ? Color.white : Pal.remove);
+            Draw.rect(region, centerX(r), centerY(r));
+            Draw.color();
+        }
+
+        @Override
+        public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
+            int[] r = new int[4];
+            unionRect(plan.x, plan.y, size, linkLayout, r);
+            Draw.rect(region, centerX(r), centerY(r));
         }
 
         @Override
@@ -472,9 +564,9 @@ public class IronworksCompute{
             super.setStats();
             stats.remove(Stat.size);
             stats.add(Stat.size, "4×6");
-            stats.add(new Stat("ironworks-compute-base"), "50% ~ 250%");
-            stats.add(new Stat("ironworks-compute-modules"), "上限 +200%（整边贴合）");
-            stats.add(new Stat("ironworks-compute-coolant"), "石墨烯冷却液 60/秒");
+            stats.add(new Stat("ironworks-compute-base"), "基础 50%，全局上限 250%");
+            stats.add(new Stat("ironworks-compute-modules"), "模块加成计入上限（整边贴合）");
+            stats.add(new Stat("ironworks-compute-coolant"), "石墨烯冷却液 240/秒 → 热冷却液（存量 2000）");
         }
 
         @Override
@@ -483,13 +575,23 @@ public class IronworksCompute{
             addBar("compute-boost", (ComputeClusterBuild e) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-compute-boost", Mathf.round(e.appliedBoost * 100f)),
                 () -> Pal.accent,
-                () -> Mathf.clamp(e.appliedBoost / 4.5f)
+                () -> Mathf.clamp(e.appliedBoost / maxBoost)
             ));
             addBar("compute-modules", (ComputeClusterBuild e) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-compute-modules", e.moduleCount,
                     Mathf.round(e.moduleBonus * 100f)),
                 () -> arc.graphics.Color.valueOf("b6a8ff"),
                 () -> Mathf.clamp(e.moduleBonus / moduleCap)
+            ));
+            addBar("compute-coolant", (ComputeClusterBuild e) -> e.liquids.get(IronworksLiquids.grapheneCoolant) <= 0.01f ? null : new Bar(
+                () -> Core.bundle.format("bar.ironworks-compute-coolant", Mathf.round(e.liquids.get(IronworksLiquids.grapheneCoolant))),
+                () -> IronworksLiquids.grapheneCoolant.color,
+                () -> Mathf.clamp(e.liquids.get(IronworksLiquids.grapheneCoolant) / e.block.liquidCapacity)
+            ));
+            addBar("compute-hot", (ComputeClusterBuild e) -> e.liquids.get(IronworksLiquids.hotCoolant) <= 0.01f ? null : new Bar(
+                () -> Core.bundle.format("bar.ironworks-compute-hot", Mathf.round(e.liquids.get(IronworksLiquids.hotCoolant))),
+                () -> IronworksLiquids.hotCoolant.color,
+                () -> Mathf.clamp(e.liquids.get(IronworksLiquids.hotCoolant) / e.block.liquidCapacity)
             ));
         }
 
@@ -538,8 +640,19 @@ public class IronworksCompute{
                 }
 
                 boolean working = efficiency > 0.001f;
-                float base = working ? 0.5f + 2.0f * Mathf.clamp(efficiency, 0f, 1f) : 0f;
-                appliedBoost = working ? base + moduleBonus : 0f;
+                appliedBoost = working ? Math.min(baseBoost + moduleBonus, maxBoost) : 0f;
+
+                //冷却液转热冷却液，与消耗同步（efficiency 为 0 时 edelta 也是 0）
+                float flow = coolantUse * edelta();
+                if(flow > 0f){
+                    float space = block.liquidCapacity - liquids.get(IronworksLiquids.hotCoolant);
+                    if(space > 0.0001f){
+                        liquids.add(IronworksLiquids.hotCoolant, Math.min(flow, space));
+                    }
+                }
+                if(liquids.get(IronworksLiquids.hotCoolant) > 0.01f){
+                    dumpLiquid(IronworksLiquids.hotCoolant);
+                }
 
                 if(appliedBoost > 0.001f){
                     applyTimer += delta();
@@ -554,6 +667,18 @@ public class IronworksCompute{
                         }
                     }
                 }
+            }
+
+            /** 热冷却液存满了就停机，不再继续消耗冷却液。 */
+            public boolean hotFull(){
+                return liquids.get(IronworksLiquids.hotCoolant) >= block.liquidCapacity - 0.001f;
+            }
+
+            @Override
+            public void draw(){
+                int[] r = new int[4];
+                rectOf(this, r);
+                Draw.rect(block.region, centerX(r), centerY(r));
             }
 
             @Override

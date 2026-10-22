@@ -777,5 +777,16 @@ cd "$TESTDIR" || exit 1
   sleep 1
   echo 'js var lk2=Vars.world.tile(199,217).build; Log.info("T100b rebound=" + (lk2!=null && lk2.host==Vars.world.tile(200,220).build))'
 
+  # ---- 101. 冷却液转化：240/秒石墨烯冷却液 → 热冷却液，容量 2000，基础超速 50% ----
+  echo 'js Vars.world.tile(140,220).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(143,220).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(143,221).setBlock(Vars.content.block("liquid-source"), Vars.state.rules.defaultTeam)'
+  sleep 3
+  echo 'js Vars.world.tile(143,221).build.source=Vars.content.liquid("ironworks-graphene-coolant")'
+  sleep 2
+  echo 'js var h=Vars.content.liquid("ironworks-hot-coolant"); var c=Vars.world.tile(140,220).build; Log.info("T101a cap=" + c.block.liquidCapacity + " boost=" + Math.round(c.appliedBoost*100) + " hot=" + Math.round(c.liquids.get(h)))'
+  sleep 3
+  echo 'js var h=Vars.content.liquid("ironworks-hot-coolant"); var c=Vars.world.tile(140,220).build; Log.info("T101b hot2=" + Math.round(c.liquids.get(h)) + " cold=" + Math.round(c.liquids.get(Vars.content.liquid("ironworks-graphene-coolant"))))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

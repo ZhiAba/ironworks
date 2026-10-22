@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-22，v0.62.0）
+# 铁流工业 交接文档（2026-10-22，v0.63.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -9,7 +9,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`eda88bca2ce8848517ba5db07c7eacec`（0.62.0）
+- 当前 jar md5：`8df181ea74bd0a1e437193e6123d9e15`（0.63.0）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
@@ -23,11 +23,17 @@
 - 方块：冶炼（高炉/转炉/连铸/电弧炉/还原炉）、化工（电解/空分/脱硫/火药/制酸/贵金属浸出/芯片车间/铝厂）、弹药线、炮弹组装、炮塔（速射/穿甲/迫击炮/电弧/磁轨/奇点）、装甲/支援、储运（桶/高温管道/坩埚/通液传送带 2 档 + 路由/交叉/带桥）、调试方块
 - 科技：材料线与建筑线挂基础核心；物品产出解锁免费，建筑显式研究成本
 
-## 矩形占地（0.62.0）
+## 参考：新视界源码 vs 发布版
+- 用户实机版本：`1yuria-shikibenewhorizonmod.zip` → `2.0_v154_1`（minGameVersion 154）
+- 本地源码：`源码NewHorizonMod-main` → `2.0-TEST-VERSION`（minGameVersion 154）
+- 对比：bundle 仅差 16 行（源码略新，多了 silicar-crusher / stamping-presser / ammonia / hydrazine 等），贴图目录完全一致 → 直接用源码版参考，无需逆向
+
+## 矩形占地（0.62.0 / 0.63.0）
 - 主集群 = 4×4 核心 + 两个 2×2 隐藏链接块（`compute-cluster-link`）→ 4×6；高级模块 = 2×2 + 两个 1×1 通风块（`compute-advanced-link`）→ 2×3
 - 链接块：`BuildVisibility.hidden`、不可建造、不可拆除、液体转发给核心、`relX/relY` 相对坐标读档重绑
 - 放置校验 `canPlaceOn` 检查链接块占地；拆主块 `onRemoved` 连带清链接块；遗留链接块 10 tick 自毁
 - 贴合判定：包围盒 + 整边覆盖；方向 dir 指「主集群相对模块的方向」（0 上 / 1 右 / 2 下 / 3 左）
+- 0.63.0：主块画整张一体贴图（`region` 即 4×6 / 2×3 大图），链接块 `draw()` 留空；`*-ui` 为建造菜单方形图标；`drawPlace`/`drawPlanRegion` 按包围盒居中画幽灵
 
 ## 已修复的典型坑
 - 配方索引只追加，不插队
@@ -59,7 +65,7 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-22 00:20）
-状态：v0.62.0 已构建并部署双客户端，md5 `eda88bca2ce8848517ba5db07c7eacec`。
+状态：v0.63.0 已构建并部署双客户端，md5 `8df181ea74bd0a1e437193e6123d9e15`。
 T1–T93 整套回归已跑过全绿；T76/T77 已并入整轮回归并全绿。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归

@@ -3,7 +3,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
-/** 算力集群矩形化：生成 4x4 主块 + 2x2 链接块 + 2x2 高级模块 + 1x1 通风块。 */
+/** 算力集群：主块一张整图（4x6 / 2x3），链接块不绘制；另出方形 UI 图标。 */
 public class Gen{
     static final Color OUT  = new Color(0x12141c);
     static final Color DARK = new Color(0x222632);
@@ -17,9 +17,15 @@ public class Gen{
 
     static Graphics2D g;
 
-    static void rect(int x, int y, int w, int h, Color c){
-        g.setColor(c); g.fillRect(x, y, w, h);
+    static BufferedImage img(int w, int h){
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        rect(0, 0, w, h, DARK);
+        frame(w, h);
+        return img;
     }
+    static void rect(int x, int y, int w, int h, Color c){ g.setColor(c); g.fillRect(x, y, w, h); }
     static void frame(int w, int h){
         rect(0, 0, w, h, OUT);
         rect(1, 1, w - 2, h - 2, MID);
@@ -35,134 +41,124 @@ public class Gen{
         }
     }
 
-    /** 4x4 主块：顶栏 + 双侧机架 + 中央算力环。 */
-    static BufferedImage cluster(){
-        BufferedImage img = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
-        g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        rect(0, 0, 128, 128, DARK);
-        frame(128, 128);
-
-        // 顶栏
-        rect(8, 8, 112, 18, LIT);
-        rect(8, 8, 112, 2, GREY);
+    /** 顶部状态栏 */
+    static void banner(int w){
+        rect(8, 8, w - 16, 20, LIT);
+        rect(8, 8, w - 16, 2, GREY);
         for(int i = 0; i < 3; i++) rect(14 + i * 10, 14, 4, 4, i == 0 ? PURL : PURD);
-        rect(50, 13, 52, 4, GREY);
+        rect(50, 13, w - 78, 4, GREY);
         rect(50, 19, 32, 3, MID);
-        rect(108, 13, 8, 8, OUT);
-        rect(110, 15, 4, 4, PUR);
+        rect(w - 20, 12, 8, 8, OUT);
+        rect(w - 18, 14, 4, 4, PUR);
+    }
 
-        // 两侧机架
-        for(int side = 0; side < 2; side++){
-            int bx = side == 0 ? 10 : 96;
-            rect(bx, 34, 22, 62, OUT);
-            rect(bx + 1, 35, 20, 60, MID);
-            for(int row = 0; row < 6; row++){
-                for(int col = 0; col < 3; col++){
-                    boolean on = (row + col + side * 2) % 3 != 1;
-                    dot(bx + 3 + col * 6, 38 + row * 10, on ? PUR : PURD);
-                }
-                rect(bx + 2, 43 + row * 10, 18, 1, DARK);
+    /** 两侧机架列 */
+    static void racks(int x, int y, int h){
+        rect(x, y, 22, h, OUT);
+        rect(x + 1, y + 1, 20, h - 2, MID);
+        int rows = h / 11;
+        for(int row = 0; row < rows; row++){
+            for(int col = 0; col < 3; col++){
+                boolean on = (row + col) % 3 != 1;
+                dot(x + 3 + col * 6, y + 4 + row * 11, on ? PUR : PURD);
             }
+            rect(x + 2, y + 9 + row * 11, 18, 1, DARK);
         }
-
-        // 中央环
-        ring(64, 72, 32, OUT);
-        ring(64, 72, 30, PURD);
-        ring(64, 72, 27, MID);
-        ring(64, 72, 24, PUR);
-        ring(64, 72, 21, DARK);
-        rect(58, 52, 12, 40, OUT);
-        rect(60, 54, 8, 36, PURL);
-        rect(62, 58, 4, 28, PURI);
-        rect(64, 66, 2, 16, PURI);
-
-        // 底部格栅
-        rect(10, 100, 108, 2, MID);
-        for(int i = 0; i < 9; i++) rect(10 + i * 12, 106, 8, 12, OUT);
-        for(int i = 0; i < 9; i++) rect(11 + i * 12, 108, 6, 8, MID);
-        for(int i = 0; i < 4; i++) rect(96 + i * 6, 121, 3, 3, i % 2 == 0 ? PUR : PURD);
-        return img;
     }
 
-    /** 2x2 链接块：同款机架延续 + 冷却歧管；镜像后左右两块可共用一张图。 */
-    static BufferedImage clusterLink(){
-        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-        g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        rect(0, 0, 64, 64, DARK);
-        frame(64, 64);
-
-        // 与主块相连的接口柱
-        for(int i = 0; i < 3; i++){
-            rect(10 + i * 18, 6, 10, 10, OUT);
-            rect(11 + i * 18, 7, 8, 9, LIT);
-            rect(13 + i * 18, 7, 4, 3, PUR);
-        }
-
-        // 两道冷却歧管
-        for(int k = 0; k < 2; k++){
-            int y = 22 + k * 16;
-            rect(8, y, 48, 8, OUT);
-            rect(9, y + 1, 46, 6, LIT);
-            rect(9, y + 3, 46, 2, MID);
-            for(int i = 0; i < 5; i++) rect(12 + i * 9, y + 3, 4, 2, i % 2 == 0 ? PUR : PURD);
-        }
-
-        // 底部散热口
-        for(int i = 0; i < 2; i++){
-            rect(10 + i * 24, 52, 20, 6, OUT);
-            rect(12 + i * 24, 53, 16, 4, MID);
-            rect(14 + i * 24, 54, 12, 2, DARK);
-        }
-        return img;
+    /** 中央算力环 */
+    static void core(int cx, int cy, int r){
+        ring(cx, cy, r, OUT);
+        ring(cx, cy, r - 2, PURD);
+        ring(cx, cy, r - 5, MID);
+        ring(cx, cy, r - 8, PUR);
+        ring(cx, cy, r - 11, DARK);
+        int pw = Math.max(6, r / 3), ph = Math.max(20, r);
+        rect(cx - pw / 2 - 2, cy - ph / 2 - 2, pw + 4, ph + 4, OUT);
+        rect(cx - pw / 2, cy - ph / 2, pw, ph, PURL);
+        rect(cx - pw / 4, cy - ph / 2 + 4, Math.max(2, pw / 2), ph - 8, PURI);
     }
 
-    /** 2x2 高级模块核心：小号算法环 + 四角螺栓。 */
-    static BufferedImage advCore(){
-        BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-        g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        rect(0, 0, 64, 64, DARK);
-        frame(64, 64);
+    /** 横向冷却歧管 */
+    static void manifold(int x, int y, int w, int phase){
+        rect(x, y, w, 9, OUT);
+        rect(x + 1, y + 1, w - 2, 7, LIT);
+        rect(x + 1, y + 3, w - 2, 3, MID);
+        for(int i = 0; i < w / 18; i++){
+            rect(x + 6 + i * 18, y + 3, 5, 3, (i + phase) % 2 == 0 ? PUR : PURD);
+        }
+    }
 
+    /** 底部散热口 */
+    static void vents(int x, int y, int w, int v){
+        int step = (w - 4) / v;
+        for(int i = 0; i < v; i++){
+            rect(x + 2 + i * step, y, step - 3, 12, OUT);
+            rect(x + 3 + i * step, y + 1, step - 5, 10, MID);
+            rect(x + 4 + i * step, y + 3, step - 7, 6, DARK);
+        }
+    }
+
+    /** 4x6 全域算力集群：整张一体图 */
+    static BufferedImage clusterFull(){
+        BufferedImage im = img(128, 192);
+        banner(128);
+        racks(10, 36, 86);
+        racks(96, 36, 86);
+        core(64, 80, 32);
+        manifold(8, 132, 112, 0);
+        manifold(8, 146, 112, 1);
+        vents(10, 164, 108, 4);
+        for(int i = 0; i < 4; i++) rect(96 + i * 6, 182, 3, 3, i % 2 == 0 ? PUR : PURD);
+        return im;
+    }
+
+    /** 4x6 的方形 UI 图标 */
+    static BufferedImage clusterIcon(){
+        BufferedImage im = img(128, 128);
+        banner(128);
+        racks(8, 34, 62);
+        racks(98, 34, 62);
+        core(64, 66, 26);
+        vents(10, 108, 108, 4);
+        return im;
+    }
+
+    /** 2x3 高级算力模块：整张一体图 */
+    static BufferedImage advFull(){
+        BufferedImage im = img(64, 96);
         for(int cx = 0; cx < 2; cx++) for(int cy = 0; cy < 2; cy++){
-            rect(8 + cx * 44, 8 + cy * 44, 6, 6, OUT);
-            rect(9 + cx * 44, 9 + cy * 44, 4, 4, GREY);
-            rect(10 + cx * 44, 10 + cy * 44, 2, 2, LIT);
+            rect(7 + cx * 46, 7 + cy * 46, 6, 6, OUT);
+            rect(8 + cx * 46, 8 + cy * 46, 4, 4, GREY);
+            rect(9 + cx * 46, 9 + cy * 46, 2, 2, LIT);
         }
-
-        ring(32, 32, 23, OUT);
-        ring(32, 32, 21, PURD);
-        ring(32, 32, 18, MID);
-        ring(32, 32, 15, PUR);
-        ring(32, 32, 12, DARK);
-        rect(27, 22, 10, 20, OUT);
-        rect(29, 24, 6, 16, PURL);
-        rect(31, 27, 2, 10, PURI);
-
-        // 侧边状态灯
+        core(32, 32, 22);
         for(int i = 0; i < 3; i++){
-            dot(52, 26 + i * 6, i == 1 ? PURD : PUR);
-            dot(9, 26 + i * 6, i == 2 ? PURD : PUR);
+            dot(54, 24 + i * 7, i == 1 ? PURD : PUR);
+            dot(7, 24 + i * 7, i == 2 ? PURD : PUR);
         }
-        return img;
+        manifold(8, 66, 48, 0);
+        vents(10, 80, 44, 2);
+        return im;
     }
 
-    /** 1x1 通风块。 */
-    static BufferedImage advVent(){
-        BufferedImage img = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
-        g = img.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-        rect(0, 0, 32, 32, DARK);
-        frame(32, 32);
-        for(int i = 0; i < 3; i++){
-            rect(6, 8 + i * 6, 20, 4, OUT);
-            rect(7, 9 + i * 6, 18, 2, MID);
+    /** 2x3 的方形 UI 图标 */
+    static BufferedImage advIcon(){
+        BufferedImage im = img(64, 64);
+        core(32, 32, 20);
+        for(int cx = 0; cx < 2; cx++) for(int cy = 0; cy < 2; cy++){
+            rect(7 + cx * 46, 7 + cy * 46, 6, 6, OUT);
+            rect(8 + cx * 46, 8 + cy * 46, 4, 4, GREY);
         }
-        rect(13, 26, 6, 3, PURD);
-        rect(15, 26, 2, 3, PUR);
-        return img;
+        return im;
+    }
+
+    /** 链接块贴图（实际不绘制，仅保证 atlas 有图） */
+    static BufferedImage linkTile(int size, int cells){
+        BufferedImage im = img(size, size);
+        int step = size / cells;
+        for(int i = 0; i < cells; i++) vents(6 + i * step, size / 2 - 6, step - 4, 1);
+        return im;
     }
 
     static void save(BufferedImage img, String path) throws Exception{
@@ -172,9 +168,11 @@ public class Gen{
 
     public static void main(String[] args) throws Exception{
         String dir = "/sdcard/dsh/mindustry-mod/assets/sprites/";
-        save(cluster(), dir + "compute-cluster.png");
-        save(clusterLink(), dir + "compute-cluster-link.png");
-        save(advCore(), dir + "compute-advanced.png");
-        save(advVent(), dir + "compute-advanced-link.png");
+        save(clusterFull(), dir + "compute-cluster.png");
+        save(clusterIcon(), dir + "compute-cluster-ui.png");
+        save(advFull(), dir + "compute-advanced.png");
+        save(advIcon(), dir + "compute-advanced-ui.png");
+        save(linkTile(64, 2), dir + "compute-cluster-link.png");
+        save(linkTile(32, 1), dir + "compute-advanced-link.png");
     }
 }
