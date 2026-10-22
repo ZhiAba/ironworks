@@ -78,12 +78,17 @@ public class IronworksFx{
 
     /** 点对点粗雷电：5 根强抖动折线，宽度接近 1~2 格。 */
     public static void arcBolt(Team team, float x1, float y1, float x2, float y2){
+        arcBolt(team, x1, y1, x2, y2, 1f);
+    }
+
+    /** scale < 1 时闪电更细（天罚用 0.6）。 */
+    public static void arcBolt(Team team, float x1, float y1, float x2, float y2, float scale){
         float dx = x2 - x1, dy = y2 - y1;
         float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
         float ang = Mathf.angle(dx, dy);
 
         Color[] cols = {Color.valueOf("8a7bff"), Color.valueOf("b6a8ff"), Color.valueOf("ffffff")};
-        float[] widths = {9f, 5f, 2f};
+        float[] widths = {9f * scale, 5f * scale, 2f * scale};
 
         for(int b = 0; b < 4; b++){
             final float seed = Mathf.random(10000f);

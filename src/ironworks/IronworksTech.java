@@ -190,8 +190,13 @@ public class IronworksTech{
             with(Items.titanium, 300, Items.silicon, 300, Items.thorium, 150));
         node(chip, IronworksVanillaLoops.scrapWorks,
             with(IronworksItems.steelPlate, 200, Items.silicon, 250, Items.metaglass, 120));
-        node(chip, IronworksSilicon.arcTower,
+        TechNode arcTower = node(chip, IronworksSilicon.arcTower,
             with(IronworksSilicon.basicChip, 20, IronworksItems.steelPlate, 300, Items.silicon, 400, Items.titanium, 300));
+        // 天罚：四炮口升级版电弧塔
+        node(arcTower, IronworksTianfa.tianfa,
+            with(IronworksSilicon.advancedChip, 10, IronworksItems.steelPlate, 500,
+                 Items.silicon, 400, IronworksAluminum.aviationAluminum, 40,
+                 IronworksSilicon.titaniumAlloy, 60));
         node(chip, IronworksSilicon.railTower,
             with(IronworksSilicon.advancedChip, 30, IronworksItems.steelPlate, 500, Items.silicon, 600, IronworksSilicon.titaniumAlloy, 80));
         node(chip, IronworksSilicon.singularityTower,

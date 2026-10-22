@@ -1,6 +1,8 @@
 package ironworks;
 
 import arc.Events;
+import arc.math.Mathf;
+import arc.util.Time;
 import arc.graphics.Color;
 import mindustry.content.Fx;
 import mindustry.entities.Damage;
@@ -17,7 +19,7 @@ import mindustry.type.StatusEffect;
  */
 public class IronworksStatus{
 
-    public static StatusEffect corrosion, nanoArmor, jadeShatter, critical, reactiveArmor, compositeArmor, naniteArmor;
+    public static StatusEffect corrosion, nanoArmor, jadeShatter, critical, reactiveArmor, compositeArmor, naniteArmor, overload;
 
     /** 玉碎爆裂参数（世界单位 / 伤害）。 */
     public static final float jadeRadius = 44f, jadeDamage = 60f;
@@ -36,6 +38,30 @@ public class IronworksStatus{
             effect = Fx.corrosionVapor;
             effectChance = 0.12f;
         }};
+
+        // 一·五、过载：天罚炮塔命中后的持续放电
+        // 每 tick 9 真伤（9*60/s），移速 0.65x；遇到潮湿（wet）伤害翻倍并溅射电弧
+        overload = new StatusEffect("overload"){
+            {
+                color = Color.valueOf("b6a8ff");
+                speedMultiplier = 0.65f;
+                effect = Fx.none;
+            }
+            @Override
+            public void update(Unit unit, mindustry.entities.units.StatusEntry entry){
+                super.update(unit, entry);
+                boolean wet = unit.hasEffect(mindustry.content.StatusEffects.wet);
+                float dmg = 9f * Time.delta;
+                if(wet){
+                    dmg *= 2f;
+                    if(Mathf.chanceDelta(0.10f)){
+                        Fx.hitLancer.at(unit.x, unit.y);
+                        Fx.lightning.at(unit.x, unit.y, Mathf.random(360f), Color.valueOf("b6a8ff"), null);
+                    }
+                }
+                unit.damagePierce(dmg);
+            }
+        };
 
         // 二、纳米装甲：会自我修复的装甲层。回血 + 小幅增益
         nanoArmor = new StatusEffect("nano-armor"){{

@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -125,6 +125,15 @@ public class IronworksLiquids{
             viscosity = 0.95f;
             flammability = 0.55f;
             heatCapacity = 1.1f;
+            blockReactive = false;
+        }};
+
+        // 冷冻液：水+塑料配的防冻液，天罚炮塔的最低冷却要求（不进水）
+        chiller = new Liquid("chiller", Color.valueOf("7fd4ff")){{
+            temperature = 0.12f;
+            heatCapacity = 1.3f;
+            viscosity = 0.5f;
+            flammability = 0f;
             blockReactive = false;
         }};
 

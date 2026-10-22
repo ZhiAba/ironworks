@@ -57,6 +57,19 @@ public class OverheatTurret extends PowerTurret{
     /** 每 tick 消耗的冷却液 */
     public float coolantUse = 0.25f;
 
+    /** true = 过热只按开火次数累计（天罚），不按秒连续积热 */
+    public boolean shotHeat = false;
+    /** 每次开火增加的过热比例（占满槽） */
+    public float shotHeatAmount = 0.05f;
+    /** 各冷却液对"每次攻击过热"的倍率（0 = 不过热）；null = 全部 1 */
+    public float[] coolantHeatMult = null;
+    /** 无冷却液时的叠层上限 */
+    public float noCoolantStackCap = 2f;
+    /** 哪种冷却液会生成热液（下标）；-1 = 没有 */
+    public int hotLiquidTier = 2;
+    /** 有冷却液时，是否只有停火才降温（天罚用：开火时仍按发积热） */
+    public boolean coolOnlyWhenIdle = false;
+
     public OverheatTurret(String name){
         super(name);
         hasLiquids = true;
@@ -126,7 +139,13 @@ public class OverheatTurret extends PowerTurret{
 
         float tierCap(){
             int t = tier();
-            return t < 0 ? 2f : coolantStackCap[t];
+            return t < 0 ? noCoolantStackCap : coolantStackCap[t];
+        }
+
+        float tierHeatMult(){
+            int t = tier();
+            if(t < 0 || coolantHeatMult == null) return 1f;
+            return coolantHeatMult[Math.min(t, coolantHeatMult.length - 1)];
         }
 
         /** 尽可能往外吐热液：每个邻居能收多少就收多少，不看比例。 */
@@ -161,29 +180,31 @@ public class OverheatTurret extends PowerTurret{
             dumpHot();
 
             int tierNow = tier();
-            boolean hasCold = tierNow >= 0 && (tierNow != 2 || hotHasSpace());
-            cooling = hasCold && (overheat < overheatTime * 0.98f);
-
+            boolean hasCold = tierNow >= 0 && (tierNow != hotLiquidTier || hotHasSpace());
             boolean firing = target != null || isShooting();
+            cooling = hasCold && (overheat < overheatTime * 0.98f);
+            if(coolOnlyWhenIdle) cooling = cooling && !firing;
             int ti = tier();
 
-            if(cooling){
+            if(requireCompleteCooling){
+                overheat = Math.max(0f, overheat - overheatCoolAmount * (1f + coolantEfficiency()) * Time.delta);
+            }else if(cooling){
                 int t = ti;
                 Liquid liq = t < 0 ? null : coolantLiquids[t];
                 if(liq != null){
                     float amount = Math.min(coolantUse * delta(), liquids.get(liq));
-                    if(t == 2 && hotLiquid != null){
+                    if(t == hotLiquidTier && hotLiquid != null){
                         amount = Math.min(amount, Math.max(block.liquidCapacity - liquids.get(hotLiquid), 0f));
                     }
                     if(amount > 0f){
                         liquids.remove(liq, amount);
-                        if(t == 2 && hotLiquid != null) liquids.add(hotLiquid, amount);
+                        if(t == hotLiquidTier && hotLiquid != null) liquids.add(hotLiquid, amount);
                     }
                 }
                 overheat = Math.max(0f, overheat - overheatCoolAmount * 3f * Time.delta);
                 requireCompleteCooling = false;
             }else if(firing){
-                overheat = Mathf.approachDelta(overheat, overheatTime + 0.05f, dryHeatPerSecond / 60f);
+                if(!shotHeat) overheat = Mathf.approachDelta(overheat, overheatTime + 0.05f, dryHeatPerSecond / 60f);
                 if(overheat > overheatTime) requireCompleteCooling = true;
             }else{
                 // 没开火就不该积热：闲置时自然冷却
@@ -276,6 +297,10 @@ public class OverheatTurret extends PowerTurret{
             curRecoil = 1f;
             slowDownReload = slowDownReloadTime;
             speedupScl = Math.min(speedupScl + tierPerShot(), tierCap());
+            if(shotHeat){
+                overheat = Math.min(overheat + overheatTime * shotHeatAmount * tierHeatMult(), overheatTime + 0.05f);
+                if(overheat > overheatTime) requireCompleteCooling = true;
+            }
         }
 
         @Override

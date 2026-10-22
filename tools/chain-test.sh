@@ -677,5 +677,16 @@ cd "$TESTDIR" || exit 1
   sleep 8
   echo 'js "T83 plastic=" + pl.items.get(Vars.content.item("ironworks-plastic"))'
 
+  # ---- 84. 冷却厂：水 + 塑料 -> 冷冻液 ----
+  echo 'js Vars.world.tile(52,100).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
+  echo 'js Vars.world.tile(50,100).setBlock(Vars.content.block("ironworks-coolant-plant"), Vars.state.rules.defaultTeam)'
+  sleep 1
+  echo 'js var cp=Vars.world.tile(50,100).build; cp.items.add(Vars.content.item("ironworks-plastic"), 4); cp.liquids.add(Vars.content.liquid("water"), 40)'
+  sleep 8
+  echo 'js "T84 chiller=" + Math.round(cp.liquids.get(Vars.content.liquid("ironworks-chiller")))'
+
+  # ---- 85. 天罚：参数与四炮口配置 ----
+  echo 'js var tf=Vars.content.block("ironworks-tianfa"); Log.info("T85 size=" + tf.size + " range=" + tf.range + " power=" + tf.consumePower + " muzzles=" + tf.muzzleX.length + " coolant=" + tf.coolantLiquids.length + " overload=" + (Vars.content.statusEffects().find(function(s){return s.name.equals("ironworks-overload")}) != null))'
+
   echo 'exit'
 ) | timeout 520 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

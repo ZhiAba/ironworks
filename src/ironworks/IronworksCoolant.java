@@ -67,6 +67,11 @@ public class IronworksCoolant{
             itemCapacity = 10;
             liquidCapacity = 60f;
             recipes = new Recipe[]{
+                new Recipe("chiller", 60f)
+                    .items(with(IronworksPetro.plastic, 1))
+                    .liquids(new LiquidStack(Liquids.water, 10f))
+                    .power(1.5f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.chiller, 10f)),
                 new Recipe("recool", 60f)
                     .liquids(new LiquidStack(IronworksLiquids.hotCoolant, 6f),
                              new LiquidStack(Liquids.water, 6f))
