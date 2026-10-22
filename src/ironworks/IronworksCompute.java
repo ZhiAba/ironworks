@@ -154,9 +154,9 @@ public class IronworksCompute{
         out[3] = y2;
     }
 
-    /** 包围盒中心的 world 坐标。 */
-    public static float centerX(int[] r){ return (r[0] + r[2] + 1) / 2f * 8f; }
-    public static float centerY(int[] r){ return (r[1] + r[3] + 1) / 2f * 8f; }
+    /** 包围盒中心的 world 坐标（Mindustry 的 tile 中心就在 x*8 / y*8）。 */
+    public static float centerX(int[] r){ return (r[0] + r[2]) / 2f * 8f; }
+    public static float centerY(int[] r){ return (r[1] + r[3]) / 2f * 8f; }
 
     public static int[][] layoutOf(Block b){
         if(b instanceof ComputeCluster c) return c.linkLayout;
@@ -490,8 +490,8 @@ public class IronworksCompute{
                 int[] mr = new int[4];
                 rectOf(this, mr);
 
-                float x1 = mr[0] * 8f, y1 = mr[1] * 8f;
-                float x2 = (mr[2] + 1) * 8f, y2 = (mr[3] + 1) * 8f;
+                float x1 = mr[0] * 8f - 4f, y1 = mr[1] * 8f - 4f;
+                float x2 = mr[2] * 8f + 4f, y2 = mr[3] * 8f + 4f;
                 float t = 2f;
 
                 Draw.color(Color.valueOf("b6a8ff"), 0.4f + 0.25f * Mathf.absin(Time.time, 5f, 1f));
