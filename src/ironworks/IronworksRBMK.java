@@ -76,6 +76,8 @@ public class IronworksRBMK{
     public static final float rodPerSecond = 1f / 900f;
     /** 硼酸注入的负反应性权重与消散时间（秒）。 */
     public static final float boronReactivity = 0.05f, boronDecaySeconds = 45f;
+    /** 控制棒行程速度（每 tick 的插入比例）：正常 ~2000 tick 走完全程，急停 ~180 tick。 */
+    public static final float rodSpeedNormal = 1f / 2000f, rodSpeedScram = 1f / 180f;
     /** 通量上限。 */
     public static final float fluxMax = 1.25f;
     /** 熔毁温度阈值（归一化）。 */
@@ -219,7 +221,9 @@ public class IronworksRBMK{
         }
 
         public class RBMKReactorBuild extends PowerGenerator.GeneratorBuild{
-            /** 控制棒插入深度 0..1（1=全插）。 */
+            /** 控制棒**目标**插入深度 0..1（滑条设定的值）。 */
+            public float targetRods = 1f;
+            /** 控制棒**实际**插入深度 0..1，会以有限速度向目标移动（真实棒有行程时间）。 */
             public float rods = 1f;
             /** 中子通量 0..1.25。 */
             public float flux = 0f;
@@ -264,7 +268,7 @@ public class IronworksRBMK{
                 if(v == -1){
                     // SCRAM：棒全部插进去。高功率时插棒会触发 AZ-5 正反应性尖峰 → 可能直接炸
                     if(heat > 0.75f && flux > 0.9f && !melted) scramBoom = 30f;
-                    rods = 1f;
+                    targetRods = 1f;
                     return;
                 }
                 if(v == -2){
@@ -273,7 +277,7 @@ public class IronworksRBMK{
                     return;
                 }
                 if(v < 0) return;
-                rods = Mathf.clamp(v / 100f, 0f, 1f);
+                targetRods = Mathf.clamp(v / 100f, 0f, 1f);
             }
 
             @Override
@@ -283,12 +287,17 @@ public class IronworksRBMK{
 
                 boolean hasFuel = items.get(IronworksNuclear.fuelRod) > 0 || items.get(Items.thorium) > 0;
 
-                // —— 1. 冷却液 ——
+                // —— 0. 控制棒行程：真实棒要几十秒才走完全程，急停也只是「快一点」 ——
+                float rodSpeed = targetRods > rods ? rodSpeedScram : rodSpeedNormal;
+                rods = Mathf.approachDelta(rods, targetRods, rodSpeed);
+
+                // —— 1. 冷却液：流量有惯性（泵与管路不会瞬间归零/拉满） ——
                 float need = flux * waterPerSecond * dt;
                 float have = liquids.get(Liquids.water);
                 float used = Math.min(need, have);
                 if(used > 0f) liquids.remove(Liquids.water, used);
-                flow = need < 0.0001f ? 1f : used / need;
+                float flowRaw = need < 0.0001f ? 1f : used / need;
+                flow = Mathf.lerpDelta(flow, flowRaw, 0.06f);
 
                 // —— 2. 棒位 = 功率上限（拟真核心）——
                 // 之前用「反应性积分」驱动通量，只要净反应性为正就会一路顶到上限；
@@ -298,7 +307,7 @@ public class IronworksRBMK{
                 //   rods = 90% → 上限 10%
                 // 氙毒/硼酸按比例压低上限；失冷（空泡正反应性）**顶高**上限 → 才会失控。
                 float rodCeiling = (1f - rods) * (hasFuel ? 1f : 0f);
-                float poisonFactor = Mathf.clamp(1f - xenon * 0.5f - boron * 1.2f, 0f, 1f);
+                float poisonFactor = Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0f, 1f);
                 if(poisoned) poisonFactor = 0f;
 
                 float target = fluxMax * rodCeiling * poisonFactor;
@@ -357,8 +366,10 @@ public class IronworksRBMK{
                 }
 
                 // —— 6. 氙毒（碘 → 氙，氙被通量烧掉）——
-                iodine = Mathf.clamp(iodine + (flux * 0.02f - iodine * 0.02f) * dt, 0f, 1.5f);
-                xenon = Mathf.clamp(xenon + (iodine * 0.01f - xenon * (0.004f + flux * 0.02f)) * dt, 0f, 1.5f);
+                // 碘半衰期 ~90 秒（游戏内压缩），氙被通量强烈烧掉、停堆后衰变很慢
+                // → 满功率运行时氙毒很小，降功率/停堆后反而堆起来（碘坑）
+                iodine = Mathf.clamp(iodine + (flux * 0.02f - iodine * 0.011f) * dt, 0f, 1.5f);
+                xenon = Mathf.clamp(xenon + (iodine * 0.012f - xenon * (0.0012f + flux * 0.06f)) * dt, 0f, 1.5f);
 
                 // —— 硼酸注入：武装后才消耗液体，吸中子 → 硼浓度上升 → 够了就永久中毒 ——
                 if(boronArmed && liquids.get(IronworksLiquids.boricAcid) > 0.01f){
@@ -369,7 +380,8 @@ public class IronworksRBMK{
                 }
                 // 永久中毒：堆芯封死，再也不起反应（拆了重建是唯一出路）
                 if(poisoned){
-                    rods = 1f;
+                    targetRods = 1f;
+                    rods = Mathf.approachDelta(rods, 1f, rodSpeedScram);
                     flux = Mathf.approachDelta(flux, 0f, 0.02f);
                 }
 
@@ -380,8 +392,8 @@ public class IronworksRBMK{
                 }
 
                 // —— 7. 自动 SCRAM：过热保护（保护也不一定救得回来，这才是 RBMK）——
-                if(heat > 1.05f && rods < 0.999f){
-                    rods = 1f;
+                if(heat > 1.05f && targetRods < 0.999f){
+                    targetRods = 1f;
                 }
 
                 // —— 8. 熔毁 ——
@@ -393,7 +405,8 @@ public class IronworksRBMK{
                 }
 
                 // —— 9. 显示/视觉 ——
-                tempK = 500f + heat * 900f;
+                // 冷却剂出口温度（°C）：名义工况 ~280°C，熔毁前逼近 900°C
+                tempK = 280f + heat * 500f;
                 if(flux > 0.05f && Mathf.chanceDelta(flux * 0.15f)){
                     Fx.smoke.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
                 }
@@ -508,8 +521,8 @@ public class IronworksRBMK{
                 table.table(Styles.grayPanel, c -> {
                     c.defaults().pad(5f);
                     Label rodLabel = new Label("");
-                    rodLabel.update(() -> rodLabel.setText(
-                        Core.bundle.format("ironworks.rbmk.rods.now", Mathf.round(rods * 100f))));
+                    rodLabel.update(() -> rodLabel.setText(Core.bundle.format(
+                        "ironworks.rbmk.rods.now", Mathf.round(targetRods * 100f), Mathf.round(rods * 100f))));
                     c.add(rodLabel).left().growX().row();
 
                     Slider slider = new Slider(0f, 100f, 1f, false);
@@ -531,7 +544,7 @@ public class IronworksRBMK{
                         () -> Mathf.round(flux * 100f) + "%",
                         () -> Pal.accent);
                     readout(c, Core.bundle.get("ironworks.rbmk.row.heat"),
-                        () -> Mathf.round(heat * 100f) + "%  (" + Mathf.round(tempK) + "K)",
+                        () -> Mathf.round(heat * 100f) + "%  (" + Mathf.round(tempK) + "°C)",
                         () -> heat >= 1.05f ? Pal.remove : heat >= 0.9f ? Color.valueOf("ffd166") : Color.valueOf("7fe08a"));
                     readout(c, Core.bundle.get("ironworks.rbmk.row.xenon"),
                         () -> Mathf.round(xenon * 100f) + "%",
@@ -621,6 +634,7 @@ public class IronworksRBMK{
                 write.f(boron);
                 write.bool(boronArmed);
                 write.bool(poisoned);
+                write.f(targetRods);
             }
 
             @Override
@@ -638,6 +652,7 @@ public class IronworksRBMK{
                     boron = read.f();
                     boronArmed = read.bool();
                     poisoned = read.bool();
+                    targetRods = read.f();
                 }
             }
         }

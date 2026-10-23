@@ -63,3 +63,6 @@
 133e	T133e boom=true
 133f	T133f water=[1-9][0-9]*
 133g	T133g ceiling=50 flux=[3-7][0-9] power=[1-9][0-9]{4,5}
+134a	T134a after1s=[0-9]+ after10s=[0-9]+ travel=true
+134b	T134b early=[0-9]+ late=[0-9]+ inertia=true
+134c	T134c before=[0-9]+ after=[0-9]+ pit=true
