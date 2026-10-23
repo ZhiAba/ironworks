@@ -28,16 +28,26 @@ public class IronworksRbmkChat{
 
     static int step = 0;
     static float lastAt = -999f;
+    static String lastMsg = "";
+    static float lastMsgAt = -999f;
 
     public static void init(){
+        // 别人发的消息（服务端/网络包）
         Events.on(EventType.PlayerChatEvent.class, e -> feed(e.message));
+        // 自己发的消息：聊天框发送时会先发 ClientChatEvent（单机/多人都有）
+        Events.on(EventType.ClientChatEvent.class, e -> feed(e.message));
     }
 
     /** 吃掉一条聊天消息，推进/重置/触发序列。测试也直接调这个。 */
     public static void feed(String msg){
-        if(msg == null) return;
+        if(msg == null || msg.isEmpty()) return;
 
         float now = Time.time;
+
+        // 同一条消息可能同时触发 ClientChatEvent 与 PlayerChatEvent（自己发时两个都来），去重
+        if(msg.equals(lastMsg) && now - lastMsgAt < 1f) return;
+        lastMsg = msg;
+        lastMsgAt = now;
         if(step > 0 && now - lastAt > window){
             step = 0;   // 超时，序列作废
         }

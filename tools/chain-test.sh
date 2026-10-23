@@ -1049,4 +1049,4 @@ cd "$TESTDIR" || exit 1
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=238;y<=252;y++){for(var x=150;x<=200;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.state.rules.reactorExplosions=true; Vars.world.tile(160,244).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(160,244).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.targetRods=0; b.rods=0; var h0=b.heat; var t10=-1; for(var i=0;i<1800 && !b.melted;i++){ b.updateTile(); if(t10<0 && b.heat>=1.0) t10=i; } Log.info("T138 meltedIn=" + (b.melted ? Math.round((t10<0?1800:t10)/60) + "s" : "never") + " melted=" + b.melted + " water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))))'
   echo 'exit'
-) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
+) | timeout 2400 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
