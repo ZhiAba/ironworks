@@ -3,6 +3,7 @@
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
 - 构建：`cd /sdcard/dsh/mindustry-mod && bash build.sh` → `out/ironworks.jar`
+- 版本号：`a.b.c`，每次发版递增；`c` 满 10 进 `b`，`b` 满 100 进 `a`（`0.20.9`→`0.21.0`，`0.99.9`→`1.0.0`）。用 `bash tools/bump-version.sh` 自动递增，`--next` 只试算
 - API：`/root/api/Mindustry-160.1.jar`（编译）、`/root/api/server-release-160.3.jar`（无头测试）
 - 部署（Shizuku 可用时）：
   ```

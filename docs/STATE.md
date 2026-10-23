@@ -44,6 +44,7 @@ Mindustry 模组「铁流工业」v0.65.0，Java 编写，自研多配方库 + �
 - 渲染路径统一（0.64.7）：模块不再继承 Wall 的 drawCached/drawDynamic，与集群同样逐帧绘制；放置/选中白框已删除
 - 占地锁定（0.64.8）：链接块 group=none + replaceable=false，模块 group 也对齐 none；墙/模块不能再「合法替换」链接块，链接被强删每 tick 自动补回
 - 内嵌实用功能（0.65.0）：方块搜索（含拼音，反射 PlacementFragment 私有表）+ 多人暂停（ironworks-pause* 网络包 + !pause 命令）+ 设置分类；上游的自动更新未移植（会去装别人的 jar）
+- 版本号规则（0.65.0 起）：a.b.c，c 满 10 进 b，b 满 100 进 a；用 `bash tools/bump-version.sh` 递增（--next 试算）
 - 自研 MultiCrafter：配方切换 UI、详情页配方表（图标+数量+**物品名**）、动态电力、液体按 craftTime 折算
 
 ## 关键技术结论（已验证，别再试错）
