@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.0.0）
+# 铁流工业 交接文档（2026-10-24，v2.1.1.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,16 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`e105bb7320512e7516bab8df1c4310aa`（2.1.0.0，已部署双客户端）
+- 当前 jar md5：`dc2fd12da3742e1922f644bfbb96ce7a`（2.1.1.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.1.1.0）：内嵌辅助 HUD（电网 / 物流）
+- 新增 `IronworksHud`：客户端右侧 HUD；`IronworksSettings` 加「辅助 HUD…」按钮，`IronworksAuxSettings` 是独立二级设置界面
+- 电网总览：扫描 `Groups.build` 的 `PowerGraph`，汇总 `getLastPowerProduced/getLastPowerNeeded/getPowerBalance`（×60 换每秒）与电池储量；缺电电网标红；0.5 秒刷新
+- 物流监视：鼠标/手指指向建筑，1 秒窗口统计物品/液体库存净变化，最多 3 项；只读，不碰传输；自研 MultiCrafter 也能按库存变化统计
+- 两个开关默认关闭；二级界面可一键全部关闭；无头跳过、`hudGroup` 不可用时跳过、不拦截点击
+- 测试：全量 **93/93**（700 秒）；最终 jar 上 T30 + T154 + T155 子集 **3/3**，20 秒。HUD 是客户端 UI，无头回归不覆盖；实机需看右侧位置/宽度是否挡界面
+- 当前 jar md5：`dc2fd12da3742e1922f644bfbb96ce7a`（2.1.1.0，已部署双客户端）
 
 ## 本次（1.6.0.0）：RBMK 水/汽闭环
 - 反应堆：水→汽 **1:1**、100% 通量 **980/980 L/s**；水罐 10000 L + 汽包 2000 L；反应堆自带 1400 L/s 给水泵（从相邻管道/水罐主动抽）
@@ -142,9 +150,9 @@
 - 游戏内改 mod 必须**完全重启游戏进程**才加载新 jar
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
-## 重启后从这里继续（2026-10-24 00:33）
-状态：v2.1.0.0 已构建并部署双客户端，md5 `e105bb7320512e7516bab8df1c4310aa`。
-全量回归 **93/93**（2026-10-23 16:28，698 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 19 秒通过。
+## 重启后从这里继续（2026-10-24 01:25）
+状态：v2.1.1.0 已构建并部署双客户端，md5 `dc2fd12da3742e1922f644bfbb96ce7a`。
+全量回归 **93/93**（700 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 20 秒通过。最终 jar 仅 HUD 客户端细节变化。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。
@@ -155,3 +163,4 @@
 3. 待办优先级：① 整轮回归 ② 律令炮塔移植 ③ 特效升级（磁轨充能环/震动/命中粒子）
    ④ 芯片分档建材 ⑤ 铝/合金进入更多配方。
 4. 仓库有 git（元数据在 `/root/git/ironworks`），重启前工作区是干净的。
+5. 实机验证辅助 HUD：设置 → 铁流工业 →「辅助 HUD…」，分别开电网/物流；如果右侧面板挡住原版 UI，调 `IronworksHud` 的 `padRight` 或标签宽度。
