@@ -297,6 +297,8 @@ public class IronworksRBMK{
             public float steamRate = 0f;
             /** 汽路憋压 + 插棒到底的引爆倒计时（秒）。 */
             public float coreBoom = 0f;
+            /** 水从哪一侧进来（0=右 1=上 2=左 3=下）；汽绝不往这一侧排。 */
+            public int waterSide = -1;
             /** 烧掉的钍的余数。 */
             public float fuelUse = 0f;
             /** 熔毁计时（tick）。 */
@@ -392,7 +394,12 @@ public class IronworksRBMK{
 
                 // —— 2. 排汽：先把上一 tick 的蒸汽推给汽轮机/蒸汽管 ——
                 if(liquids.get(IronworksLiquids.steam) > 0.001f){
-                    dumpLiquid(IronworksLiquids.steam);
+                    // 只往非进水侧排汽：进水导管在被给水泵抽空时会接受任何液体，
+                    // 如果蒸汽灌进去，这条水管就变成汽管，反应堆立刻断水（实测会熔）。
+                    for(int d = 0; d < 4; d++){
+                        if(d == waterSide) continue;
+                        dumpLiquid(IronworksLiquids.steam, 2f, d);
+                    }
                 }
 
                 // —— 3. 给水泵：从相邻管路/水罐主动抽水，补到水位上限 ——
@@ -640,6 +647,10 @@ public class IronworksRBMK{
             public boolean acceptLiquid(Building source, Liquid liquid){
                 // 水：只接到「水位上限」为止（手动=滑条，自动=算法），超过就不再收
                 if(liquid == Liquids.water){
+                    if(source != null){
+                        int side = relativeTo(source);
+                        if(side >= 0) waterSide = side;
+                    }
                     return liquids.get(Liquids.water) < waterLevel * waterCapacity - 0.5f
                         && LiquidKit.totalSpace(this) > LiquidKit.EPS;
                 }
@@ -858,7 +869,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 5;
+                return 6;
             }
 
             @Override
@@ -879,6 +890,7 @@ public class IronworksRBMK{
                 write.i(controlMode);
                 write.f(autoPower);
                 write.f(waterTarget);
+                write.b(waterSide);
             }
 
             @Override
@@ -900,6 +912,7 @@ public class IronworksRBMK{
                     controlMode = read.i();
                     autoPower = read.f();
                     if(revision >= 5) waterTarget = read.f();
+                    if(revision >= 6) waterSide = read.b();
                 }
             }
         }

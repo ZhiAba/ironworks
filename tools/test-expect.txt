@@ -82,3 +82,4 @@
 143	T143 power=45000 warm=[1-9][0-9]* flow=100
 144	T144 water=1200 warm=0
 145	T145 melted=false
+146	T146 side=2 leftSteam=0 rightSteam=[1-9][0-9]* reactorWater=[1-9][0-9]* melted=false

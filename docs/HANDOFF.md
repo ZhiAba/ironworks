@@ -10,7 +10,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`798c718e3489dd272a0fc33706a7fa6c`（1.6.0.0，已部署双客户端）
+- 当前 jar md5：`58efcb83709dcef984678af7e490ab13`（1.6.0.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 
 ## 本次（1.6.0.0）：RBMK 水/汽闭环
@@ -22,7 +22,7 @@
 - 汽轮机 980 L/s 蒸汽 → 45000 电/s + 980 L/s 温水；`inputSide` 禁止温水倒灌进蒸汽管
 - 冷却塔 1200 L/s（120 L / 6 tick），闭环留 20% 余量
 - 彩蛋计时改 `Vars.state.tick`（900 tick = 15 秒），并记录 `[MEME] feed step=.. gap=..`
-- 测试：RBMK 段 32/32；新增 T139–T145；全量回归 **82/82**（695 秒，2026-10-23）
+- 测试：RBMK 段 33/33；新增 T139–T146；全量回归 **83/83**（700 秒，2026-10-23）
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
   - 全量日志器 → `/sdcard/ironworks-tick.log`（每 tick：dt/ms、玩家、单位/建筑数、模组炮塔弹药/液体/目标、总量 [DELTA]、事件）
@@ -92,8 +92,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-23 20:27）
-状态：v1.6.0.0 已构建并部署双客户端，md5 `798c718e3489dd272a0fc33706a7fa6c`。
-全量回归 **82/82**（695 秒）全绿；T139–T145 为 1.6.0.0 新增的水/汽闭环用例。
+状态：v1.6.0.0 已构建并部署双客户端，md5 `58efcb83709dcef984678af7e490ab13`。
+全量回归 **83/83**（700 秒）全绿；T139–T146 为 1.6.0.0 新增的水/汽闭环用例。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。
