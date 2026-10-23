@@ -65,6 +65,19 @@ public class VerboseLogger extends Block{
                         .append(" tgt=").append(t.target != null)
                         .append(" heat=").append(t.isShooting() ? 1 : 0)
                         .append(" | ");
+                }else if(b instanceof IronworksRBMK.RBMKReactor.RBMKReactorBuild r){
+                    mods.append("[RBMK]@").append(b.tileX()).append(',').append(b.tileY())
+                        .append(" flux=").append(Math.round(r.flux * 100)).append('%')
+                        .append(" heat=").append(Math.round(r.heat * 100)).append('%')
+                        .append(" xenon=").append(Math.round(r.xenon * 100)).append('%')
+                        .append(" rods=").append(Math.round(r.rods * 100)).append('%')
+                        .append(" mode=").append(r.controlMode)
+                        .append(" fuel=").append(r.items == null ? 0 : r.items.get(IronworksNuclear.fuelRod))
+                        .append(" spent=").append(r.items == null ? 0 : r.items.get(IronworksNuclear.depletedRod))
+                        .append(" steam=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(IronworksLiquids.steam)))
+                        .append(" water=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(mindustry.content.Liquids.water)))
+                        .append(" melted=").append(r.melted)
+                        .append(" | ");
                 }else if(b.liquids != null){
                     mods.append(b.block.name).append('@').append(b.tileX()).append(',').append(b.tileY())
                         .append('=').append(IronworksLog.fmt(b.liquids.get(cold))).append('/').append(IronworksLog.fmt(b.liquids.get(hot)))

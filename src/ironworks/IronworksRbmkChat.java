@@ -46,7 +46,7 @@ public class IronworksRbmkChat{
             if(msg.contains("核") && (msg.contains("轻而易") || msg.contains("轻易"))){
                 step = 1;
                 lastAt = now;
-                Log.info("[IRONWORKS] meme step 1/3 matched");
+                Log.info("[IRONWORKS] meme step 1/3 matched"); IronworksLog.event("[MEME] step 1/3 matched msg=" + msg);
             }
             return;
         }
@@ -55,7 +55,7 @@ public class IronworksRbmkChat{
             if(count(msg, "坏") >= 1){
                 step = 2;
                 lastAt = now;
-                Log.info("[IRONWORKS] meme step 2/3 matched");
+                Log.info("[IRONWORKS] meme step 2/3 matched"); IronworksLog.event("[MEME] step 2/3 matched msg=" + msg);
             }
             return;
         }
@@ -64,7 +64,7 @@ public class IronworksRbmkChat{
         if(count(msg, "坏") >= 2){
             lastAt = now;
             step = 0;
-            Log.info("[IRONWORKS] meme step 3/3 matched -> detonate");
+            Log.info("[IRONWORKS] meme step 3/3 matched -> detonate"); IronworksLog.event("[MEME] step 3/3 matched -> detonate");
             detonateAll();
         }
     }
@@ -82,6 +82,7 @@ public class IronworksRbmkChat{
     static int detonateAll(){
         int n = IronworksRBMK.detonateAllWorking();
         Log.info("[IRONWORKS] meme detonation: " + n + " reactor(s)");
+        IronworksLog.event("[MEME] detonated " + n + " reactor(s)");
         if(!Vars.headless && Vars.ui != null && Vars.ui.chatfrag != null){
             Vars.ui.chatfrag.addMessage(Core.bundle.get("ironworks.meme.boom"));
         }

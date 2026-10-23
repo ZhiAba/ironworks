@@ -126,7 +126,7 @@ public class IronworksRBMK{
     public static int detonateAllWorking(){
         arc.struct.Seq<RBMKReactor.RBMKReactorBuild> targets = new arc.struct.Seq<>();
         for(mindustry.gen.Building b : mindustry.gen.Groups.build){
-            if(b instanceof RBMKReactor.RBMKReactorBuild r && !r.melted && !b.dead && (r.flux > 0.01f || r.heat > 0.05f)){
+            if(b instanceof RBMKReactor.RBMKReactorBuild r && !r.melted && !b.dead && (r.flux > 0.01f || r.heat > 0.05f || (r.items != null && (r.items.get(IronworksNuclear.fuelRod) > 0 || r.items.get(mindustry.content.Items.thorium) > 0)))){
                 targets.add(r);
             }
         }
@@ -399,7 +399,7 @@ public class IronworksRBMK{
                 // —— 4. 热 ——
                 float heatGen = flux * 0.50f;
                 float cooling = flow * 0.60f * heat + 0.05f;
-                heat = Mathf.clamp(heat + (heatGen - cooling) * 0.04f * dt, 0f, 2f);
+                heat = Mathf.clamp(heat + (heatGen - cooling) * 0.12f * dt, 0f, 2f);
 
                 // —— 5. 热冷却液（用水量的 85%），罐满=背压升温 ——
                 float hotOut = used * hotRatio;
