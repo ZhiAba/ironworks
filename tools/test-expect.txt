@@ -39,3 +39,8 @@
 114c	T114c clusterTiles=24 box=4x6 dx=0 dy=-8
 115a	T115a wallOnLink=false,false advOnWall=false clusterOnLink=false repl=false groups=none/none/none
 115b	T115b tiles=6 links=true,true solid=true
+116	T116 flux=[1-9][0-9]* heat=[1-9][0-9]* power=[1-9][0-9]* hot=[1-9][0-9]*
+117	T117 dropped=true
+118	T118 rise=true flow=0
+119	T119 power=[1-9][0-9]* water=[1-9][0-9]* flow=100
+120b	T120b wallHurt=true wallHp=-1

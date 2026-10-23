@@ -202,6 +202,137 @@ public class Gen{
         System.out.println("wrote " + path + " " + img.getWidth() + "x" + img.getHeight());
     }
 
+
+    // ==================================================================
+    // RBMK 核电站（5×5 反应堆 + 3×3 汽轮机）
+    // ==================================================================
+
+    /** 石墨堆：一堆带斜纹的方块 */
+    static void graphiteStack(int x, int y, int w, int h, int cell){
+        for(int gx = 0; gx * cell < w; gx++){
+            for(int gy = 0; gy * cell < h; gy++){
+                int cx = x + gx * cell, cy = y + gy * cell;
+                rect(cx, cy, cell - 2, cell - 2, OUT);
+                rect(cx + 1, cy + 1, cell - 4, cell - 4, MID);
+                for(int i = 0; i < (cell - 6) / 3; i++){
+                    rect(cx + 3 + i * 3, cy + 2, 1, cell - 6, DARK);
+                }
+            }
+        }
+    }
+
+    /** 5×5 RBMK 反应堆：石墨堆 + 中央燃料通道 + 顶部控制棒 + 两侧水路 */
+    static BufferedImage rbmkFull(){
+        BufferedImage im = img(160, 160);
+
+        // 石墨堆体
+        graphiteStack(14, 20, 132, 118, 22);
+
+        // 中央燃料通道（竖排，炽热）
+        rect(62, 20, 36, 118, OUT);
+        rect(64, 22, 32, 114, DARK);
+        for(int i = 0; i < 6; i++){
+            int x = 68 + i * 5;
+            rect(x, 28, 3, 104, i % 2 == 0 ? new Color(0xff8a3c) : new Color(0xffc247));
+        }
+        // 通道上下端盖
+        rect(60, 16, 40, 6, GREY);
+        rect(60, 136, 40, 6, GREY);
+
+        // 顶部 8 根控制棒
+        for(int i = 0; i < 8; i++){
+            int x = 18 + i * 17;
+            rect(x, 8, 9, 5, OUT);
+            rect(x + 1, 9, 7, 3, GREY);
+            rect(x + 3, 13, 3, 7, LIT);
+        }
+
+        // 两侧冷却水管路
+        rect(4, 34, 9, 92, OUT);
+        rect(5, 35, 7, 90, new Color(0x33606e));
+        rect(5, 45, 7, 3, new Color(0x4f8fa3));
+        rect(5, 110, 7, 3, new Color(0x4f8fa3));
+        rect(147, 34, 9, 92, OUT);
+        rect(148, 35, 7, 90, new Color(0x33606e));
+        rect(148, 45, 7, 3, new Color(0x4f8fa3));
+        rect(148, 110, 7, 3, new Color(0x4f8fa3));
+
+        // 底部警示条
+        rect(14, 144, 132, 10, new Color(0x1a1c22));
+        for(int i = 0; i < 11; i++){
+            rect(16 + i * 12, 146, 7, 6, i % 2 == 0 ? new Color(0xe8c33a) : OUT);
+        }
+
+        // 中央辉光点
+        rect(76, 74, 8, 8, new Color(0xfff2c4));
+        return im;
+    }
+
+    /** 5×5 反应堆的方形 UI 图标 */
+    static BufferedImage rbmkIcon(){
+        BufferedImage im = img(128, 128);
+        graphiteStack(12, 16, 104, 96, 20);
+        rect(50, 16, 28, 96, OUT);
+        rect(52, 18, 24, 92, DARK);
+        for(int i = 0; i < 5; i++) rect(55 + i * 4, 24, 2, 80, i % 2 == 0 ? new Color(0xff8a3c) : new Color(0xffc247));
+        for(int i = 0; i < 7; i++){
+            rect(14 + i * 15, 6, 8, 4, OUT);
+            rect(15 + i * 15, 7, 6, 2, GREY);
+        }
+        rect(54, 72, 8, 8, new Color(0xfff2c4));
+        return im;
+    }
+
+    /** 3×3 汽轮机：机壳 + 转子 + 蒸汽管 */
+    static BufferedImage turbineFull(){
+        BufferedImage im = img(96, 96);
+
+        // 机壳
+        rect(10, 14, 76, 68, OUT);
+        rect(12, 16, 72, 64, MID);
+        rect(14, 18, 68, 60, DARK);
+
+        // 转子
+        ring(48, 48, 26, OUT);
+        ring(48, 48, 24, GREY);
+        ring(48, 48, 18, LIT);
+        for(int i = 0; i < 12; i++){
+            double a = Math.PI * 2 * i / 12;
+            int x1 = 48 + (int)Math.round(Math.cos(a) * 8), y1 = 48 + (int)Math.round(Math.sin(a) * 8);
+            int x2 = 48 + (int)Math.round(Math.cos(a) * 22), y2 = 48 + (int)Math.round(Math.sin(a) * 22);
+            g.setColor(i % 2 == 0 ? GREY : LIT);
+            g.drawLine(x1, y1, x2, y2);
+        }
+        rect(44, 44, 8, 8, new Color(0x4f8fa3));
+
+        // 顶部蒸汽管 + 底部冷凝
+        rect(20, 4, 56, 10, OUT);
+        rect(22, 6, 52, 6, new Color(0x33606e));
+        rect(26, 8, 44, 2, new Color(0x7fd4ff));
+        rect(20, 82, 56, 10, OUT);
+        rect(22, 84, 52, 6, new Color(0x2a4a55));
+        rect(26, 86, 44, 2, new Color(0x4f8fa3));
+        return im;
+    }
+
+    /** 3×3 汽轮机的方形 UI 图标 */
+    static BufferedImage turbineIcon(){
+        BufferedImage im = img(96, 96);
+        rect(12, 14, 72, 68, OUT);
+        rect(14, 16, 68, 64, MID);
+        ring(48, 48, 24, OUT);
+        ring(48, 48, 22, GREY);
+        ring(48, 48, 16, LIT);
+        for(int i = 0; i < 10; i++){
+            double a = Math.PI * 2 * i / 10;
+            g.setColor(GREY);
+            g.drawLine(48 + (int)Math.round(Math.cos(a) * 7), 48 + (int)Math.round(Math.sin(a) * 7),
+                       48 + (int)Math.round(Math.cos(a) * 20), 48 + (int)Math.round(Math.sin(a) * 20));
+        }
+        rect(44, 44, 8, 8, new Color(0x4f8fa3));
+        return im;
+    }
+
     public static void main(String[] args) throws Exception{
         String dir = "/sdcard/dsh/mindustry-mod/assets/sprites/";
         save(clusterFull(), dir + "compute-cluster.png");
@@ -212,5 +343,9 @@ public class Gen{
         save(linkTile(32, 1), dir + "compute-advanced-link.png");
         save(node(false), dir + "mct-item-node.png");
         save(node(true), dir + "mct-liquid-node.png");
+        save(rbmkFull(), dir + "rbmk-reactor.png");
+        save(rbmkIcon(), dir + "rbmk-reactor-ui.png");
+        save(turbineFull(), dir + "steam-turbine.png");
+        save(turbineIcon(), dir + "steam-turbine-ui.png");
     }
 }

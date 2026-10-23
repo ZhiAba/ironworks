@@ -179,6 +179,14 @@ public class IronworksTech{
         node(basicNode, IronworksCompute.micro,
             with(IronworksSilicon.basicChip, 2, Items.silicon, 20, Items.metaglass, 10));
 
+        // RBMK 核电站（0.66.0.0）：反应堆 → 汽轮机
+        TechNode rbmk = node(clusterNode, IronworksRBMK.reactor,
+            with(IronworksMaterials.siliconCarbide, 120, IronworksItems.steelPlate, 400,
+                 IronworksSilicon.quantumCore, 4, Items.silicon, 500));
+        node(rbmk, IronworksRBMK.turbine,
+            with(IronworksItems.steelPlate, 150, IronworksSilicon.quantumCore, 1,
+                 Items.silicon, 200, Items.metaglass, 120));
+
         // 石油化工：炼油厂 → 聚合车间
         TechNode refinery = node(acid, IronworksPetro.refinery,
             with(IronworksItems.steelPlate, 250, Items.silicon, 300, Items.metaglass, 200,

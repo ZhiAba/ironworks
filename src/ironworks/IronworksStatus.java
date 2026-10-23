@@ -20,6 +20,8 @@ import mindustry.type.StatusEffect;
 public class IronworksStatus{
 
     public static StatusEffect corrosion, nanoArmor, jadeShatter, critical, reactiveArmor, compositeArmor, naniteArmor, overload;
+    /** RBMK 熔毁后的辐射：持续真实伤害 + 减速，靠 IronworksRBMK.meltdown() 施加。 */
+    public static StatusEffect radiation;
 
     /** 玉碎爆裂参数（世界单位 / 伤害）。 */
     public static final float jadeRadius = 44f, jadeDamage = 60f;
@@ -120,6 +122,17 @@ public class IronworksStatus{
             effect = Fx.heal;
             effectChance = 0.08f;
             applyEffect = Fx.shieldBreak;
+        }};
+
+        // 辐射：无视护甲的持续伤害 + 减速（RBMK 熔毁后撒在区域里）
+        radiation = new StatusEffect("radiation"){{
+            color = Color.valueOf("9be86a");
+            intervalDamage = 10f;
+            intervalDamageTime = 45f;
+            intervalDamagePierce = true;
+            speedMultiplier = 0.9f;
+            reloadMultiplier = 0.92f;
+            effect = Fx.none;
         }};
 
         // 玉碎爆裂：只结算一次，且只打敌方（Damage.damage 会跳过同队）

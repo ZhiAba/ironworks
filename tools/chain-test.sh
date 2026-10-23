@@ -931,5 +931,20 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var A=Vars.content.block("ironworks-compute-advanced"), L=Vars.content.block("ironworks-compute-advanced-link"); var n=0; for(var y=0;y<=11;y++){for(var x=0;x<=11;x++){var b=Vars.world.tile(x,y).block(); if(b==A||b==L)n++;}} var t1=Vars.world.tile(5,4).block(), t2=Vars.world.tile(6,4).block(); Log.info("T115b tiles=" + n + " links=" + (t1==L) + "," + (t2==L) + " solid=" + (t1.solid && t2.solid))'
 
+  # ---- 116. RBMK 核电站：发电 / 提插棒 / 失冷升温 / 汽轮机 / 熔毁+辐射 ----
+  # 说明：用 b.updateTile() 手动步进，等价于跑 N tick，不阻塞游戏线程（Thread.sleep 会卡住整个模拟）
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=52;y<=74;y++){for(var x=52;x<=104;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  # 116a：水 500 + 钍 30，插棒 20%，步进 360 tick（≈6 秒）
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(58,56).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(58,56).build; b.items.add(Vars.content.item("thorium"),30); b.liquids.add(Vars.content.liquid("water"),500); b.rods=0.2; for(var i=0;i<360;i++) b.updateTile(); var hot=Vars.content.liquid("ironworks-hot-coolant"); Log.info("T116 flux=" + Math.round(b.flux*100) + " heat=" + Math.round(b.heat*100) + " power=" + Math.round(b.getPowerProduction()*60) + " hot=" + Math.round(b.liquids.get(hot)) + " water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))))'
+  # 116b：插棒到底，通量必须掉一半以上
+  echo 'js var b=Vars.world.tile(58,56).build; var f1=b.flux; b.rods=1; for(var i=0;i<360;i++) b.updateTile(); Log.info("T117 dropped=" + (b.flux < f1*0.5) + " f1=" + Math.round(f1*100) + " f2=" + Math.round(b.flux*100))'
+  # 116c：抽干冷却水 → flow=0、堆温上涨
+  echo 'js var b=Vars.world.tile(58,56).build; b.rods=0; b.heat=0.4; b.liquids.clear(); var h1=b.heat; for(var i=0;i<360;i++) b.updateTile(); Log.info("T118 rise=" + (b.heat > h1 + 0.05) + " flow=" + Math.round(b.flow*100) + " h1=" + Math.round(h1*100) + " h2=" + Math.round(b.heat*100))'
+  # 116d：汽轮机吃热冷却液 → 电 + 回收水
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(80,56).setBlock(Vars.content.block("ironworks-steam-turbine"),T); var b=Vars.world.tile(80,56).build; b.liquids.add(Vars.content.liquid("ironworks-hot-coolant"),200); for(var i=0;i<180;i++) b.updateTile(); Log.info("T119 power=" + Math.round(b.getPowerProduction()*60) + " water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))) + " flow=" + Math.round(b.flow*100))'
+  # 116e：超温 → 熔毁（反应堆消失；旁边钍墙在下个 tick 被爆炸打伤；爆心外的单位吃到辐射）
+  echo 'js Vars.state.rules.reactorExplosions=true; var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,60).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(64,60).setBlock(Vars.content.block("thorium-wall"),T); var u=Packages.mindustry.content.UnitTypes.dagger.spawn(T,784,480); var b=Vars.world.tile(70,60).build; b.items.add(Vars.content.item("thorium"),5); b.liquids.add(Vars.content.liquid("water"),500); b.heat=1.6; for(var i=0;i<180 && !b.melted;i++) b.updateTile(); var r=Vars.content.statusEffect("ironworks-radiation"); Log.info("T120a gone=" + (Vars.world.tile(70,60).block()==Vars.content.block("air")) + " melted=" + b.melted + " rad=" + (u!=null && r!=null && u.hasEffect(r)))'
+  sleep 1
+  echo 'js var wall=Vars.world.tile(64,60).build; Log.info("T120b wallHurt=" + (wall==null || wall.health<wall.maxHealth) + " wallHp=" + (wall==null?-1:Math.round(wall.health)))'
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
