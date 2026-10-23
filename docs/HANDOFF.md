@@ -1,16 +1,16 @@
-# 铁流工业 交接文档（2026-10-23，v0.65.0）
+# 铁流工业 交接文档（2026-10-23，v0.65.0.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
 - 构建：`cd /sdcard/dsh/mindustry-mod && bash build.sh` → `out/ironworks.jar`
-- 版本号：`a.b.c`，每次发版递增；`c` 满 10 进 `b`，`b` 满 100 进 `a`（`0.20.9`→`0.21.0`，`0.99.9`→`1.0.0`）。用 `bash tools/bump-version.sh` 自动递增，`--next` 只试算
+- 版本号：`a.b.c.d`，无进制、按语义递增（修 Bug→d，平衡/小调整→c，新机制/内容→b，架构/大时代→a，高位变化时低位归零）。`bash tools/bump-version.sh hotfix|patch|minor|major`，`--next` 只试算
 - API：`/root/api/Mindustry-160.1.jar`（编译）、`/root/api/server-release-160.3.jar`（无头测试）
 - 部署（Shizuku 可用时）：
   ```
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`e2a7a00e3d2ce6ff6447a77d1ba95180`（0.65.0，已部署双客户端）
+- 当前 jar md5：`8684b10743ebb73e5d8f6a05704154e4`（0.65.0.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`

@@ -19,9 +19,11 @@
 1. **同步更新日志**：改 `docs/`、模组内容、工具脚本 → 必须在 `docs/CHANGELOG.md`
    对应版本下追加条目（新增/修复/根因/对应测试编号）。
 2. **版本号三处同步**：`mod.hjson`、`docs/STATE.md`、`docs/HANDOFF.md`。
-   规则 `a.b.c`：每次发版递增一次，`c` 满 10 进 `b`，`b` 满 100 进 `a`
-   （`0.20.9`→`0.21.0`，`0.99.9`→`1.0.0`）。用 `bash tools/bump-version.sh` 递增，
-   `--next` 只试算；脚本只改 `mod.hjson`，STATE/HANDOFF 仍要手动同步。
+   规则 `a.b.c.d`（无进制，按语义选段）：纯修 Bug 动 `d`；小调整/平衡动 `c`（`d` 归零）；
+   新机制/新内容动 `b`（`c/d` 归零）；架构级/大时代动 `a`（`b/c/d` 归零）。
+   例：`0.64.0.8` → 修 NPE `0.64.0.9` → 调耗电 `0.64.1.0` → 实装 RBMK `0.65.0.0` → 剧情完结 `1.0.0.0`。
+   用 `bash tools/bump-version.sh hotfix|patch|minor|major` 递增，`--next` 只试算；
+   脚本只改 `mod.hjson`，STATE/HANDOFF 仍要手动同步。
 3. **补测试并登记**：新增/修复功能补 `T` 编号，更新 `docs/TEST-INDEX.md`
    （重新跑索引生成或手动补行）。
 4. **构建 + 回归**：`bash build.sh` → `bash tools/run-tests.sh`。
