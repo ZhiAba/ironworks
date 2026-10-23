@@ -103,9 +103,9 @@ public class IronworksRBMK{
 
     // ---- 汽轮机参数 ----
     /** 满流发电（/秒）。 */
-    public static final float turbinePower = 45000f;
+    public static final float turbinePower = 24000f;
     /** 满流吃蒸汽（/秒）—— 一台汽轮机正好配一台反应堆。 */
-    public static final float turbineSteamPerSecond = 980f;
+    public static final float turbineSteamPerSecond = 122.5f;
     /** 冷凝水回收比例（1 = 质量守恒，蒸汽 980 → 温水 980）。 */
     public static final float turbineWaterReturn = 1f;
 
@@ -956,11 +956,11 @@ public class IronworksRBMK{
                     (int)turbinePower + StatUnit.powerSecond.localized(), Pal.accent);
                 IronworksStats.specRow(table, IronworksLiquids.steam.uiIcon,
                     Core.bundle.get("ironworks.turbine.spec.steam"),
-                    (int)turbineSteamPerSecond + "/" + StatUnit.perSecond.localized(),
+                    Strings.autoFixed(turbineSteamPerSecond, 1) + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.steam.color);
                 IronworksStats.specRow(table, Liquids.water.uiIcon,
                     Core.bundle.get("ironworks.turbine.spec.water"),
-                    (int)(turbineSteamPerSecond * turbineWaterReturn) + "/" + StatUnit.perSecond.localized(),
+                    Strings.autoFixed(turbineSteamPerSecond * turbineWaterReturn, 1) + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.warmWater.color);
             });
         }
@@ -1000,36 +1000,48 @@ public class IronworksRBMK{
             public void updateTile(){
                 float dt = delta() / 60f;
 
+                // 先把温水排出去（冷却塔/管道）；排不出去就停机，不再吃蒸汽
+                dumpWarmWater();
+                float warmRoom = LiquidKit.space(this, IronworksLiquids.warmWater);
+                if(warmRoom <= 0.01f){
+                    flow = 0f;
+                    productionEfficiency = 0f;
+                    spin = Mathf.lerpDelta(spin, 0f, 0.05f);
+                    return;
+                }
+
                 float need = turbineSteamPerSecond * dt;
                 float have = liquids.get(IronworksLiquids.steam);
                 float used = Math.min(need, have);
+                // 温水箱放不下这一 tick 的冷凝水就少发一点，绝不让产物被吞掉
+                if(turbineWaterReturn > 0f) used = Math.min(used, warmRoom / turbineWaterReturn);
                 if(used > 0f) liquids.remove(IronworksLiquids.steam, used);
 
                 flow = need < 0.0001f ? 0f : used / need;
                 productionEfficiency = flow;
-                spin = Mathf.lerp(spin, flow, 0.05f * delta());
+                spin = Mathf.lerpDelta(spin, flow, 0.05f);
 
-                // 冷凝水回收
                 if(used > 0f){
-                    // 做完功的乏汽冷凝成「温水」，要过冷却塔才能回反应堆。
-                    // 注意用 addCapped（按单液体容量）而不是 addCappedShared：
-                    // 汽轮机里蒸汽和温水是两条独立的腔室，不能让蒸汽把温水的空间吃掉。
-                    LiquidKit.addCapped(this, IronworksLiquids.warmWater, used * turbineWaterReturn);
+                    liquids.add(IronworksLiquids.warmWater, used * turbineWaterReturn);
                 }
-                if(liquids.get(IronworksLiquids.warmWater) > 0.01f){
-                    // 只从「非进汽侧」排温水：否则蒸汽管一旦被抽空，
-                    // 温水就会倒灌进去把导管变成温水，蒸汽线直接死掉（实测）。
-                    for(int d = 0; d < 4; d++){
-                        if(d == inputSide) continue;
-                        dumpLiquid(IronworksLiquids.warmWater, 2f, d);
-                    }
+            }
+
+            /** 只从「非进汽侧」排温水：否则蒸汽管一旦被抽空，温水会倒灌进去把导管变成温水，蒸汽线直接死掉（实测）。 */
+            void dumpWarmWater(){
+                if(liquids.get(IronworksLiquids.warmWater) <= 0.01f) return;
+                for(int d = 0; d < 4; d++){
+                    if(d == inputSide) continue;
+                    dumpLiquid(IronworksLiquids.warmWater, 2f, d);
                 }
             }
 
             // 同 reactor：不能走 super（没有消费者 → 过滤器全 false）
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return liquid == IronworksLiquids.steam && LiquidKit.hasSpace(this, liquid);
+                // 温水排不出去就不收蒸汽：否则蒸汽会在罐里憋着，反应堆那边看不见背压
+                return liquid == IronworksLiquids.steam
+                    && LiquidKit.hasSpace(this, liquid)
+                    && LiquidKit.hasSpace(this, IronworksLiquids.warmWater);
             }
 
             @Override

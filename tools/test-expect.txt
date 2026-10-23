@@ -42,7 +42,7 @@
 116	T116 flux=[1-9][0-9]* heat=[0-9]+ power=0 steam=[1-9][0-9]*
 117	T117 dropped=true
 118	T118 rise=true flow=0
-119	T119 power=45000 warm=[1-9][0-9]* flow=100
+119	T119 power=24000 warm=[1-9][0-9]* flow=100
 120b	T120b wallHurt=true wallHp=-1
 121	T121 configurable=true outputsPower=false
 123	T123 tiers=3 hasCryo=true accept=true
@@ -79,7 +79,9 @@
 140	T140 target=50 acceptHigh=false acceptLow=true
 141	T141 mode=1 auto=[5-8][0-9] rods=[5-8][0-9] flux=[3-5][0-9]
 142	T142 melted=true ticks=[0-9]+
-143	T143 power=45000 warm=[1-9][0-9]* flow=100
+143	T143 power=24000 warm=[1-9][0-9]* flow=100
 144	T144 water=1200 warm=0
 145	T145 melted=false
 146	T146 side=2 leftSteam=0 rightSteam=[1-9][0-9]* reactorWater=[1-9][0-9]* melted=false
+147	T147 stopped=true steamKept=true resumed=true warm=[0-9]+
+148	T148 survivalBreak=false sandboxBreak=true damageIgnored=true stayed=true gone=true

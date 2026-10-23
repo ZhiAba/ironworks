@@ -262,6 +262,8 @@ public class IronworksNuclear{
             update = true;
             health = 900;
             armor = 4f;
+            // 生存模式里不能被别的建筑压掉；沙盒里可以拆了清理
+            replaceable = false;
             buildVisibility = mindustry.world.meta.BuildVisibility.hidden;
             inEditor = false;
             alwaysUnlocked = false;
@@ -273,10 +275,23 @@ public class IronworksNuclear{
             return true;
         }
 
+        @Override
+        public boolean canBreak(mindustry.world.Tile tile){
+            // 堆芯熔融物：生存模式不可拆除；沙盒模式允许清理
+            return mindustry.Vars.state.rules.infiniteResources;
+        }
+
         public class CoriumBuild extends Building{
             /** 剩余寿命（tick）。 */
             public float life = 180f * 60f;
             float tick;
+
+            @Override
+            public void damage(float amount){
+                // 生存模式：堆芯熔融物不可摧毁；沙盒模式正常掉血
+                if(!mindustry.Vars.state.rules.infiniteResources) return;
+                super.damage(amount);
+            }
 
             @Override
             public void updateTile(){
@@ -297,9 +312,11 @@ public class IronworksNuclear{
                     }
                 }
 
-                // 岩浆自损，最后凝固消失
-                life -= delta();
-                if(life <= 0f) tile.remove();
+                // 沙盒模式：岩浆 180 秒后凝固消失；生存模式：永久残留（不可拆、不可摧毁）
+                if(mindustry.Vars.state.rules.infiniteResources){
+                    life -= delta();
+                    if(life <= 0f) tile.remove();
+                }
             }
 
             @Override
