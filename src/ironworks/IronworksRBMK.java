@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.CoreBars;
 import ironworks.core.LiquidKit;
 import arc.Core;
 import arc.graphics.Color;
@@ -185,6 +186,9 @@ public class IronworksRBMK{
         @Override
         public void setBars(){
             super.setBars();
+
+            // 引擎自动加的 "liquid" 条显示 liquids.current()，反应堆里水/热液来回跳 → 改成每种液体各一条
+            CoreBars.perLiquid(this, Liquids.water, IronworksLiquids.hotCoolant);
 
             addBar("rbmk-heat", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-heat", Mathf.round(b.heat * 100f)),
@@ -707,6 +711,8 @@ public class IronworksRBMK{
         @Override
         public void setBars(){
             super.setBars();
+            // 通用条会显示 liquids.current()（热液/温水来回跳）→ 每种液体各一条
+            CoreBars.perLiquid(this, IronworksLiquids.hotCoolant, IronworksLiquids.hotWater);
             addBar("turbine-flow", (SteamTurbineBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-turbine", Mathf.round(b.flow * 100f)),
                 () -> IronworksLiquids.hotCoolant.color,
