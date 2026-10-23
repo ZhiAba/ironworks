@@ -2,9 +2,9 @@ displayName: "铁流工业"
 name: "ironworks"
 
 author: "DSH"
-description: "冶金产线 + 弹药链 + 战术支援 + RBMK 核电站：从铁砂到钢板，从弹壳到穿甲弹，从铀矿到 980 L/s 蒸汽轮机，再到能给单位挂状态的光环方块。"
+description: "冶金产线 + 弹药链 + 战术支援 + RBMK 核电站 + 自动雷达：从铁砂到钢板，从弹壳到穿甲弹，从铀矿到 980 L/s 蒸汽轮机，再到能给单位挂状态的光环方块。"
 
-version: 1.6.3.0
+version: 1.7.0.0
 minGameVersion: 160
 java: true
 

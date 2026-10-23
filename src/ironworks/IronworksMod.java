@@ -31,6 +31,7 @@ public class IronworksMod extends Mod{
         IronworksBelts.load();     // 通液传送带全套（带 / 路由器 / 带桥 ×2 档）
         IronworksDebug.load();     // 调试：液体计量器
         IronworksSupport.load();   // 战术支援方块（状态光环形）
+        IronworksRadar.load();     // 自动雷达（3×3，索敌 + 接管炮塔）
         IronworksBlocks.load();    // 方块要引用上面所有
         IronworksOre.load();       // 铁矿脉 + 塞普罗生成器补丁
         IronworksTech.load();

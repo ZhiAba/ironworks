@@ -283,6 +283,8 @@ public class IronworksTech{
             with(Items.titanium, 400, Items.silicon, 300, Items.metaglass, 200));
         node(asm, IronworksTurrets.rapidCannon, with(Items.copper, 400, Items.lead, 300, IronworksMaterials.copperPlate, 100));
         node(asm, IronworksTurrets.piercer, with(IronworksItems.steelPlate, 250, Items.titanium, 400, Items.silicon, 300));
+        node(asm, IronworksRadar.radar,
+            with(IronworksSilicon.quantumCore, 2, IronworksMaterials.siliconCarbide, 30, Items.silicon, 200, Items.metaglass, 120));
         node(asm, IronworksBlocks.steelWall, with(IronworksItems.steelPlate, 100, Items.copper, 200));
 
         // 大口径炮弹组装室 + 迫击炮
