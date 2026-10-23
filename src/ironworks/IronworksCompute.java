@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.LiquidKit;
 import arc.Core;
 import arc.func.Intc2;
 import arc.graphics.Color;
@@ -427,7 +428,7 @@ public class IronworksCompute{
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
                 if(host == null || !host.acceptLiquid(this, liquid)) return false;
-                return host.liquids.get(liquid) < host.block.liquidCapacity - 0.001f;
+                return LiquidKit.hasSpace(host, liquid);
             }
 
             @Override
@@ -822,10 +823,8 @@ public class IronworksCompute{
                 //冷却液转热冷却液，与消耗同步（efficiency 为 0 时 edelta 也是 0）
                 float flow = coolantUse * edelta();
                 if(flow > 0f){
-                    float space = block.liquidCapacity - liquids.get(IronworksLiquids.hotCoolant);
-                    if(space > 0.0001f){
-                        liquids.add(IronworksLiquids.hotCoolant, Math.min(flow, space));
-                    }
+                    //按容量截断，绝不溢出（核心库）
+                    LiquidKit.addCapped(this, IronworksLiquids.hotCoolant, flow);
                 }
                 if(liquids.get(IronworksLiquids.hotCoolant) > 0.01f){
                     dumpHotFromBorder();
@@ -848,7 +847,7 @@ public class IronworksCompute{
 
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return super.acceptLiquid(source, liquid) && liquids.get(liquid) < block.liquidCapacity - 0.001f;
+                return super.acceptLiquid(source, liquid) && LiquidKit.hasSpace(this, liquid);
             }
 
             /**
@@ -889,7 +888,7 @@ public class IronworksCompute{
 
             /** 热冷却液存满了就停机，不再继续消耗冷却液。 */
             public boolean hotFull(){
-                return liquids.get(IronworksLiquids.hotCoolant) >= block.liquidCapacity - 0.001f;
+                return !LiquidKit.hasSpace(this, IronworksLiquids.hotCoolant);
             }
 
             @Override

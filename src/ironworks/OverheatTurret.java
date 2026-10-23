@@ -6,6 +6,9 @@ import arc.util.Strings;
 import arc.util.Time;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import ironworks.core.CoreBars;
+import ironworks.core.HotDump;
+import ironworks.core.LiquidKit;
 import mindustry.Vars;
 import mindustry.content.Fx;
 import mindustry.entities.Effect;
@@ -102,9 +105,11 @@ public class OverheatTurret extends PowerTurret{
     @Override
     public void setBars(){
         super.setBars();
-        removeBar("liquid");
-        for(Liquid l : coolantLiquids) addLiquidBar(l);
-        if(hotLiquid != null && !virtualHot) addLiquidBar(hotLiquid);
+        // 通用条会跳到 liquids.current() → 冷却液每层一条 + 热液一条（核心库）
+        Liquid[] liquidBars = new Liquid[coolantLiquids.length + 1];
+        System.arraycopy(coolantLiquids, 0, liquidBars, 0, coolantLiquids.length);
+        liquidBars[liquidBars.length - 1] = virtualHot ? null : hotLiquid;
+        CoreBars.perLiquid(this, liquidBars);
         if(virtualHot){
             addBar("hot-storage", (OverheatTurretBuild e) -> e.hotStored <= 0.01f ? null : new Bar(
                 () -> Core.bundle.format("bar.ironworks-hot-storage", Strings.autoFixed(e.hotStored, 0),
@@ -151,7 +156,7 @@ public class OverheatTurret extends PowerTurret{
         public boolean acceptLiquid(Building source, Liquid liquid){
             // 邻居可能是空罐/空路由器，会带着 null 来问；不判空会在 updateProximity 里 NPE
             if(liquid == null) return false;
-            if(liquids.get(liquid) >= block.liquidCapacity - 0.001f) return false;
+            if(!LiquidKit.hasSpace(this, liquid)) return false;
             for(Liquid l : coolantLiquids){
                 if(l == liquid) return true;
             }
@@ -187,51 +192,20 @@ public class OverheatTurret extends PowerTurret{
             return coolantHeatMult[Math.min(t, coolantHeatMult.length - 1)];
         }
 
-        /** 尽可能往外吐热液：每个邻居能收多少就收多少，不看比例。 */
+        /** 尽可能往外吐热液：每个邻居能收多少就收多少，不看比例（核心库 HotDump）。 */
         void dumpHot(){
             if(hotLiquid == null) return;
             if(virtualHot){
-                float hotRemain = hotStored;
-                if(hotRemain <= 0.001f) return;
-                float hotCap = Time.delta * 240f;
-                for(Building other : proximity){
-                    if(hotRemain <= 0.001f) break;
-                    Building dest = other.getLiquidDestination(this, hotLiquid);
-                    if(dest == null || dest == this || !dest.block.hasLiquids) continue;
-                    if(!dest.acceptLiquid(this, hotLiquid)) continue;
-                    float space = dest.block.liquidCapacity - dest.liquids.get(hotLiquid);
-                    if(space <= 0.001f) continue;
-                    float flow = Math.min(Math.min(hotRemain, space), hotCap);
-                    dest.handleLiquid(this, hotLiquid, flow);
-                    hotStored -= flow;
-                    hotRemain -= flow;
-                }
-                return;
-            }
-            float remain = liquids.get(hotLiquid);
-            if(remain <= 0.001f) return;
-
-            float cap = Time.delta * 240f; // 单 tick 上限，防止超大 delta 一次倒太空
-            for(Building other : proximity){
-                if(remain <= 0.001f) break;
-                Building dest = other.getLiquidDestination(this, hotLiquid);
-                if(dest == null || dest == this || !dest.block.hasLiquids) continue;
-                if(!dest.acceptLiquid(this, hotLiquid)) continue;
-
-                float space = dest.block.liquidCapacity - dest.liquids.get(hotLiquid);
-                if(space <= 0.001f) continue;
-
-                float flow = Math.min(Math.min(remain, space), cap);
-                dest.handleLiquid(this, hotLiquid, flow);
-                liquids.remove(hotLiquid, flow);
-                remain -= flow;
+                hotStored = HotDump.spill(this, hotLiquid, hotStored);
+            }else{
+                HotDump.drain(this, hotLiquid);
             }
         }
 
         boolean hotHasSpace(){
             if(hotLiquid == null) return false;
-            if(virtualHot) return hotStored < hotCapacity - 0.001f;
-            return liquids.get(hotLiquid) < block.liquidCapacity - 0.001f;
+            if(virtualHot) return hotStored < hotCapacity - LiquidKit.EPS;
+            return LiquidKit.hasSpace(this, hotLiquid);
         }
 
         @Override

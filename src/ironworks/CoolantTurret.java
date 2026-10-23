@@ -7,6 +7,8 @@ import mindustry.gen.Building;
 import mindustry.type.Liquid;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.meta.Stat;
+import ironworks.core.CoolantLoop;
+import ironworks.core.CoreBars;
 
 /**
  * 带循环冷却的炮塔。
@@ -47,19 +49,23 @@ public class CoolantTurret extends ItemTurret{
     @Override
     public void setBars(){
         super.setBars();
-        removeBar("liquid");
-        if(coolantLiquid != null) addLiquidBar(coolantLiquid);
-        if(hotLiquid != null) addLiquidBar(hotLiquid);
+        // 通用液体条会显示 liquids.current()，多液体会来回跳 → 每种各一条（核心库）
+        CoreBars.perLiquid(this, coolantLiquid, hotLiquid);
     }
 
     public class CoolantTurretBuild extends ItemTurretBuild{
         /** 本 tick 是否正在被冷液加速。 */
         public boolean cooling;
+        /** 冷却循环（核心库）：冷液消耗、热液生成、热满停机全在这一套里。 */
+        public final CoolantLoop loop = new CoolantLoop(coolantLiquid, hotLiquid);
+
+        public CoolantTurretBuild(){
+            loop.usePerTick = coolantUse;
+        }
 
         @Override
         public boolean acceptLiquid(Building source, Liquid liquid){
-            return coolantLiquid != null && liquid == coolantLiquid
-                && liquids.get(liquid) < block.liquidCapacity - 0.001f;
+            return loop.acceptCold(this, source, liquid);
         }
 
         @Override
@@ -74,27 +80,12 @@ public class CoolantTurret extends ItemTurret{
             if(coolantLiquid == null || !enabled) return;
 
             boolean active = !coolantOnFireOnly || target != null || wasShooting || isShooting();
-            boolean hotFull = hotLiquid != null && liquids.get(hotLiquid) >= block.liquidCapacity - 0.001f;
 
-            cooling = active && !hotFull && liquids.get(coolantLiquid) > 0.001f;
+            // 核心库接管：热侧装不下就少消耗，绝不溢出；冷→热 1:1
+            cooling = active && !loop.hotFull(this) && loop.coldAmount(this) > 0.001f;
+            if(cooling) loop.convert(this, true);
 
-            if(cooling){
-                float amount = Math.min(coolantUse * delta(), liquids.get(coolantLiquid));
-
-                // 热液罐装不下就少消耗，绝不溢出
-                if(hotLiquid != null){
-                    amount = Math.min(amount, Math.max(block.liquidCapacity - liquids.get(hotLiquid), 0f));
-                }
-
-                if(amount > 0f){
-                    liquids.remove(coolantLiquid, amount);
-                    if(hotLiquid != null){
-                        liquids.add(hotLiquid, amount);
-                    }
-                }
-            }
-
-            if(hotLiquid != null && liquids.get(hotLiquid) > 0.001f){
+            if(hotLiquid != null && loop.hotAmount(this) > 0.001f){
                 dumpLiquid(hotLiquid, 2f);
             }
         }

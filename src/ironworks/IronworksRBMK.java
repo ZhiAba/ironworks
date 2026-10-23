@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.LiquidKit;
 import arc.Core;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
@@ -260,10 +261,7 @@ public class IronworksRBMK{
                 // —— 5. 热冷却液（用水量的 85%），罐满=背压升温 ——
                 float hotOut = used * hotRatio;
                 if(hotOut > 0f){
-                    float space = Math.max(0f, liquidCapacity - liquids.get(IronworksLiquids.hotCoolant)
-                        - liquids.get(Liquids.water));
-                    float stored = Math.min(hotOut, space);
-                    liquids.add(IronworksLiquids.hotCoolant, stored);
+                    float stored = LiquidKit.addCappedShared(this, IronworksLiquids.hotCoolant, hotOut);
                     if(hotOut > stored + 0.0001f){
                         // 排不出去 = 热也带走不出去
                         heat = Mathf.clamp(heat + (hotOut - stored) * 0.9f * dt, 0f, 2f);
@@ -326,8 +324,7 @@ public class IronworksRBMK{
 
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return liquid == Liquids.water && super.acceptLiquid(source, liquid)
-                    && liquids.get(Liquids.water) < liquidCapacity - 0.001f;
+                return super.acceptLiquid(source, liquid) && LiquidKit.acceptOnly(this, source, liquid, Liquids.water);
             }
 
             @Override
@@ -486,10 +483,7 @@ public class IronworksRBMK{
 
                 // 冷凝水回收
                 if(used > 0f){
-                    float water = used * turbineWaterReturn;
-                    float space = Math.max(0f, liquidCapacity
-                        - liquids.get(IronworksLiquids.hotCoolant) - liquids.get(Liquids.water));
-                    liquids.add(Liquids.water, Math.min(water, space));
+                    LiquidKit.addCappedShared(this, Liquids.water, used * turbineWaterReturn);
                     if(liquids.get(Liquids.water) > 0.01f) dumpLiquid(Liquids.water);
                 }
             }

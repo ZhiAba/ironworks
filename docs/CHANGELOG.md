@@ -33,6 +33,20 @@
 
 ## 0.64.x
 
+### 1.0.0.0 — 架构级重构：铁流核心组件库（行为零变化）
+
+把重复实现的通用机制抽进新包 `ironworks.core`。**纯搬实现：没有新增任何游戏内容，没有改动任何数值**（速率/容量/伤害/上限一个没动），全量回归 T1–T120 的 44 条断言在重构后依旧全绿。
+
+| 核心组件 | 接管什么 | 以前重复在哪 |
+|---|---|---|
+| `LiquidKit` | 单/总容量、按容量截断、白名单接收、安全交接 | 10 个文件各写一遍 `liquids.get(x) < liquidCapacity - 0.001f` |
+| `Molten` | 熔融金属判定 + 侵蚀（掉血/起火）+ 原版管道补丁 | `IronworksHighTemp` 里同一段匿名 build 抄了 5 遍 |
+| `HotDump` | 热液四邻排放（逐邻居容量 + 单 tick 上限） | 过热炮塔真实槽/虚拟槽各一遍 |
+| `CoolantLoop` | 冷液 → 热液循环（真实槽 / 虚拟槽，热满停机） | 冷却炮塔、算力集群、反应堆各写一遍 |
+| `CoreBars` | 删引擎通用液体条 + 每种液体一条 | 4 个方块里重复的 `removeBar("liquid")` |
+
+迁移清单：`IronworksHighTemp`、`LiquidConveyor`/`LiquidBeltRouter`/`LiquidBeltJunction`/`LiquidBeltBridge`、`IronworksTeleport`、`IronworksCompute`、`IronworksRBMK`、`CoolantTurret`、`OverheatTurret`。设计边界与「故意不抽」的清单写在 `docs/CORE-LIB.md`。
+
 ### 0.66.0.0 — RBMK 核电站（反应堆 + 汽轮机）
 
 新增两座 5×5 / 3×3 发电建筑，**纯 2D 像素图**（没有任何 3D 体素），机制完整可玩：

@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.LiquidKit;
 import mindustry.Vars;
 import mindustry.content.Liquids;
 import mindustry.gen.Building;
@@ -27,9 +28,9 @@ public class LiquidBeltBridge extends ItemBridge{
         float consumeTimer;
         @Override
         public boolean acceptLiquid(Building source, Liquid liquid){
-            if(liquid != Liquids.water && liquid != IronworksLiquids.chiller
-                && !(anyCoolant && (liquid == Liquids.cryofluid || liquid == IronworksLiquids.grapheneCoolant))) return false;
-            return liquids.get(liquid) < block.liquidCapacity - 0.001f;
+            boolean ok = liquid == Liquids.water || liquid == IronworksLiquids.chiller
+                || (anyCoolant && (liquid == Liquids.cryofluid || liquid == IronworksLiquids.grapheneCoolant));
+            return ok && LiquidKit.hasSpace(this, liquid);
         }
 
         @Override

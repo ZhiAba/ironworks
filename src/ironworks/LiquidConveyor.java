@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.LiquidKit;
 import arc.Core;
 import arc.math.Mathf;
 import mindustry.content.Liquids;
@@ -73,7 +74,7 @@ public class LiquidConveyor extends Conveyor{
 
         @Override
         public boolean acceptLiquid(Building source, Liquid liquid){
-            return accepts(liquid) && liquids.get(liquid) < block.liquidCapacity - 0.001f;
+            return accepts(liquid) && LiquidKit.hasSpace(this, liquid);
         }
 
         @Override

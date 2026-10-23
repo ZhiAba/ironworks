@@ -30,6 +30,12 @@
 5. **部署**：Shizuku 复制到两个客户端，核对 md5 一致，写进 `HANDOFF.md`。
 6. **提交**：提交信息带版本号与 `T` 编号。
 
+## 一·五、通用机制必须走核心库
+
+新方块需要这些机制时**先找组件**：液体容量/截断/交接 → `ironworks.core.LiquidKit`；
+熔融侵蚀 → `Molten`；冷液→热液 → `CoolantLoop`；热液排放 → `HotDump`；
+液体状态条 → `CoreBars`。找不到才自己写，写完如果是通用机制就补进核心库并更新 `docs/CORE-LIB.md`。
+
 ## 二、命令速查
 
 ```bash

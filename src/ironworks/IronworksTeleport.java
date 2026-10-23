@@ -1,5 +1,6 @@
 package ironworks;
 
+import ironworks.core.LiquidKit;
 import arc.Core;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
@@ -506,8 +507,7 @@ public class IronworksTeleport{
         public boolean acceptLiquid(Building source, Liquid liquid){
             if(mode != modeSend) return false;
             Building t = target();
-            return efficiency > 0.0001f && t != null && t.acceptLiquid(this, liquid)
-                && t.liquids.get(liquid) < t.block.liquidCapacity - 0.001f;
+            return efficiency > 0.0001f && t != null && t.acceptLiquid(this, liquid) && LiquidKit.hasSpace(t, liquid);
         }
 
         @Override
