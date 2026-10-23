@@ -288,9 +288,10 @@ public class IronworksNuclear{
 
             @Override
             public void damage(float amount){
-                // 生存模式：堆芯熔融物不可摧毁；沙盒模式正常掉血
-                if(!mindustry.Vars.state.rules.infiniteResources) return;
-                super.damage(amount);
+                // 堆芯熔融物免疫一切伤害（包括反应堆爆炸、炮火、核弹）——
+                // 否则后来的反应堆爆炸会把前一次熔毁留下的 corium 直接清掉。
+                // 沙盒模式仍可通过「拆除」清走（走 canBreak，不走 damage），
+                // 180 秒自凝固也只发生在沙盒。
             }
 
             @Override

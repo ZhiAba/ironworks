@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-23，v1.6.2.0）
+# 铁流工业 交接文档（2026-10-23，v1.6.3.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,7 +10,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`6b28eb45ad65672da73b5229d1d02af5`（1.6.2.0，已部署双客户端）
+- 当前 jar md5：`f879d7383c44edc267c096e2df2b9434`（1.6.3.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 
 ## 本次（1.6.0.0）：RBMK 水/汽闭环
@@ -36,6 +36,12 @@
 - AZ-5 保护：水罐 >95% 且汽包满时自动棒位封顶 98%；自动水位最高 90%，正常自动模式不会到 9800 L
 - AZ-5 判定改用实际水罐 98%（9800 L），不再按滑条上限
 - 测试：新增 T149（蒸汽堵死自动降功率不炸）、T150（给水见底自动停机）；RBMK 段 **37/37**
+
+## 本次（1.6.3.0）：堆芯熔融物免疫爆炸
+- 问题：反应堆爆炸的 `Damage.damage` 会把已有的 corium 一起打掉（沙盒 900 血直接清空）
+- 修复：`CoriumBuild.damage()` 直接返回，corium 免疫一切伤害（爆炸/炮火/核弹/单位），不再掉血
+- 沙盒仍可拆除（`canBreak` 仅沙盒 true）、180 秒自凝固；生存不可拆、永久残留
+- 测试：T148 增加沙盒伤害免疫；新增 T151（爆炸范围内已有 corium 存活 + 新 corium 生成）；RBMK 段 **37/37**
 - 调试方块（效果分类、免费）：
   - 液体计量器 → `/sdcard/ironworks-liquid.log`
   - 全量日志器 → `/sdcard/ironworks-tick.log`（每 tick：dt/ms、玩家、单位/建筑数、模组炮塔弹药/液体/目标、总量 [DELTA]、事件）
@@ -105,8 +111,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-23 21:22）
-状态：v1.6.2.0 已构建并部署双客户端，md5 `6b28eb45ad65672da73b5229d1d02af5`。
-RBMK 段 **37/37** 全绿；1.6.1.0 之前的子集（MCT/集群 10/10、汽轮机/熔融物 12 项）也已通过。
+状态：v1.6.3.0 已构建并部署双客户端，md5 `f879d7383c44edc267c096e2df2b9434`。
+RBMK 段 **37/37** 全绿；corium 免疫爆炸伤害（T151）、自动保护（T149/T150）均通过。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。
