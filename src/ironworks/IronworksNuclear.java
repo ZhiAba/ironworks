@@ -1,6 +1,7 @@
 package ironworks;
 
 import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
 import mindustry.content.Items;
 import mindustry.content.Liquids;
 import mindustry.gen.Building;
@@ -55,6 +56,7 @@ public class IronworksNuclear{
     public static Block uraniumOreBlock;
     public static Block leachPlant, enrichmentPlant, fuelFactory;
     public static Block spentFuelPool, reprocessor, vitrifier, dryStorage;
+    public static Block coolingTower, corium;
 
     public static void load(){
         loadItems();
@@ -118,7 +120,12 @@ public class IronworksNuclear{
                     .items(with(uraniumOre, 3))
                     .liquids(new LiquidStack(IronworksLiquids.acid, 6f))
                     .power(3f)
-                    .output(with(yellowcake, 1))
+                    .output(with(yellowcake, 1)),
+                new Recipe("boric", 60f)
+                    .liquids(new LiquidStack(IronworksLiquids.acid, 6f),
+                             new LiquidStack(Liquids.water, 6f))
+                    .power(2f)
+                    .outputLiquid(new LiquidStack(IronworksLiquids.boricAcid, 6f))
             };
         }};
 
@@ -209,6 +216,25 @@ public class IronworksNuclear{
             };
         }};
 
+        // —— 冷却塔：温水 → 水（把汽轮机的回水做成独立闭环） ——
+        coolingTower = new MultiCrafter("cooling-tower"){{
+            requirements(Category.crafting,
+                with(IronworksItems.steelPlate, 60, Items.metaglass, 60, Items.lead, 40, Items.titanium, 30));
+            size = 3;
+            itemCapacity = 10;
+            liquidCapacity = 120f;
+            health = 460;
+            recipes = new Recipe[]{
+                new Recipe("cool", 30f)
+                    .liquids(new LiquidStack(IronworksLiquids.hotWater, 6f))
+                    .power(1f)
+                    .outputLiquid(new LiquidStack(Liquids.water, 6f))
+            };
+        }};
+
+        // —— 堆芯熔融物：熔毁后留在原地的辐射源 ——
+        corium = new Corium("corium");
+
         // —— 干式储存库：只收固化废物体 ——
         dryStorage = new WasteStorage("dry-storage"){{
             requirements(Category.effect,
@@ -217,6 +243,85 @@ public class IronworksNuclear{
             itemCapacity = 400;
             health = 700;
         }};
+    }
+
+    /**
+     * 熔毁后在原地留下 1~5 格堆芯熔融物：持续辐射、熔穿周围建筑、几十秒后凝固消失。
+     * 这是「辐射剂量场可视化」的载体（自带红色虚线危险圈）。
+     */
+    public static class Corium extends Block{
+        /** 辐射半径（格）。 */
+        public static final float radRadius = 7f * 8f;
+
+        public Corium(String name){
+            super(name);
+            size = 1;
+            solid = true;
+            update = true;
+            health = 900;
+            armor = 4f;
+            buildVisibility = mindustry.world.meta.BuildVisibility.hidden;
+            inEditor = false;
+            alwaysUnlocked = false;
+            buildType = CoriumBuild::new;
+        }
+
+        @Override
+        public boolean isHidden(){
+            return true;
+        }
+
+        public class CoriumBuild extends Building{
+            /** 剩余寿命（tick）。 */
+            public float life = 180f * 60f;
+            float tick;
+
+            @Override
+            public void updateTile(){
+                tick += delta();
+                if(tick >= 15f){
+                    tick = 0f;
+                    // 辐射场
+                    for(mindustry.gen.Unit u : mindustry.gen.Groups.unit){
+                        if(u.dst2(x, y) < radRadius * radRadius){
+                            u.apply(IronworksStatus.radiation, 240f);
+                        }
+                    }
+                    // 熔穿周围建筑（自己的四邻）
+                    for(Building other : proximity){
+                        if(other != null && other.block != corium && Math.random() < 0.10){
+                            other.damage(18f);
+                        }
+                    }
+                }
+
+                // 岩浆自损，最后凝固消失
+                life -= delta();
+                if(life <= 0f) tile.remove();
+            }
+
+            @Override
+            public void draw(){
+                super.draw();
+                // 自发光 + 危险圈
+                Draw.color(Color.valueOf("ff6a2b"), 0.5f + 0.3f * arc.math.Mathf.absin(arc.util.Time.time, 4f, 1f));
+                Draw.rect(arc.Core.atlas.white(), x, y, 10f, 10f);
+                Draw.color();
+                mindustry.graphics.Drawf.dashCircle(x, y, radRadius, Color.valueOf("ff6a2b"));
+            }
+        }
+    }
+
+    /** 在给定格子周围撒 corium（熔毁时调用）。 */
+    public static void spawnCorium(mindustry.world.Tile center, mindustry.game.Team team){
+        if(center == null || corium == null) return;
+        int n = 1 + (int)(Math.random() * 5);
+        center.setBlock(corium, team);
+        for(int i = 0; i < n; i++){
+            int dx = (int)(Math.random() * 5) - 2, dy = (int)(Math.random() * 5) - 2;
+            mindustry.world.Tile t = center.nearby(dx, dy);
+            if(t != null && t.block().isAir()) t.setBlock(corium, team);
+        }
     }
 
     /** 固化废物体的干式储存：只收它，别的东西进不来。 */

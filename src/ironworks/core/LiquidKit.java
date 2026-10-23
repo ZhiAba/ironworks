@@ -94,6 +94,7 @@ public final class LiquidKit{
 
     /** 白名单 + 有空间，两种判定一次到位（最常用的 acceptLiquid 组合）。 */
     public static boolean acceptOnly(Building self, Building source, Liquid liquid, Liquid... allowed){
+        if(self == null || self.block == null || !self.block.hasLiquids) return false;
         return accepts(liquid, allowed) && hasSpace(self, liquid);
     }
 

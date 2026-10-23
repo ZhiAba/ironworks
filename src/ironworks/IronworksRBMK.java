@@ -18,10 +18,12 @@ import mindustry.entities.Damage;
 import mindustry.gen.Building;
 import mindustry.gen.Groups;
 import mindustry.gen.Unit;
+import mindustry.graphics.Drawf;
 import mindustry.graphics.Pal;
 import mindustry.type.Category;
 import mindustry.type.Liquid;
 import mindustry.ui.Bar;
+import arc.scene.ui.TextButton;
 import mindustry.ui.Styles;
 import mindustry.world.blocks.power.PowerGenerator;
 import mindustry.world.meta.Stat;
@@ -235,8 +237,16 @@ public class IronworksRBMK{
             public float tempK = 300f;
             /** 当前这根燃料棒的燃耗 0..1。 */
             public float rodBurn = 0f;
-            /** 硼酸注入量 0..1（强负反应性，几十秒内退不掉）。 */
+            /** 硼酸注入量 0..1（强负反应性；吸够了就永久中毒）。 */
             public float boron = 0f;
+            /** 是否已「武装」注硼（点了按钮才接收硼酸液体）。 */
+            public boolean boronArmed = false;
+            /** 堆芯永久中毒：注硼吸够了，反应堆再也起不来，只能拆。 */
+            public boolean poisoned = false;
+            /** SCRAM 引爆倒计时（AZ-5 效应：高功率瞬间插棒 → 正反应性尖峰）。 */
+            public float scramBoom = 0f;
+            /** 当前棒位对应的功率上限（%），面板显示用。 */
+            public float rodCeilingPct = 0f;
             /** 是否已熔毁（防止重复爆炸）。 */
             public boolean melted = false;
 
@@ -252,14 +262,14 @@ public class IronworksRBMK{
 
             public void applyConfig(int v){
                 if(v == -1){
-                    // SCRAM：全部插进去
+                    // SCRAM：棒全部插进去。高功率时插棒会触发 AZ-5 正反应性尖峰 → 可能直接炸
+                    if(heat > 0.75f && flux > 0.9f && !melted) scramBoom = 30f;
                     rods = 1f;
                     return;
                 }
                 if(v == -2){
-                    // 硼酸注入：强负反应性，靠自然衰减恢复（真实 RBMK 的最后一招）
-                    boron = 1f;
-                    rods = 1f;
+                    // 注硼：只把管线「武装」起来，之后才接收硼酸液体（不是免费按钮）
+                    boronArmed = true;
                     return;
                 }
                 if(v < 0) return;
@@ -280,15 +290,26 @@ public class IronworksRBMK{
                 if(used > 0f) liquids.remove(Liquids.water, used);
                 flow = need < 0.0001f ? 1f : used / need;
 
-                // —— 2. 反应性 → 通量 ——
-                float reactivity = (1f - rods) * 0.012f * (hasFuel ? 1f : 0f)
-                    - flux * 0.012f
-                    - xenon * 0.006f
-                    + (1f - flow) * flux * 0.012f    // 空泡正反应性：没水反而更疯
-                    - boron * boronReactivity;       // 硼酸注入
+                // —— 2. 棒位 = 功率上限（拟真核心）——
+                // 之前用「反应性积分」驱动通量，只要净反应性为正就会一路顶到上限；
+                // 现在改成：每根棒的插入深度直接决定**稳态上限**，通量只朝这个上限收敛。
+                //   rods = 0   → 上限 100%（满功率）
+                //   rods = 50% → 上限 50%
+                //   rods = 90% → 上限 10%
+                // 氙毒/硼酸按比例压低上限；失冷（空泡正反应性）**顶高**上限 → 才会失控。
+                float rodCeiling = (1f - rods) * (hasFuel ? 1f : 0f);
+                float poisonFactor = Mathf.clamp(1f - xenon * 0.5f - boron * 1.2f, 0f, 1f);
+                if(poisoned) poisonFactor = 0f;
 
-                flux = Mathf.clamp(flux + reactivity * dt * 20f, 0f, fluxMax);
+                float target = fluxMax * rodCeiling * poisonFactor;
+                // 空泡正反应性：没水时上限被顶到 2.2 倍，可越过棒位限制（RBMK 的致命点）
+                target *= 1f + (1f - flow) * 1.2f;
+                target = Mathf.clamp(target, 0f, fluxMax);
+
+                // 一阶滞后（中子动力学）：插棒/提棒后通量慢慢追上限
+                flux = Mathf.lerpDelta(flux, target, 0.008f);
                 productionEfficiency = flux;
+                rodCeilingPct = rodCeiling * 100f;
 
                 // —— 3. 燃料：燃料棒优先（耐烧 + 吐乏燃料），钍是应急替代 ——
                 if(hasFuel && flux > 0.01f){
@@ -339,8 +360,24 @@ public class IronworksRBMK{
                 iodine = Mathf.clamp(iodine + (flux * 0.02f - iodine * 0.02f) * dt, 0f, 1.5f);
                 xenon = Mathf.clamp(xenon + (iodine * 0.01f - xenon * (0.004f + flux * 0.02f)) * dt, 0f, 1.5f);
 
-                // 硼酸自然衰减
-                if(boron > 0f) boron = Math.max(0f, boron - dt / boronDecaySeconds);
+                // —— 硼酸注入：武装后才消耗液体，吸中子 → 硼浓度上升 → 够了就永久中毒 ——
+                if(boronArmed && liquids.get(IronworksLiquids.boricAcid) > 0.01f){
+                    float take = Math.min(liquids.get(IronworksLiquids.boricAcid), 4f * dt);
+                    liquids.remove(IronworksLiquids.boricAcid, take);
+                    boron = Mathf.clamp(boron + take * 0.25f, 0f, 1f);
+                    if(boron >= 1f) poisoned = true;
+                }
+                // 永久中毒：堆芯封死，再也不起反应（拆了重建是唯一出路）
+                if(poisoned){
+                    rods = 1f;
+                    flux = Mathf.approachDelta(flux, 0f, 0.02f);
+                }
+
+                // SCRAM 引爆倒计时
+                if(scramBoom > 0f){
+                    scramBoom -= dt * 60f;
+                    if(scramBoom <= 0f) detonate();
+                }
 
                 // —— 7. 自动 SCRAM：过热保护（保护也不一定救得回来，这才是 RBMK）——
                 if(heat > 1.05f && rods < 0.999f){
@@ -350,7 +387,7 @@ public class IronworksRBMK{
                 // —— 8. 熔毁 ——
                 if(heat >= meltTemp && !melted){
                     meltTimer += second;
-                    if(meltTimer >= 60f) meltdown();
+                    if(meltTimer >= 60f) detonate();
                 }else if(meltTimer > 0f){
                     meltTimer = Math.max(0f, meltTimer - second * 2f);
                 }
@@ -362,14 +399,40 @@ public class IronworksRBMK{
                 }
             }
 
-            public void meltdown(){
-                if(melted || dead) return;
+            /** 运行时被炸毁 / 被玩家拆除：会炸；冷停堆状态拆就没事。 */
+            void explodeIfLive(){
+                if(melted || state.rules.reactorExplosions == false) return;
+                if(flux > 0.15f || heat > 0.5f) detonate();
+            }
+
+            @Override
+            public void onDestroyed(){
+                explodeIfLive();
+                super.onDestroyed();
+            }
+
+            @Override
+            public void onDeconstructed(mindustry.gen.Unit unit){
+                explodeIfLive();
+                super.onDeconstructed(unit);
+            }
+
+            public void detonate(){
+                // 注意：不能判 dead——被炸死时引擎先置 dead 再调 onDestroyed，
+                // 这里如果因为 dead 提前 return，运行时被摧毁就永远不会炸了。
+                if(melted) return;
                 melted = true;
 
                 if(state.rules.reactorExplosions){
+                    // 功率越高、堆芯越热，炸得越狠（冷停堆被拆只会小爆）
+                    float scale = 0.45f + Math.min(flux, 1.4f) * 0.45f + Math.min(heat, 1.6f) * 0.35f;
                     Fx.reactorExplosion.at(x, y);
                     Fx.massiveExplosion.at(x, y);
-                    Damage.damage(x, y, meltRadius * 8f, meltDamage);
+                    Damage.damage(x, y, meltRadius * 8f * Math.min(scale, 1.6f), meltDamage * Math.min(scale, 1.6f));
+
+                    // 堆芯熔融物：在中心铺 1~5 格 corium，持续辐射 + 熔穿周围
+                    IronworksNuclear.spawnCorium(tile, team);
+                    // 落尘：给爆心外的单位挂辐射（保留原逻辑）
                     //落尘范围比爆炸更大，站在爆心外也可能吃到辐射
                     for(Unit u : Groups.unit){
                         if(u.dst2(x, y) < falloutRadius * falloutRadius){
@@ -380,7 +443,7 @@ public class IronworksRBMK{
                     Fx.dynamicExplosion.at(x, y);
                 }
 
-                kill();
+                if(!dead) kill();
             }
 
             // 只收水，热冷却液不被邻居倒灌
@@ -393,9 +456,17 @@ public class IronworksRBMK{
                 return false;
             }
 
+            /**
+             * 注意：**不能调 super.acceptLiquid**——引擎的实现是 block.consumesLiquid(liquid)，
+             * 那是 ConsumeLiquid 生成的过滤器。反应堆是手动消耗液体、没有消费者，
+             * 过滤器全 false，导管就永远推不进来（实测就是这个 bug）。
+             */
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return super.acceptLiquid(source, liquid) && LiquidKit.acceptOnly(this, source, liquid, Liquids.water);
+                if(liquid == Liquids.water) return LiquidKit.hasSpace(this, liquid);
+                // 硼酸只有在「已武装注入」后才收（点击按钮之后才允许接液）
+                if(boronArmed && liquid == IronworksLiquids.boricAcid) return LiquidKit.hasSpace(this, liquid);
+                return false;
             }
 
             @Override
@@ -408,6 +479,11 @@ public class IronworksRBMK{
                     Draw.color(Color.valueOf("ff7a3c"), a);
                     Draw.rect(Core.atlas.white(), x, y, size * 8f * 0.5f, size * 8f * 0.5f);
                     Draw.color();
+                }
+
+                // 危险工况：画一圈红色虚线警示（辐射/熔毁风险可视化）
+                if(heat > 1.0f || boron > 0.5f){
+                    Drawf.dashCircle(x, y, size * 4f + 6f, Pal.remove);
                 }
 
                 // 控制棒指示：插入越深，顶部亮条越短
@@ -448,6 +524,9 @@ public class IronworksRBMK{
                 // —— 实时读数 ——
                 table.table(Styles.grayPanel, c -> {
                     c.defaults().padLeft(8f).padRight(8f).padTop(2f).padBottom(2f);
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.ceiling"),
+                        () -> Mathf.round(rodCeilingPct) + "%",
+                        () -> Pal.accent);
                     readout(c, Core.bundle.get("ironworks.rbmk.row.flux"),
                         () -> Mathf.round(flux * 100f) + "%",
                         () -> Pal.accent);
@@ -479,6 +558,11 @@ public class IronworksRBMK{
                 // —— 状态 ——
                 Label status = new Label("");
                 status.update(() -> {
+                    if(poisoned){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.poisoned"));
+                        status.setColor(Color.valueOf("8fd4ff"));
+                        return;
+                    }
                     if(heat >= meltTemp){
                         status.setText(Core.bundle.get("ironworks.rbmk.state.melt"));
                         status.setColor(Pal.remove);
@@ -500,8 +584,11 @@ public class IronworksRBMK{
                     .size(w, 42f).padTop(6f).with(b -> b.setColor(Pal.remove)).row();
 
                 // 硼酸注入：比 SCRAM 更狠，几十秒内别想再启动
-                table.button(Core.bundle.get("ironworks.rbmk.boron"), Styles.defaultt, () -> configure(-2))
-                    .size(w, 36f).padTop(4f).with(b -> b.setColor(Color.valueOf("8fd4ff"))).row();
+                TextButton boronBtn = new TextButton("", Styles.defaultt);
+                boronBtn.clicked(() -> configure(-2));
+                boronBtn.update(() -> boronBtn.setText(Core.bundle.get(
+                    boronArmed ? "ironworks.rbmk.boron.armed" : "ironworks.rbmk.boron.idle")));
+                table.add(boronBtn).size(w, 36f).padTop(4f).with(b -> b.setColor(Color.valueOf("8fd4ff"))).row();
             }
 
             /** 面板里的一行读数：左灰标签，右带色实时值。 */
@@ -517,7 +604,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 2;
+                return 3;
             }
 
             @Override
@@ -532,6 +619,8 @@ public class IronworksRBMK{
                 write.bool(melted);
                 write.f(rodBurn);
                 write.f(boron);
+                write.bool(boronArmed);
+                write.bool(poisoned);
             }
 
             @Override
@@ -547,6 +636,8 @@ public class IronworksRBMK{
                     melted = read.bool();
                     rodBurn = read.f();
                     boron = read.f();
+                    boronArmed = read.bool();
+                    poisoned = read.bool();
                 }
             }
         }
@@ -631,14 +722,16 @@ public class IronworksRBMK{
 
                 // 冷凝水回收
                 if(used > 0f){
-                    LiquidKit.addCappedShared(this, Liquids.water, used * turbineWaterReturn);
-                    if(liquids.get(Liquids.water) > 0.01f) dumpLiquid(Liquids.water);
+                    // 做完功的冷凝水是「温水」，要过冷却塔才能回反应堆
+                    LiquidKit.addCappedShared(this, IronworksLiquids.hotWater, used * turbineWaterReturn);
+                    if(liquids.get(IronworksLiquids.hotWater) > 0.01f) dumpLiquid(IronworksLiquids.hotWater);
                 }
             }
 
+            // 同 reactor：不能走 super（没有消费者 → 过滤器全 false）
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                return liquid == IronworksLiquids.hotCoolant && super.acceptLiquid(source, liquid);
+                return liquid == IronworksLiquids.hotCoolant && LiquidKit.hasSpace(this, liquid);
             }
 
             @Override

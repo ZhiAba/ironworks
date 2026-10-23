@@ -941,9 +941,9 @@ cd "$TESTDIR" || exit 1
   # 116c：抽干冷却水 → flow=0、堆温上涨
   echo 'js var b=Vars.world.tile(58,56).build; b.rods=0; b.heat=0.4; b.liquids.clear(); var h1=b.heat; for(var i=0;i<360;i++) b.updateTile(); Log.info("T118 rise=" + (b.heat > h1 + 0.05) + " flow=" + Math.round(b.flow*100) + " h1=" + Math.round(h1*100) + " h2=" + Math.round(b.heat*100))'
   # 116d：汽轮机吃热冷却液 → 电 + 回收水
-  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(80,56).setBlock(Vars.content.block("ironworks-steam-turbine"),T); var b=Vars.world.tile(80,56).build; b.liquids.add(Vars.content.liquid("ironworks-hot-coolant"),200); for(var i=0;i<180;i++) b.updateTile(); Log.info("T119 power=" + Math.round(b.getPowerProduction()*60) + " water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))) + " flow=" + Math.round(b.flow*100))'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(80,56).setBlock(Vars.content.block("ironworks-steam-turbine"),T); var b=Vars.world.tile(80,56).build; b.liquids.add(Vars.content.liquid("ironworks-hot-coolant"),200); for(var i=0;i<180;i++) b.updateTile(); Log.info("T119 power=" + Math.round(b.getPowerProduction()*60) + " hotwater=" + Math.round(b.liquids.get(Vars.content.liquid("ironworks-hot-water"))) + " flow=" + Math.round(b.flow*100))'
   # 116e：超温 → 熔毁（反应堆消失；旁边钍墙在下个 tick 被爆炸打伤；爆心外的单位吃到辐射）
-  echo 'js Vars.state.rules.reactorExplosions=true; var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,60).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(64,60).setBlock(Vars.content.block("thorium-wall"),T); var u=Packages.mindustry.content.UnitTypes.dagger.spawn(T,784,480); var b=Vars.world.tile(70,60).build; b.items.add(Vars.content.item("thorium"),5); b.liquids.add(Vars.content.liquid("water"),500); b.heat=1.6; for(var i=0;i<180 && !b.melted;i++) b.updateTile(); var r=Vars.content.statusEffect("ironworks-radiation"); Log.info("T120a gone=" + (Vars.world.tile(70,60).block()==Vars.content.block("air")) + " melted=" + b.melted + " rad=" + (u!=null && r!=null && u.hasEffect(r)))'
+  echo 'js Vars.state.rules.reactorExplosions=true; var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,60).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(64,60).setBlock(Vars.content.block("thorium-wall"),T); var u=Packages.mindustry.content.UnitTypes.dagger.spawn(T,784,480); var b=Vars.world.tile(70,60).build; b.items.add(Vars.content.item("thorium"),5); b.liquids.add(Vars.content.liquid("water"),500); b.heat=1.6; for(var i=0;i<180 && !b.melted;i++) b.updateTile(); var r=Vars.content.statusEffect("ironworks-radiation"); var cor=Vars.content.block("ironworks-corium"); var cn=0; for(var yy=57;yy<=63;yy++){for(var xx=67;xx<=73;xx++){var tt=Vars.world.tile(xx,yy); if(tt!=null && tt.block()==cor) cn++;}} Log.info("T120a gone=" + (Vars.world.tile(70,60).block()==Vars.content.block("air")) + " melted=" + b.melted + " rad=" + (u!=null && r!=null && u.hasEffect(r)) + " corium=" + cn)'
   sleep 1
   echo 'js var wall=Vars.world.tile(64,60).build; Log.info("T120b wallHurt=" + (wall==null || wall.health<wall.maxHealth) + " wallHp=" + (wall==null?-1:Math.round(wall.health)))'
   # 116f：反应堆必须打开 configurable（否则点击方块根本不弹面板）
@@ -969,8 +969,8 @@ cd "$TESTDIR" || exit 1
   echo 'js var b=Vars.world.tile(136,110).build; Log.info("T126 rods=" + b.items.get(Vars.content.item("ironworks-fuel-rod")))'
   # 124d 反应堆烧燃料棒 → 乏燃料棒
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(108,118).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(108,118).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),500); b.rods=0; b.flux=1.0; b.fuelUse=1.0; for(var i=0;i<10;i++) b.updateTile(); Log.info("T127 depleted=" + b.items.get(Vars.content.item("ironworks-depleted-rod")) + " rods=" + b.items.get(Vars.content.item("ironworks-fuel-rod")) + " burn=" + Math.round(b.rodBurn*100))'
-  # 124e 硼酸注入
-  echo 'js var b=Vars.world.tile(108,118).build; b.applyConfig(-2); var b0=Math.round(b.boron*100); for(var i=0;i<120;i++) b.updateTile(); Log.info("T128 boron=" + b0 + " after=" + Math.round(b.boron*100) + " rods=" + Math.round(b.rods*100))'
+  # 124e 注硼：先武装（不花东西），接硼酸后才会真正注入；注满即永久中毒
+  echo 'js var b=Vars.world.tile(108,118).build; b.applyConfig(-2); var armed=b.boronArmed; b.liquids.add(Vars.content.liquid("ironworks-boric-acid"), 400); for(var i=0;i<900;i++) b.updateTile(); Log.info("T128 armed=" + armed + " boron=" + Math.round(b.boron*100) + " poisoned=" + b.poisoned + " power=" + Math.round(b.getPowerProduction()*60))'
   # 124f 乏燃料池：乏燃料棒 + 水 → 冷却乏燃料棒
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(114,118).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(116,118).setBlock(Vars.content.block("ironworks-spent-fuel-pool"),T); var b=Vars.world.tile(116,118).build; b.items.add(Vars.content.item("ironworks-depleted-rod"),3); b.liquids.add(Vars.content.liquid("water"),30); Log.info("T129a placed=" + (b!=null))'
   sleep 8
@@ -986,5 +986,32 @@ cd "$TESTDIR" || exit 1
   # 124i 干式储存：只收固化废物体
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(140,124).setBlock(Vars.content.block("ironworks-dry-storage"),T); var b=Vars.world.tile(140,124).build; Log.info("T132 onlyVitrified=" + (b.acceptItem(b, Vars.content.item("ironworks-vitrified-waste")) && !b.acceptItem(b, Vars.content.item("copper"))))'
 
+  # ---- 133. 核岛联动：导管进水/汽轮机进液/爆炸规则/棒位上限/冷却塔 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=128;y<=150;y++){for(var x=106;x<=150;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  # 133a 导管把水送进反应堆（修复「送不进去」）
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(110,132).setBlock(Vars.content.block("liquid-source"),T); Vars.world.tile(111,132).setBlock(Vars.content.block("conduit"),T); Vars.world.tile(114,132).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(110,132).build.source=Vars.content.liquid("water"); Log.info("T133a setup=" + (Vars.world.tile(114,132).build!=null))'
+  sleep 6
+  echo 'js var b=Vars.world.tile(114,132).build; Log.info("T133a water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))))'
+  # 133b 导管把热冷却液送进汽轮机
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(111,138).setBlock(Vars.content.block("liquid-source"),T); Vars.world.tile(112,138).setBlock(Vars.content.block("conduit"),T); Vars.world.tile(114,138).setBlock(Vars.content.block("ironworks-steam-turbine"),T); Vars.world.tile(111,138).build.source=Vars.content.liquid("ironworks-hot-coolant"); Log.info("T133b setup=" + (Vars.world.tile(114,138).build!=null))'
+  sleep 6
+  echo 'js var b=Vars.world.tile(114,138).build; Log.info("T133b hot=" + Math.round(b.liquids.get(Vars.content.liquid("ironworks-hot-coolant"))))'
+  # 133c 运行时被炸毁 → 爆炸（邻墙受伤）
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(120,132).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(117,132).setBlock(Vars.content.block("thorium-wall"),T); var b=Vars.world.tile(120,132).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),900); b.rods=0; b.flux=0.8; for(var i=0;i<20;i++) b.updateTile(); Vars.state.rules.reactorExplosions=true; b.killed(); Log.info("T133c killed=" + b.melted)'
+  sleep 1
+  echo 'js var w=Vars.world.tile(117,132).build; Log.info("T133c boom=" + (w==null || w.health<w.maxHealth))'
+  # 133d 玩家拆除运行时 → 爆炸
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(128,132).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(125,132).setBlock(Vars.content.block("thorium-wall"),T); var b=Vars.world.tile(128,132).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),900); b.rods=0; b.flux=0.8; for(var i=0;i<20;i++) b.updateTile(); Vars.state.rules.reactorExplosions=true; var ok=false; try{ b.onDeconstructed(null); ok=true; }catch(e){ ok=false; } Log.info("T133d called=" + ok + " melted=" + b.melted)'
+  sleep 1
+  echo 'js var w=Vars.world.tile(125,132).build; Log.info("T133d boom=" + (w==null || w.health<w.maxHealth))'
+  # 133e 高功率 SCRAM（AZ-5）→ 爆炸
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(136,132).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(136,132).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),900); b.heat=0.9; b.flux=1.1; b.applyConfig(-1); for(var i=0;i<60 && !b.melted;i++) b.updateTile(); Log.info("T133e boom=" + b.melted + " gone=" + (Vars.world.tile(136,132).block()==Vars.content.block("air")))'
+  # 133f 冷却塔：温水 → 水（放远一点，免得被上面的爆炸波及）
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=156;y<=172;y++){for(var x=106;x<=150;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(112,160).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(114,160).setBlock(Vars.content.block("ironworks-cooling-tower"),T); var b=Vars.world.tile(114,160).build; b.liquids.add(Vars.content.liquid("ironworks-hot-water"),60); Log.info("T133f setup=" + (b!=null))'
+  sleep 5
+  echo 'js var b=Vars.world.tile(114,160).build; Log.info("T133f water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))))'
+  # 133g 棒位 = 功率上限：50% 插棒只能到 ~50%，不会拉满
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(130,164).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(130,164).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),400); b.rods=0.5; for(var i=0;i<400;i++) b.updateTile(); Log.info("T133g ceiling=" + Math.round(b.rodCeilingPct) + " flux=" + Math.round(b.flux*100) + " power=" + Math.round(b.getPowerProduction()*60))'
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

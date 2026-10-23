@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller, boricAcid, hotWater;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -133,6 +133,24 @@ public class IronworksLiquids{
             temperature = 0.12f;
             heatCapacity = 1.3f;
             viscosity = 0.5f;
+            flammability = 0f;
+            blockReactive = false;
+        }};
+
+        // 硼酸：注入堆芯吸收中子，用来强行压死反应性（成本是一罐酸 + 一罐水）
+        boricAcid = new Liquid("boric-acid", Color.valueOf("9fd8ff")){{
+            temperature = 0.15f;
+            heatCapacity = 1.2f;
+            viscosity = 0.45f;
+            flammability = 0f;
+            blockReactive = false;
+        }};
+
+        // 温水：汽轮机做完功的冷凝水，要过冷却塔才能回到反应堆
+        hotWater = new Liquid("hot-water", Color.valueOf("8fc8dd")){{
+            temperature = 0.45f;
+            heatCapacity = 1.15f;
+            viscosity = 0.4f;
             flammability = 0f;
             blockReactive = false;
         }};

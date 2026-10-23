@@ -42,7 +42,7 @@
 116	T116 flux=[1-9][0-9]* heat=[1-9][0-9]* power=[1-9][0-9]* hot=[1-9][0-9]*
 117	T117 dropped=true
 118	T118 rise=true flow=0
-119	T119 power=[1-9][0-9]* water=[1-9][0-9]* flow=100
+119	T119 power=[1-9][0-9]* hotwater=[1-9][0-9]* flow=100
 120b	T120b wallHurt=true wallHp=-1
 121	T121 configurable=true outputsPower=true
 123	T123 tiers=3 hasCryo=true accept=true
@@ -51,8 +51,15 @@
 125	T125 enriched=[1-9][0-9]*
 126	T126 rods=[1-9][0-9]*
 127	T127 depleted=[1-9][0-9]* rods=[0-9]+ burn=[0-9]+
-128	T128 boron=100 after=[0-9]{1,2} rods=100
+128	T128 armed=true boron=100 poisoned=true power=0
 129	T129 cooled=[1-9][0-9]*
 130	T130 pu=[1-9][0-9]* waste=[1-9][0-9]*
 131	T131 vitrified=[1-9][0-9]*
 132	T132 onlyVitrified=true
+133a	T133a water=[1-9][0-9]*
+133b	T133b hot=[1-9][0-9]*
+133c	T133c boom=true
+133d	T133d boom=true
+133e	T133e boom=true
+133f	T133f water=[1-9][0-9]*
+133g	T133g ceiling=50 flux=[3-7][0-9] power=[1-9][0-9]{4,5}

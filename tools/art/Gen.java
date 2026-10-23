@@ -467,6 +467,41 @@ public class Gen{
         return im;
     }
 
+
+    /** 冷却塔：塔体 + 蒸汽 */
+    static BufferedImage coolingTower(){
+        BufferedImage im = img(96, 96);
+        // 塔身（梯形）
+        for(int i = 0; i < 14; i++){
+            int w = 46 - i * 2;
+            rect(48 - w / 2, 22 + i * 4, w, 4, i % 2 == 0 ? MID : LIT);
+        }
+        rect(26, 80, 44, 6, OUT);
+        rect(20, 72, 56, 8, LIT);
+        // 蒸汽
+        for(int i = 0; i < 5; i++) rect(34 + i * 7, 8 + (i % 2) * 4, 6, 4, new Color(0xbfd8e2));
+        // 循环水管
+        rect(6, 46, 14, 8, OUT); rect(8, 48, 10, 4, new Color(0x8fc8dd));
+        rect(76, 46, 14, 8, OUT); rect(78, 48, 10, 4, new Color(0x8fc8dd));
+        return im;
+    }
+
+    /** 堆芯熔融物：发光岩浆团 */
+    static BufferedImage corium(){
+        BufferedImage im = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        g = im.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        ring(16, 17, 13, new Color(0x2a1a12));
+        ring(16, 17, 12, new Color(0xff6a2b));
+        ring(16, 17, 9, new Color(0xff9a3c));
+        ring(16, 17, 6, new Color(0xffd166));
+        rect(14, 15, 4, 4, new Color(0xfff2c4));
+        // 结壳
+        rect(7, 20, 5, 3, new Color(0x3b2a20));
+        rect(20, 9, 4, 3, new Color(0x3b2a20));
+        return im;
+    }
+
     public static void main(String[] args) throws Exception{
         String dir = "/sdcard/dsh/mindustry-mod/assets/sprites/";
         save(clusterFull(), dir + "compute-cluster.png");
@@ -497,6 +532,8 @@ public class Gen{
         save(nukeBlock(4, new Color(0xc46bd8)), dir + "reprocessor.png");
         save(nukeBlock(5, new Color(0xc9e04a)), dir + "vitrifier.png");
         save(nukeBlock(6, new Color(0x6f7d8a)), dir + "dry-storage.png");
+        save(coolingTower(), dir + "cooling-tower.png");
+        save(corium(), dir + "corium.png");
 
     }
 }
