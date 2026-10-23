@@ -31,6 +31,9 @@ import mindustry.world.meta.StatUnit;
  */
 public class OverheatTurret extends PowerTurret{
 
+    /** 直接结算的命中属性；电弧塔是雷霆。 */
+    public DamageType damageType = DamageType.thunder;
+    public float contactDamage = 35f;
     public float overheatTime = 300f;
     public float overheatCoolAmount = 1.6f;
     public float maxSpeedupScl = 5.5f;
@@ -327,15 +330,14 @@ public class OverheatTurret extends PowerTurret{
             if(!aimed) return;
 
             if(target instanceof mindustry.gen.Healthc h){
-                h.damage(35f);
+                Dmg.hit(h, contactDamage, damageType);
             }
 
             int[] remain = {3};
             mindustry.entities.Units.nearbyEnemies(team, tx, ty, 20f, u -> {
                 if(remain[0] <= 0 || u.dead()) return;
                 remain[0]--;
-                u.damage(35f);
-                u.apply(mindustry.content.StatusEffects.shocked, 60f);
+                Dmg.hit(u, contactDamage, damageType);
                 mindustry.entities.Lightning.create(team, arc.graphics.Color.valueOf("8a7bff"), tx, ty, u.x, u.y, 3);
             });
 

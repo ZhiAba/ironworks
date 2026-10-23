@@ -54,7 +54,7 @@ public class IronworksShells{
             frontColor = Color.white;
         }};
 
-        incendiaryBullet = new ArtilleryBulletType(4f, 110){{
+        incendiaryBullet = new TypedArtilleryBulletType(DamageType.fire, 4f, 110){{
             width = 13f; height = 15f; lifetime = 140f;
             ammoMultiplier = 2f;
             splashDamage = 105f; splashDamageRadius = 115f;

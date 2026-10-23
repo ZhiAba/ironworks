@@ -61,7 +61,7 @@ public class IronworksStatus{
                         Fx.lightning.at(unit.x, unit.y, Mathf.random(360f), Color.valueOf("b6a8ff"), null);
                     }
                 }
-                unit.damagePierce(dmg);
+                Dmg.pierce(unit, dmg, DamageType.thunder);
             }
         };
 
@@ -142,7 +142,7 @@ public class IronworksStatus{
                 Unit unit = e.unit;
                 if(unit == null || jadeShatter == null || !unit.hasEffect(jadeShatter)) return;
 
-                Damage.damage(unit.team, unit.x, unit.y, jadeRadius, jadeDamage);
+                Dmg.area(unit.team, unit.x, unit.y, jadeRadius, jadeDamage, DamageType.physical, false);
                 Fx.dynamicExplosion.at(unit.x, unit.y, jadeRadius / 8f);
             });
         }

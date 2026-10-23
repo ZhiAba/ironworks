@@ -1089,5 +1089,8 @@ cd "$TESTDIR" || exit 1
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,205).setBlock(Vars.content.block("ironworks-auto-radar"),T); Vars.world.tile(74,205).setBlock(Vars.content.block("duo"),T); var b=Vars.world.tile(70,205).build; var t=Vars.world.tile(74,205).build; for(var i=0;i<20;i++) t.handleItem(t, Vars.content.item("copper")); b.toggleLink(t); var T2=Vars.state.rules.waveTeam; Vars.content.unit("mace").spawn(T2, 90*8, 210*8); Vars.content.unit("dagger").spawn(T2, 76*8, 205*8); b.applyConfig(-1); b.retargetTimer=0; b.updateTile(); Log.info("T153a before=" + (t.target==null?"null":t.target.type.name))'
   sleep 3
   echo 'js var b=Vars.world.tile(70,205).build; var t=Vars.world.tile(74,205).build; Log.info("T153 after=" + (t.target==null?"null":t.target.type.name) + " same=" + (t.target==b.target))'
+  # ---- 154. 属性伤害：归属查询 + 护甲/克制/状态实时结算 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=205;y<=225;y++){for(var x=140;x<=200;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(150,215).setBlock(Vars.content.block("ironworks-verbose-logger"),T); Log.info("T154 " + Vars.world.tile(150,215).build.damageTest())'
   echo 'exit'
 ) | timeout 2400 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

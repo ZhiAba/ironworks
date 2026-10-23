@@ -84,7 +84,7 @@ public class TianfaTurret extends OverheatTurret{
             float my = y + ox * sn + oy * cs;
 
             if(target instanceof Healthc h){
-                h.damage(shotDamage);
+                Dmg.hit(h, shotDamage, DamageType.thunder);
                 if(h instanceof Unit u) u.apply(IronworksStatus.overload, overloadDuration);
             }
 
@@ -93,7 +93,7 @@ public class TianfaTurret extends OverheatTurret{
             Units.nearbyEnemies(team, tx, ty, chainRange, u -> {
                 if(remain[0] <= 0 || u.dead()) return;
                 remain[0]--;
-                u.damage(chainDamage);
+                Dmg.hit(u, chainDamage, DamageType.thunder);
                 u.apply(StatusEffects.shocked, 90f);
                 mindustry.entities.Lightning.create(team, arc.graphics.Color.valueOf("b6a8ff"), fx, fy, u.x, u.y, 2);
             });

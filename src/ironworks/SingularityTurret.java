@@ -9,7 +9,6 @@ import arc.math.Mathf;
 import arc.util.Time;
 import mindustry.content.Fx;
 import mindustry.content.StatusEffects;
-import mindustry.entities.Damage;
 import mindustry.entities.Units;
 import mindustry.entities.bullet.BulletType;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
@@ -20,6 +19,8 @@ import mindustry.world.blocks.defense.turrets.PowerTurret;
  */
 public class SingularityTurret extends PowerTurret{
 
+    /** 引力/坍缩属于能量属性。 */
+    public DamageType damageType = DamageType.energy;
     public float fieldSeconds = 14f;
     public float pullRadius = 15f * 8f;
     public float pullDps = 360f;
@@ -67,7 +68,7 @@ public class SingularityTurret extends PowerTurret{
             if(active){
                 fieldTimer -= Time.delta;
 
-                Damage.damage(team, fx, fy, pullRadius * 0.7f, pullDps * Time.delta / 60f, true);
+                Dmg.area(team, fx, fy, pullRadius * 0.7f, pullDps * Time.delta / 60f, damageType, true);
 
                 Units.nearbyEnemies(team, fx, fy, pullRadius, u -> {
                     if(u.dead()) return;
@@ -75,7 +76,7 @@ public class SingularityTurret extends PowerTurret{
                     float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
                     float force = Mathf.clamp(1f - len / pullRadius) * 2.4f;
                     u.vel.add(dx / len * force, dy / len * force);
-                    u.damage(pullDps * Time.delta / 60f);
+                    Dmg.hit(u, pullDps * Time.delta / 60f, damageType);
                     u.apply(StatusEffects.slow, 20f);
                 });
 
@@ -94,7 +95,7 @@ public class SingularityTurret extends PowerTurret{
         }
 
         void collapse(){
-            Damage.damage(team, fx, fy, collapseRadius, collapseDamage, true);
+            Dmg.area(team, fx, fy, collapseRadius, collapseDamage, damageType, true);
             Fx.shockwave.at(fx, fy);
             Fx.explosion.at(fx, fy);
             IronworksFx.muzzle.at(fx, fy, 0f);
@@ -114,7 +115,7 @@ public class SingularityTurret extends PowerTurret{
                 sh.size = Mathf.random(5f, 11f);
                 shards.add(sh);
 
-                Damage.damage(team, sh.x, sh.y, 16f, 230f, true);
+                Dmg.area(team, sh.x, sh.y, 16f, 230f, damageType, true);
                 Fx.explosion.at(sh.x, sh.y);
             }
         }

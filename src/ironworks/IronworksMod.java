@@ -40,6 +40,10 @@ public class IronworksMod extends Mod{
         // 放在 loadContent 末尾：Conduit.init() 只在 buildType 为 null 时才自行推断，
         // 这里先设好，init 就不会覆盖。
         IronworksHighTemp.patchVanillaPipes();
+
+        // 属性伤害：解析状态、注册归属、把原版水/冰/雷/能量弹体换成带属性的同类。
+        // 必须放在所有内容创建之后，供详情页和运行时查询。
+        Dmg.load();
     }
 
     /**
@@ -52,5 +56,6 @@ public class IronworksMod extends Mod{
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
         IronworksSettings.init();    // 设置 → 铁流工业
+        IronworksDamageUI.init();    // 详情页弹药属性着色
     }
 }

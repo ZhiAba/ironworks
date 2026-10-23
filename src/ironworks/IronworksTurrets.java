@@ -75,7 +75,7 @@ public class IronworksTurrets{
         }};
 
         // 凝固汽油弹：命中点燃地面 + 持续燃烧
-        napalmBullet = new BasicBulletType(4f, 38){{
+        napalmBullet = new TypedBasicBulletType(DamageType.fire, 4f, 38){{
             width = 9f; height = 12f; lifetime = 62f;
             ammoMultiplier = 4f;
             splashDamage = 34f; splashDamageRadius = 32f;
@@ -88,7 +88,7 @@ public class IronworksTurrets{
         }};
 
         // 腐蚀弹：直接伤害不高，但命中后挂「腐蚀」——破甲持续伤害 + 迟缓
-        corrosiveBullet = new BasicBulletType(6.5f, 30){{
+        corrosiveBullet = new TypedBasicBulletType(DamageType.corrosive, 6.5f, 30){{
             width = 7f; height = 11f; lifetime = 50f;
             ammoMultiplier = 3f;
             status = IronworksStatus.corrosion;

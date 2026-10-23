@@ -308,7 +308,7 @@ public class IronworksNuclear{
                     // 熔穿周围建筑（自己的四邻）
                     for(Building other : proximity){
                         if(other != null && other.block != corium && Math.random() < 0.10){
-                            other.damage(18f);
+                            Dmg.hit(other, 18f, DamageType.fire);
                         }
                     }
                 }

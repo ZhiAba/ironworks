@@ -132,6 +132,11 @@ public class VerboseLogger extends Block{
             return String.valueOf(Math.round(v));
         }
 
+        /** 属性伤害回归入口（由链式测试调用）。 */
+        public String damageTest(){
+            return IronworksDebug.damageTest(this);
+        }
+
         @Override
         public void onDestroyed(){
             IronworksLog.line("[EVENT] logger destroyed");
