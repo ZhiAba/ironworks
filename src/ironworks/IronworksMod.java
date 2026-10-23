@@ -38,4 +38,15 @@ public class IronworksMod extends Mod{
         // 这里先设好，init 就不会覆盖。
         IronworksHighTemp.patchVanillaPipes();
     }
+
+    /**
+     * 客户端功能（内嵌自 utility-pack：方块搜索 + 多人暂停 + 设置分类）。
+     * 无头服务端上各自内部会 early-return，不会碰 UI。
+     */
+    @Override
+    public void init(){
+        IronworksBlockSearch.init(); // 建造菜单里的方块搜索（含拼音）
+        IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
+        IronworksSettings.init();    // 设置 → 铁流工业
+    }
 }
