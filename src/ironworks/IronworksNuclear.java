@@ -226,7 +226,7 @@ public class IronworksNuclear{
             health = 460;
             recipes = new Recipe[]{
                 new Recipe("cool", 30f)
-                    .liquids(new LiquidStack(IronworksLiquids.hotWater, 6f))
+                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 6f))
                     .power(1f)
                     .outputLiquid(new LiquidStack(Liquids.water, 6f))
             };

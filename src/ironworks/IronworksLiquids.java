@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller, boricAcid, hotWater;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller, boricAcid, steam, warmWater;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -147,8 +147,20 @@ public class IronworksLiquids{
         }};
 
         // 温水：汽轮机做完功的冷凝水，要过冷却塔才能回到反应堆
-        hotWater = new Liquid("hot-water", Color.valueOf("8fc8dd")){{
-            temperature = 0.45f;
+        // 蒸汽：反应堆把水烧成的蒸汽，只走管路，不进电网；汽轮机才是发电端
+        steam = new Liquid("steam", Color.valueOf("e8eef5")){{
+            gas = true;
+            temperature = 1.0f;
+            heatCapacity = 1.9f;
+            viscosity = 0.2f;
+            flammability = 0f;
+            explosiveness = 0f;
+            blockReactive = false;
+        }};
+
+        // 温水：做完功的乏汽冷凝水（~60°C），过冷却塔回到反应堆
+        warmWater = new Liquid("warm-water", Color.valueOf("8fc8dd")){{
+            temperature = 0.25f;
             heatCapacity = 1.15f;
             viscosity = 0.4f;
             flammability = 0f;
