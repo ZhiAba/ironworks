@@ -953,5 +953,38 @@ cd "$TESTDIR" || exit 1
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=148;y<=152;y++){for(var x=148;x<=152;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(150,150).setBlock(Vars.content.block("ironworks-tianfa"),T); var b=Vars.world.tile(150,150).build; var k=b.block; var cryo=Vars.content.liquid("cryofluid"); var has=false; for(var i=0;i<k.coolantLiquids.length;i++){if(k.coolantLiquids[i]==cryo) has=true;} Log.info("T123 tiers=" + k.coolantLiquids.length + " hasCryo=" + has + " accept=" + b.acceptLiquid(b, cryo))'
 
+  # ---- 124. 核工业全套：浸出 → 浓缩 → 制棒 → 反应堆烧棒 → 乏燃料池 → 后处理 → 固化 → 干储 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=108;y<=124;y++){for(var x=108;x<=146;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  # 124a 浸出：铀矿石 + 酸 + 电 → 黄饼
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(110,110).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(112,110).setBlock(Vars.content.block("ironworks-leach-plant"),T); var b=Vars.world.tile(112,110).build; b.items.add(Vars.content.item("ironworks-uranium-ore"),30); b.liquids.add(Vars.content.liquid("ironworks-acid"),60); Log.info("T124a placed=" + (b!=null))'
+  sleep 5
+  echo 'js var b=Vars.world.tile(112,110).build; Log.info("T124 yellow=" + b.items.get(Vars.content.item("ironworks-yellowcake")) + " ore=" + b.items.get(Vars.content.item("ironworks-uranium-ore")))'
+  # 124b 浓缩：黄饼 + 酸 + 电 → 浓缩铀
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(122,110).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(124,110).setBlock(Vars.content.block("ironworks-enrichment-plant"),T); var b=Vars.world.tile(124,110).build; b.items.add(Vars.content.item("ironworks-yellowcake"),10); b.liquids.add(Vars.content.liquid("ironworks-acid"),40); Log.info("T125a placed=" + (b!=null))'
+  sleep 7
+  echo 'js var b=Vars.world.tile(124,110).build; Log.info("T125 enriched=" + b.items.get(Vars.content.item("ironworks-enriched-uranium")))'
+  # 124c 制棒：浓缩铀 + 钢板 + 碳化硅 → 燃料棒
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(134,110).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(136,110).setBlock(Vars.content.block("ironworks-fuel-factory"),T); var b=Vars.world.tile(136,110).build; b.items.add(Vars.content.item("ironworks-enriched-uranium"),3); b.items.add(Vars.content.item("ironworks-steel-plate"),12); b.items.add(Vars.content.item("ironworks-silicon-carbide"),6); Log.info("T126a placed=" + (b!=null))'
+  sleep 5
+  echo 'js var b=Vars.world.tile(136,110).build; Log.info("T126 rods=" + b.items.get(Vars.content.item("ironworks-fuel-rod")))'
+  # 124d 反应堆烧燃料棒 → 乏燃料棒
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(108,118).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(108,118).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),500); b.rods=0; b.flux=1.0; b.fuelUse=1.0; for(var i=0;i<10;i++) b.updateTile(); Log.info("T127 depleted=" + b.items.get(Vars.content.item("ironworks-depleted-rod")) + " rods=" + b.items.get(Vars.content.item("ironworks-fuel-rod")) + " burn=" + Math.round(b.rodBurn*100))'
+  # 124e 硼酸注入
+  echo 'js var b=Vars.world.tile(108,118).build; b.applyConfig(-2); var b0=Math.round(b.boron*100); for(var i=0;i<120;i++) b.updateTile(); Log.info("T128 boron=" + b0 + " after=" + Math.round(b.boron*100) + " rods=" + Math.round(b.rods*100))'
+  # 124f 乏燃料池：乏燃料棒 + 水 → 冷却乏燃料棒
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(114,118).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(116,118).setBlock(Vars.content.block("ironworks-spent-fuel-pool"),T); var b=Vars.world.tile(116,118).build; b.items.add(Vars.content.item("ironworks-depleted-rod"),3); b.liquids.add(Vars.content.liquid("water"),30); Log.info("T129a placed=" + (b!=null))'
+  sleep 8
+  echo 'js var b=Vars.world.tile(116,118).build; Log.info("T129 cooled=" + b.items.get(Vars.content.item("ironworks-cooled-rod")))'
+  # 124g 后处理：冷却乏燃料棒 + 酸 → 钚 + 高放废料
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(126,118).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(128,118).setBlock(Vars.content.block("ironworks-reprocessor"),T); var b=Vars.world.tile(128,118).build; b.items.add(Vars.content.item("ironworks-cooled-rod"),2); b.liquids.add(Vars.content.liquid("ironworks-acid"),40); Log.info("T130a placed=" + (b!=null))'
+  sleep 6
+  echo 'js var b=Vars.world.tile(128,118).build; Log.info("T130 pu=" + b.items.get(Vars.content.item("ironworks-plutonium")) + " waste=" + b.items.get(Vars.content.item("ironworks-nuclear-waste")))'
+  # 124h 固化：废料 + 沙 + 石墨 → 固化废物体
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(138,118).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(140,118).setBlock(Vars.content.block("ironworks-vitrifier"),T); var b=Vars.world.tile(140,118).build; b.items.add(Vars.content.item("ironworks-nuclear-waste"),4); b.items.add(Vars.content.item("sand"),8); b.items.add(Vars.content.item("graphite"),8); Log.info("T131a placed=" + (b!=null))'
+  sleep 5
+  echo 'js var b=Vars.world.tile(140,118).build; Log.info("T131 vitrified=" + b.items.get(Vars.content.item("ironworks-vitrified-waste")))'
+  # 124i 干式储存：只收固化废物体
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(140,124).setBlock(Vars.content.block("ironworks-dry-storage"),T); var b=Vars.world.tile(140,124).build; Log.info("T132 onlyVitrified=" + (b.acceptItem(b, Vars.content.item("ironworks-vitrified-waste")) && !b.acceptItem(b, Vars.content.item("copper"))))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

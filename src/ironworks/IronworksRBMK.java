@@ -68,8 +68,12 @@ public class IronworksRBMK{
     public static final float waterPerSecond = 40f;
     /** 满通量吐热冷却液（/秒，按实际用水量的 85%）。 */
     public static final float hotRatio = 0.85f;
-    /** 满通量烧钍（/秒）。 */
+    /** 满通量烧钍（/秒）：1 根 = 200 秒。 */
     public static final float thoriumPerSecond = 0.05f;
+    /** 满通量烧燃料棒（/秒）：1 根 = 900 秒（加工过的燃料耐烧得多）。 */
+    public static final float rodPerSecond = 1f / 900f;
+    /** 硼酸注入的负反应性权重与消散时间（秒）。 */
+    public static final float boronReactivity = 0.05f, boronDecaySeconds = 45f;
     /** 通量上限。 */
     public static final float fluxMax = 1.25f;
     /** 熔毁温度阈值（归一化）。 */
@@ -118,7 +122,7 @@ public class IronworksRBMK{
             solid = true;
             update = true;
             hasItems = true;
-            itemCapacity = 30;
+            itemCapacity = 40;
             hasLiquids = true;
             liquidCapacity = 900f;
             // 熔毁自己算（带辐射），别让引擎再炸一次
@@ -157,10 +161,10 @@ public class IronworksRBMK{
                     Core.bundle.get("ironworks.rbmk.spec.hot"),
                     (int)(waterPerSecond * hotRatio) + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.hotCoolant.color);
-                IronworksStats.specRow(table, Items.thorium.uiIcon,
+                IronworksStats.specRow(table, IronworksNuclear.fuelRod.uiIcon,
                     Core.bundle.get("ironworks.rbmk.spec.fuel"),
-                    Strings.autoFixed(thoriumPerSecond, 2) + "/" + StatUnit.perSecond.localized(),
-                    Items.thorium.color);
+                    Core.bundle.get("ironworks.rbmk.spec.fuel.value"),
+                    IronworksNuclear.fuelRod.color);
                 IronworksStats.specRow(table, Icon.paste,
                     Core.bundle.get("ironworks.rbmk.spec.rods"),
                     "0–100%", Pal.accent);
@@ -194,9 +198,11 @@ public class IronworksRBMK{
                 () -> Mathf.clamp(b.flow)));
 
             addBar("rbmk-fuel", (RBMKReactorBuild b) -> new Bar(
-                () -> Core.bundle.format("bar.ironworks-rbmk-fuel", b.items.get(Items.thorium), b.block.itemCapacity),
-                () -> Items.thorium.color,
-                () -> (float)b.items.get(Items.thorium) / b.block.itemCapacity));
+                () -> Core.bundle.format("bar.ironworks-rbmk-fuel",
+                    b.items.get(IronworksNuclear.fuelRod), b.items.get(Items.thorium),
+                    b.items.get(IronworksNuclear.depletedRod), b.block.itemCapacity),
+                () -> IronworksNuclear.fuelRod.color,
+                () -> (float)(b.items.get(IronworksNuclear.fuelRod) + b.items.get(Items.thorium)) / Math.max(b.block.itemCapacity - 8, 1)));
         }
 
         static Color heatColor(float heat){
@@ -227,6 +233,10 @@ public class IronworksRBMK{
             public float meltTimer = 0f;
             /** 显示温度（开尔文）。 */
             public float tempK = 300f;
+            /** 当前这根燃料棒的燃耗 0..1。 */
+            public float rodBurn = 0f;
+            /** 硼酸注入量 0..1（强负反应性，几十秒内退不掉）。 */
+            public float boron = 0f;
             /** 是否已熔毁（防止重复爆炸）。 */
             public boolean melted = false;
 
@@ -241,11 +251,18 @@ public class IronworksRBMK{
             }
 
             public void applyConfig(int v){
-                if(v < 0){
+                if(v == -1){
                     // SCRAM：全部插进去
                     rods = 1f;
                     return;
                 }
+                if(v == -2){
+                    // 硼酸注入：强负反应性，靠自然衰减恢复（真实 RBMK 的最后一招）
+                    boron = 1f;
+                    rods = 1f;
+                    return;
+                }
+                if(v < 0) return;
                 rods = Mathf.clamp(v / 100f, 0f, 1f);
             }
 
@@ -254,7 +271,7 @@ public class IronworksRBMK{
                 float dt = delta() / 60f;
                 float second = delta();
 
-                boolean hasFuel = items.get(Items.thorium) > 0;
+                boolean hasFuel = items.get(IronworksNuclear.fuelRod) > 0 || items.get(Items.thorium) > 0;
 
                 // —— 1. 冷却液 ——
                 float need = flux * waterPerSecond * dt;
@@ -267,20 +284,38 @@ public class IronworksRBMK{
                 float reactivity = (1f - rods) * 0.012f * (hasFuel ? 1f : 0f)
                     - flux * 0.012f
                     - xenon * 0.006f
-                    + (1f - flow) * flux * 0.012f;   // 空泡正反应性：没水反而更疯
+                    + (1f - flow) * flux * 0.012f    // 空泡正反应性：没水反而更疯
+                    - boron * boronReactivity;       // 硼酸注入
 
                 flux = Mathf.clamp(flux + reactivity * dt * 20f, 0f, fluxMax);
                 productionEfficiency = flux;
 
-                // —— 3. 燃料 ——
+                // —— 3. 燃料：燃料棒优先（耐烧 + 吐乏燃料），钍是应急替代 ——
                 if(hasFuel && flux > 0.01f){
-                    fuelUse += flux * thoriumPerSecond * dt;
+                    boolean rod = items.get(IronworksNuclear.fuelRod) > 0;
+                    float perSecond = rod ? rodPerSecond : thoriumPerSecond;
+                    fuelUse += flux * perSecond * dt;
                     while(fuelUse >= 1f){
                         fuelUse -= 1f;
-                        items.remove(Items.thorium, 1);
-                        if(items.get(Items.thorium) <= 0) break;
+                        if(items.get(IronworksNuclear.fuelRod) > 0){
+                            // 乏燃料排不出去就别换料了（真实：乏燃料池满了就不换棒）
+                            if(items.get(IronworksNuclear.depletedRod) >= itemCapacity - 1){
+                                fuelUse = 0f;
+                                break;
+                            }
+                            items.remove(IronworksNuclear.fuelRod, 1);
+                            items.add(IronworksNuclear.depletedRod, 1);
+                            rodBurn = 0f;
+                        }else if(items.get(Items.thorium) > 0){
+                            items.remove(Items.thorium, 1);
+                            rodBurn = 0f;
+                        }else{
+                            break;
+                        }
                     }
                 }
+                // 燃耗进度 = 当前这根烧到哪儿了（0..1）
+                if(hasFuel && flux > 0.01f) rodBurn = Mathf.clamp(fuelUse);
 
                 // —— 4. 热 ——
                 float heatGen = flux * 0.50f;
@@ -303,6 +338,9 @@ public class IronworksRBMK{
                 // —— 6. 氙毒（碘 → 氙，氙被通量烧掉）——
                 iodine = Mathf.clamp(iodine + (flux * 0.02f - iodine * 0.02f) * dt, 0f, 1.5f);
                 xenon = Mathf.clamp(xenon + (iodine * 0.01f - xenon * (0.004f + flux * 0.02f)) * dt, 0f, 1.5f);
+
+                // 硼酸自然衰减
+                if(boron > 0f) boron = Math.max(0f, boron - dt / boronDecaySeconds);
 
                 // —— 7. 自动 SCRAM：过热保护（保护也不一定救得回来，这才是 RBMK）——
                 if(heat > 1.05f && rods < 0.999f){
@@ -348,7 +386,11 @@ public class IronworksRBMK{
             // 只收水，热冷却液不被邻居倒灌
             @Override
             public boolean acceptItem(Building source, mindustry.type.Item item){
-                return item == Items.thorium && items.get(item) < itemCapacity;
+                if(item == IronworksNuclear.fuelRod || item == Items.thorium){
+                    // 留 8 格给乏燃料，不然烧出来的乏燃料会把自己憋死
+                    return items.get(item) < itemCapacity - 8;
+                }
+                return false;
             }
 
             @Override
@@ -418,9 +460,19 @@ public class IronworksRBMK{
                     readout(c, Core.bundle.get("ironworks.rbmk.row.coolant"),
                         () -> Mathf.round(flow * 100f) + "%",
                         () -> flow < 0.9f ? Pal.remove : Color.valueOf("7fe08a"));
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.burn"),
+                        () -> Mathf.round(rodBurn * 100f) + "%",
+                        () -> Color.valueOf("9fe8b0"));
                     readout(c, Core.bundle.get("ironworks.rbmk.row.fuel"),
-                        () -> items.get(Items.thorium) + " / " + itemCapacity,
-                        () -> Items.thorium.color);
+                        () -> Core.bundle.format("ironworks.rbmk.fuelcount",
+                            items.get(IronworksNuclear.fuelRod), items.get(Items.thorium),
+                            items.get(IronworksNuclear.depletedRod), itemCapacity),
+                        () -> IronworksNuclear.fuelRod.color);
+                    if(boron > 0.001f){
+                        readout(c, Core.bundle.get("ironworks.rbmk.row.boron"),
+                            () -> Mathf.round(boron * 100f) + "%",
+                            () -> Color.valueOf("8fd4ff"));
+                    }
                     c.add().height(2f).row();
                 }).width(w).row();
 
@@ -446,6 +498,10 @@ public class IronworksRBMK{
                 // —— 紧急停堆 ——
                 table.button(Core.bundle.get("ironworks.rbmk.scram"), Styles.defaultt, () -> configure(-1))
                     .size(w, 42f).padTop(6f).with(b -> b.setColor(Pal.remove)).row();
+
+                // 硼酸注入：比 SCRAM 更狠，几十秒内别想再启动
+                table.button(Core.bundle.get("ironworks.rbmk.boron"), Styles.defaultt, () -> configure(-2))
+                    .size(w, 36f).padTop(4f).with(b -> b.setColor(Color.valueOf("8fd4ff"))).row();
             }
 
             /** 面板里的一行读数：左灰标签，右带色实时值。 */
@@ -461,7 +517,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 1;
+                return 2;
             }
 
             @Override
@@ -474,6 +530,8 @@ public class IronworksRBMK{
                 write.f(iodine);
                 write.f(fuelUse);
                 write.bool(melted);
+                write.f(rodBurn);
+                write.f(boron);
             }
 
             @Override
@@ -487,6 +545,8 @@ public class IronworksRBMK{
                     iodine = read.f();
                     fuelUse = read.f();
                     melted = read.bool();
+                    rodBurn = read.f();
+                    boron = read.f();
                 }
             }
         }

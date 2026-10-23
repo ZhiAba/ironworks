@@ -187,6 +187,31 @@ public class IronworksTech{
             with(IronworksItems.steelPlate, 150, IronworksSilicon.quantumCore, 1,
                  Items.silicon, 200, Items.metaglass, 120));
 
+        // 核工业全套（0.67.0.0）：浸出 → 浓缩 → 制棒 → 乏燃料池 → 后处理 → 固化 → 干式储存
+        TechNode nukeLeach = node(rbmk, IronworksNuclear.leachPlant,
+            with(IronworksItems.steelPlate, 60, Items.titanium, 50, Items.metaglass, 40));
+        produce(nukeLeach, IronworksNuclear.uraniumOre);
+        produce(nukeLeach, IronworksNuclear.yellowcake);
+        TechNode enrich = node(nukeLeach, IronworksNuclear.enrichmentPlant,
+            with(IronworksItems.steelPlate, 120, IronworksMaterials.siliconCarbide, 40, Items.silicon, 180));
+        produce(enrich, IronworksNuclear.enrichedUranium);
+        TechNode fuelNode = node(enrich, IronworksNuclear.fuelFactory,
+            with(IronworksItems.steelPlate, 100, IronworksMaterials.siliconCarbide, 40, Items.silicon, 140));
+        produce(fuelNode, IronworksNuclear.fuelRod);
+        TechNode pool = node(fuelNode, IronworksNuclear.spentFuelPool,
+            with(IronworksItems.steelPlate, 90, Items.metaglass, 100, Items.titanium, 60));
+        produce(pool, IronworksNuclear.depletedRod);
+        produce(pool, IronworksNuclear.cooledRod);
+        TechNode reproc = node(pool, IronworksNuclear.reprocessor,
+            with(IronworksSilicon.quantumCore, 2, IronworksMaterials.siliconCarbide, 80, IronworksItems.steelPlate, 200));
+        produce(reproc, IronworksNuclear.plutonium);
+        produce(reproc, IronworksNuclear.nuclearWaste);
+        TechNode vitri = node(reproc, IronworksNuclear.vitrifier,
+            with(IronworksItems.steelPlate, 100, Items.graphite, 80, Items.silicon, 120));
+        produce(vitri, IronworksNuclear.vitrifiedWaste);
+        node(vitri, IronworksNuclear.dryStorage,
+            with(IronworksItems.steelPlate, 120, Items.lead, 100, Items.metaglass, 60));
+
         // 石油化工：炼油厂 → 聚合车间
         TechNode refinery = node(acid, IronworksPetro.refinery,
             with(IronworksItems.steelPlate, 250, Items.silicon, 300, Items.metaglass, 200,

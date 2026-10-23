@@ -333,6 +333,140 @@ public class Gen{
         return im;
     }
 
+
+    // ==================================================================
+    // 核工业（0.67.0.0）：物品图标 + 方块贴图
+    // ==================================================================
+
+    /** 透明底物品图标：kind 决定形状。 */
+    static BufferedImage nukeItem(int kind, Color a, Color b){
+        BufferedImage im = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        g = im.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+        switch(kind){
+            case 0 -> { // 矿石：几块碎石
+                rect(7, 14, 9, 9, OUT); rect(8, 15, 7, 7, a); rect(9, 16, 3, 3, b);
+                rect(17, 10, 8, 8, OUT); rect(18, 11, 6, 6, a); rect(19, 12, 2, 2, b);
+                rect(12, 22, 7, 6, OUT); rect(13, 23, 5, 4, a);
+            }
+            case 1 -> { // 粉末堆（黄饼）
+                rect(5, 20, 22, 3, OUT); rect(6, 21, 20, 2, a);
+                rect(8, 15, 16, 6, OUT); rect(9, 16, 14, 4, a); rect(12, 17, 4, 2, b);
+                dot(11, 22, b); dot(18, 22, b); dot(15, 23, a);
+            }
+            case 2 -> { // 浓缩铀：三颗小球
+                ring(11, 12, 6, OUT); ring(11, 12, 5, a); rect(9, 10, 3, 3, b);
+                ring(21, 17, 6, OUT); ring(21, 17, 5, a); rect(19, 15, 3, 3, b);
+                ring(12, 23, 5, OUT); ring(12, 23, 4, a);
+            }
+            case 3, 4, 5 -> { // 燃料棒 / 乏燃料 / 冷却后：圆柱棒
+                rect(9, 5, 14, 23, OUT);
+                rect(10, 6, 12, 21, a);
+                rect(12, 8, 3, 17, b);
+                rect(17, 8, 3, 17, b);
+                if(kind != 3){ // 乏燃料：裂纹 + 暗斑
+                    rect(10, 14, 12, 2, OUT);
+                    rect(12, 22, 4, 2, OUT);
+                }
+                if(kind == 5){ // 冷却后：淡蓝高光
+                    rect(10, 6, 12, 3, new Color(0xbfe8ff));
+                }
+            }
+            case 6 -> { // 钚：发光球
+                ring(16, 16, 9, OUT); ring(16, 16, 8, a); ring(16, 16, 5, b);
+                rect(15, 15, 2, 2, new Color(0xffffff));
+            }
+            case 7 -> { // 高放废料桶
+                rect(9, 8, 14, 18, OUT);
+                rect(10, 9, 12, 16, a);
+                rect(10, 12, 12, 3, OUT);
+                rect(13, 16, 6, 5, b);
+                rect(14, 6, 4, 3, GREY);
+            }
+            case 8 -> { // 固化废物体：玻璃柱
+                rect(10, 6, 12, 21, OUT);
+                rect(11, 7, 10, 19, a);
+                rect(13, 10, 6, 13, b);
+                rect(11, 7, 10, 3, new Color(0xcfd8e2));
+            }
+        }
+        g.dispose();
+        return im;
+    }
+
+    /** 核工业方块贴图：kind 决定机组样式。 */
+    static BufferedImage nukeBlock(int kind, Color accent){
+        int s = 96;
+        BufferedImage im = img(s, s);
+        switch(kind){
+            case 0 -> { // 浸出槽：大罐 + 液面 + 进出管
+                rect(16, 20, 64, 58, OUT); rect(18, 22, 60, 54, MID);
+                rect(22, 34, 52, 40, OUT); rect(24, 36, 48, 36, accent);
+                rect(22, 30, 52, 6, LIT);
+                for(int i = 0; i < 4; i++) rect(26 + i * 12, 40 + (i % 2) * 8, 6, 3, new Color(0x1f3a2a));
+                rect(4, 44, 12, 8, OUT); rect(6, 46, 8, 4, accent);
+                rect(80, 44, 12, 8, OUT); rect(82, 46, 8, 4, accent);
+                rect(40, 12, 16, 8, OUT); rect(42, 14, 12, 4, GREY);
+            }
+            case 1 -> { // 离心浓缩：三根离心筒
+                for(int i = 0; i < 3; i++){
+                    int x = 14 + i * 24;
+                    rect(x, 18, 20, 62, OUT);
+                    rect(x + 2, 20, 16, 58, MID);
+                    rect(x + 5, 24, 10, 50, accent);
+                    for(int k = 0; k < 5; k++) rect(x + 5, 28 + k * 9, 10, 2, OUT);
+                }
+                rect(10, 82, 76, 6, LIT);
+            }
+            case 2 -> { // 燃料元件厂：压制机
+                rect(14, 16, 68, 20, OUT); rect(16, 18, 64, 16, MID);
+                rect(28, 36, 40, 22, OUT); rect(30, 38, 36, 18, accent);
+                rect(36, 60, 24, 22, OUT); rect(38, 62, 20, 18, LIT);
+                for(int i = 0; i < 3; i++) rect(41 + i * 7, 65, 4, 12, accent);
+                rect(20, 60, 10, 22, OUT); rect(66, 60, 10, 22, OUT);
+            }
+            case 3 -> { // 乏燃料池：水池 + 棒架
+                rect(12, 24, 72, 54, OUT); rect(14, 26, 68, 50, new Color(0x1d3a4a));
+                rect(16, 30, 64, 42, new Color(0x2a6f8a));
+                rect(16, 30, 64, 6, new Color(0x7fd4ff));
+                for(int i = 0; i < 6; i++) rect(20 + i * 10, 40, 5, 26, new Color(0x9fe8b0));
+                for(int i = 0; i < 6; i++) rect(20 + i * 10, 40, 5, 4, new Color(0x4f7a5c));
+                rect(8, 46, 6, 16, OUT); rect(82, 46, 6, 16, OUT);
+            }
+            case 4 -> { // 后处理厂（4×4）：双塔 + 管路
+                int s4 = 128;
+                im = img(s4, s4);
+                rect(14, 16, 42, 92, OUT); rect(16, 18, 38, 88, MID);
+                rect(20, 26, 30, 74, accent);
+                for(int k = 0; k < 6; k++) rect(20, 32 + k * 12, 30, 3, OUT);
+                rect(70, 28, 42, 80, OUT); rect(72, 30, 38, 76, MID);
+                rect(76, 38, 30, 62, LIT);
+                rect(58, 48, 12, 6, OUT); rect(60, 50, 8, 2, accent);
+                rect(8, 108, 112, 8, LIT);
+            }
+            case 5 -> { // 固化车间：炉体 + 出料
+                rect(18, 26, 60, 50, OUT); rect(20, 28, 56, 46, MID);
+                rect(26, 38, 44, 26, OUT); rect(28, 40, 40, 22, accent);
+                rect(32, 46, 12, 10, new Color(0xffd34d));
+                rect(52, 46, 12, 10, new Color(0xc9e04a));
+                rect(30, 76, 36, 12, OUT); rect(32, 78, 32, 8, LIT);
+            }
+            case 6 -> { // 干式储存：混凝土桶阵列
+                for(int c = 0; c < 2; c++){
+                    for(int r = 0; r < 2; r++){
+                        int x = 16 + c * 34, y = 16 + r * 34;
+                        rect(x, y, 28, 28, OUT);
+                        rect(x + 2, y + 2, 24, 24, new Color(0x6f7d8a));
+                        rect(x + 5, y + 5, 18, 18, new Color(0x8b98a5));
+                        rect(x + 10, y + 10, 8, 8, accent);
+                    }
+                }
+                rect(8, 84, 80, 6, LIT);
+            }
+        }
+        return im;
+    }
+
     public static void main(String[] args) throws Exception{
         String dir = "/sdcard/dsh/mindustry-mod/assets/sprites/";
         save(clusterFull(), dir + "compute-cluster.png");
@@ -347,5 +481,22 @@ public class Gen{
         save(rbmkIcon(), dir + "rbmk-reactor-ui.png");
         save(turbineFull(), dir + "steam-turbine.png");
         save(turbineIcon(), dir + "steam-turbine-ui.png");
+        save(nukeItem(0, new Color(0x4f8f4a), new Color(0x8fd47a)), dir + "uranium-ore.png");
+        save(nukeItem(1, new Color(0xffd34d), new Color(0xe8a92a)), dir + "yellowcake.png");
+        save(nukeItem(2, new Color(0xa6ff8a), new Color(0x63c94a)), dir + "enriched-uranium.png");
+        save(nukeItem(3, new Color(0x9fe8b0), new Color(0x4f8f5c)), dir + "fuel-rod.png");
+        save(nukeItem(4, new Color(0x5f7a68), new Color(0x3b4d40)), dir + "depleted-rod.png");
+        save(nukeItem(5, new Color(0x8fa39a), new Color(0x5f7a6a)), dir + "cooled-rod.png");
+        save(nukeItem(6, new Color(0xc46bd8), new Color(0xff9be8)), dir + "plutonium.png");
+        save(nukeItem(7, new Color(0xc9e04a), new Color(0x7f8f2a)), dir + "nuclear-waste.png");
+        save(nukeItem(8, new Color(0x6f7d8a), new Color(0x3f4a55)), dir + "vitrified-waste.png");
+        save(nukeBlock(0, new Color(0x4f8f4a)), dir + "leach-plant.png");
+        save(nukeBlock(1, new Color(0xa6ff8a)), dir + "enrichment-plant.png");
+        save(nukeBlock(2, new Color(0x9fe8b0)), dir + "fuel-factory.png");
+        save(nukeBlock(3, new Color(0x7fd4ff)), dir + "spent-fuel-pool.png");
+        save(nukeBlock(4, new Color(0xc46bd8)), dir + "reprocessor.png");
+        save(nukeBlock(5, new Color(0xc9e04a)), dir + "vitrifier.png");
+        save(nukeBlock(6, new Color(0x6f7d8a)), dir + "dry-storage.png");
+
     }
 }

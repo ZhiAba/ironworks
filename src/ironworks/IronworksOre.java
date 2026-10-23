@@ -42,6 +42,7 @@ public class IronworksOre{
 
         int seed = sec == null ? 7919 : sec.id * 7919 + 131;
         int aluSeed = sec == null ? 4127 : sec.id * 4127 + 977;
+        int urSeed = sec == null ? 6257 : sec.id * 6257 + 1493;
         tiles.eachTile(tile -> {
             if(tile == null) return;
             if(!tile.floor().hasSurface() || tile.overlay() != Blocks.air || tile.block() != Blocks.air) return;
@@ -54,7 +55,10 @@ public class IronworksOre{
             }
             // 铝土矿：另一种噪声纹理，避开铁矿脉，成片落在另一片地上
             double a = Simplex.noise2d(aluSeed, 3, 0.62, 1.0 / 30.0, tile.x, tile.y);
-            if(a > 0.60) tile.setOverlay(bauxiteOre);
+            if(a > 0.60){ tile.setOverlay(bauxiteOre); return; }
+            // 铀矿：更稀疏（阈值高、频率低），只在剩下的空地上撒
+            double u = Simplex.noise2d(urSeed, 3, 0.70, 1.0 / 34.0, tile.x, tile.y);
+            if(u > 0.63) tile.setOverlay(IronworksNuclear.uraniumOreBlock);
         });
     }
 }
