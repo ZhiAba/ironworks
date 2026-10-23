@@ -1092,5 +1092,8 @@ cd "$TESTDIR" || exit 1
   # ---- 154. 属性伤害：归属查询 + 护甲/克制/状态实时结算 ----
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=205;y<=225;y++){for(var x=140;x<=200;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(150,215).setBlock(Vars.content.block("ironworks-verbose-logger"),T); Log.info("T154 " + Vars.world.tile(150,215).build.damageTest())'
+  # ---- 155. 彩蛋开关：关闭后不引爆，重新开启后恢复 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.state.rules.reactorExplosions=true; Vars.world.tile(180,208).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(180,208).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),500); b.targetRods=0; b.rods=0; b.flux=1.0; Packages.arc.Core.settings.put("ironworks.rbmk.meme", false); var E=Packages.mindustry.game.EventType.PlayerChatEvent; Packages.arc.Events.fire(new E(null,"核电，轻而易举啊")); Packages.arc.Events.fire(new E(null,"坏了")); Packages.arc.Events.fire(new E(null,"坏了坏了")); Log.info("T155a disabledAlive=" + (!b.melted))'
+  echo 'js var b=Vars.world.tile(180,208).build; Packages.arc.Core.settings.put("ironworks.rbmk.meme", true); var E=Packages.mindustry.game.EventType.PlayerChatEvent; Packages.arc.Events.fire(new E(null,"核电，轻而易举啊")); Packages.arc.Events.fire(new E(null,"坏了")); Packages.arc.Events.fire(new E(null,"坏了坏了")); Log.info("T155b enabledMelted=" + b.melted)'
   echo 'exit'
 ) | timeout 2400 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

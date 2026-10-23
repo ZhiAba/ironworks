@@ -77,6 +77,13 @@ public class IronworksSettings{
                 st.pref(new CustomSetting(t -> t.button(
                     Core.bundle.get("setting.ironworks.pause.whitelist.name"), Styles.defaultt,
                     IronworksPause::showWhitelistDialog).width(200f).padTop(6f)));
+
+                st.pref(new CustomSetting(t -> t.image(Tex.whiteui).growX().height(2f)
+                    .color(Pal.gray).padTop(8f).padBottom(8f)));
+
+                // —— 显示 / 彩蛋 ——
+                st.checkPref("ironworks.damage.numbers", true, v -> DamageNumbers.enabled = v);
+                st.checkPref("ironworks.rbmk.meme", true);
             });
         }catch(Throwable t){
             Log.err("IronworksSettings: 注册设置分类失败", t);

@@ -35,7 +35,7 @@ public class IronworksShells{
         fragShell      = new Item("frag-shell",      Color.valueOf("c9c08a")){{ cost = 3.0f; hardness = 2; }};
 
         // ── 弹道（曲射）──
-        heBullet = new ArtilleryBulletType(4f, 150){{
+        heBullet = new TypedArtilleryBulletType(DamageType.physical, 4f, 150){{
             width = 13f; height = 15f; lifetime = 140f;
             ammoMultiplier = 1f;
             splashDamage = 195f; splashDamageRadius = 110f;
@@ -44,7 +44,7 @@ public class IronworksShells{
             frontColor = Color.white;
         }};
 
-        apBullet = new ArtilleryBulletType(6f, 260){{
+        apBullet = new TypedArtilleryBulletType(DamageType.physical, 6f, 260){{
             width = 11f; height = 17f; lifetime = 130f;
             ammoMultiplier = 1f;
             pierce = true; pierceCap = 3; pierceBuilding = true;
@@ -65,12 +65,12 @@ public class IronworksShells{
             frontColor = Color.valueOf("ffd08a");
         }};
 
-        fragBullet = new ArtilleryBulletType(4.5f, 90){{
+        fragBullet = new TypedArtilleryBulletType(DamageType.physical, 4.5f, 90){{
             width = 12f; height = 14f; lifetime = 135f;
             ammoMultiplier = 2f;
             splashDamage = 75f; splashDamageRadius = 125f;
             fragBullets = 6;
-            fragBullet = new BasicBulletType(4.5f, 30){{
+            fragBullet = new TypedBasicBulletType(DamageType.physical, 4.5f, 30){{
                 width = 5f; height = 8f; lifetime = 18f;
                 hitEffect = despawnEffect = Fx.hitBulletColor;
                 hitColor = backColor = trailColor = Color.valueOf("c9c08a");

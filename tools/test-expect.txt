@@ -91,3 +91,5 @@
 152	T152 maxHp=mace nearest=dagger lowHp=mace dense=true linked=true timer=true teamKeep=true cap=10
 153	T153 after=mace same=true
 154	T154 tsun=water liquid=water lancer=thunder malign=energy napalm=fire corr=corrosive tianfa=thunder armor=true bonus=true wet=true
+155a	T155a disabledAlive=true
+155b	T155b enabledMelted=true

@@ -42,6 +42,10 @@ public class IronworksRbmkChat{
     /** 吃掉一条聊天消息，推进/重置/触发序列。测试也直接调这个。 */
     public static void feed(String msg){
         if(msg == null || msg.isEmpty()) return;
+        if(!enabled()){
+            reset();
+            return;
+        }
 
         // 用游戏 tick 计时，不用 Time.time：
         // Time.time 在打开键盘/暂停恢复后可能被暂停时长顶一下，导致「明明很快却超时」。
@@ -98,6 +102,7 @@ public class IronworksRbmkChat{
 
     /** 引爆当前地图所有正在工作的反应堆。 */
     static int detonateAll(){
+        if(!enabled()) return 0;
         int n = IronworksRBMK.detonateAllWorking();
         Log.info("[IRONWORKS] meme detonation: " + n + " reactor(s)");
         IronworksLog.event("[MEME] detonated " + n + " reactor(s)");
@@ -115,5 +120,14 @@ public class IronworksRbmkChat{
     public static void reset(){
         step = 0;
         lastAt = -999f;
+    }
+
+    /** 设置里的彩蛋开关；默认开。 */
+    public static boolean enabled(){
+        try{
+            return Core.settings == null || Core.settings.getBool("ironworks.rbmk.meme", true);
+        }catch(Throwable ignored){
+            return true;
+        }
     }
 }

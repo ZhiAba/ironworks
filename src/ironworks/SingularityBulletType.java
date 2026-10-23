@@ -51,7 +51,7 @@ public class SingularityBulletType extends BulletType{
             float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
             float force = Mathf.clamp(1f - len / pullRadius) * 2.2f;
             u.vel.add(dx / len * force, dy / len * force);
-            Dmg.hit(u, pullDamage * Time.delta / 60f, damageType);
+            Dmg.hitSilent(u, pullDamage * Time.delta / 60f, damageType);
         });
     }
 

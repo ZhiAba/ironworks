@@ -29,7 +29,7 @@ public class IronworksTurrets{
     }
 
     public static void load(){
-        copperBullet = new BasicBulletType(5f, 16){{
+        copperBullet = new TypedBasicBulletType(DamageType.physical, 5f, 16){{
             width = 7f; height = 9f; lifetime = 34f;
             ammoMultiplier = 1f;
             hitEffect = despawnEffect = Fx.hitBulletColor;
@@ -37,7 +37,7 @@ public class IronworksTurrets{
             frontColor = Color.white;
         }};
 
-        heavyBullet = new BasicBulletType(3.5f, 50){{
+        heavyBullet = new TypedBasicBulletType(DamageType.physical, 3.5f, 50){{
             width = 9f; height = 11f; lifetime = 38f;
             ammoMultiplier = 2f;
             reloadMultiplier = 1.5f;   // 重弹头：更慢
@@ -47,7 +47,7 @@ public class IronworksTurrets{
             frontColor = Color.white;
         }};
 
-        leadCoreBullet = new BasicBulletType(6f, 30){{
+        leadCoreBullet = new TypedBasicBulletType(DamageType.physical, 6f, 30){{
             width = 6f; height = 10f; lifetime = 50f;
             pierce = true; pierceCap = 2;
             ammoMultiplier = 3f;
@@ -56,7 +56,7 @@ public class IronworksTurrets{
             frontColor = Color.white;
         }};
 
-        tiPierceBullet = new BasicBulletType(7.5f, 42){{
+        tiPierceBullet = new TypedBasicBulletType(DamageType.physical, 7.5f, 42){{
             width = 6f; height = 11f; lifetime = 46f;
             pierce = true; pierceCap = 4; pierceBuilding = true;
             ammoMultiplier = 5f;
@@ -65,7 +65,7 @@ public class IronworksTurrets{
             frontColor = Color.white;
         }};
 
-        tiOverpressureBullet = new BasicBulletType(5f, 90){{
+        tiOverpressureBullet = new TypedBasicBulletType(DamageType.physical, 5f, 90){{
             width = 8f; height = 12f; lifetime = 44f;
             splashDamage = 40f; splashDamageRadius = 26f;
             ammoMultiplier = 8f;

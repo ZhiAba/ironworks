@@ -2,6 +2,7 @@ package ironworks;
 
 import arc.Events;
 import arc.math.Mathf;
+import arc.struct.FloatSeq;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import arc.util.Tmp;
@@ -10,6 +11,7 @@ import mindustry.content.Blocks;
 import mindustry.content.Liquids;
 import mindustry.content.StatusEffects;
 import mindustry.entities.Damage;
+import mindustry.entities.Units;
 import mindustry.entities.bullet.*;
 import mindustry.game.EventType.UnitBulletDestroyEvent;
 import mindustry.game.EventType.UnitDamageEvent;
@@ -99,10 +101,19 @@ public class Dmg{
     // ────────────────────────── 结算 ──────────────────────────
 
     public static float hit(Healthc target, float amount, DamageType type){
-        return hit(target, amount, type, true);
+        return hit(target, amount, type, true, true);
     }
 
     public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus){
+        return hit(target, amount, type, applyStatus, true);
+    }
+
+    /** 持续场/熔穿等高频伤害用 silent，避免每 tick 刷屏。 */
+    public static float hitSilent(Healthc target, float amount, DamageType type){
+        return hit(target, amount, type, true, false);
+    }
+
+    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber){
         if(target == null || amount <= 0f || target.dead()) return 0f;
 
         DamageType t = type == null ? DamageType.physical : type;
@@ -111,6 +122,11 @@ public class Dmg{
         if(applyStatus && t.bonusStatus != null && target instanceof Unit unit && unit.hasEffect(t.bonusStatus)){
             amount *= t.bonusMult;
         }
+
+        boolean numbers = showNumber && !Vars.headless;
+        float healthBefore = target.health();
+        float shieldBefore = target instanceof Shieldc s ? s.shield() : 0f;
+        float blocked = numbers ? DamageNumbers.blocked(target, amount, t) : 0f;
 
         if(target instanceof Building build){
             // Building.damage() 本身不结算 block.armor，这里补上
@@ -122,6 +138,11 @@ public class Dmg{
             target.damageArmorMult(amount, t.armorMult);
         }else{
             target.damage(amount);
+        }
+
+        if(numbers){
+            float shieldAfter = target instanceof Shieldc s ? s.shield() : 0f;
+            DamageNumbers.show(target, Math.max(0f, (healthBefore + shieldBefore) - (target.health() + shieldAfter)), blocked, t);
         }
 
         if(applyStatus && t.status != null && target instanceof Unit unit && Mathf.chance(t.statusChance)){
@@ -139,13 +160,57 @@ public class Dmg{
 
     /** 范围属性伤害。complete=true 时连地形/完整建筑一起结算（原版 Damage.damage 的 complete）。 */
     public static void area(Team team, float x, float y, float radius, float amount, DamageType type, boolean complete){
+        area(team, x, y, radius, amount, type, complete, false);
+    }
+
+    /** showNumbers 仅给弹体溅射用；持续场/熔毁不刷屏。 */
+    public static void area(Team team, float x, float y, float radius, float amount, DamageType type, boolean complete, boolean showNumbers){
         DamageType t = type == null ? DamageType.physical : type;
         if(amount <= 0f) return;
 
+        boolean numbers = showNumbers && !Vars.headless;
+        if(numbers) captureArea(team, x, y, radius);
         Damage.damage(team, x, y, radius, amount, complete, true, true, false, null, t.armorMult);
+        if(numbers) showArea(x, y, radius, amount, t);
+
         if(t.status != null){
             Damage.status(team, x, y, radius, t.status, t.statusDuration, true, true, t.statusChance);
         }
+    }
+
+    private static final Seq<Unit> areaUnits = new Seq<>();
+    private static final FloatSeq areaHealth = new FloatSeq(), areaShield = new FloatSeq();
+
+    private static void captureArea(Team team, float x, float y, float radius){
+        areaUnits.clear();
+        areaHealth.clear();
+        areaShield.clear();
+        if(team != null){
+            Units.nearbyEnemies(team, x, y, radius, u -> addAreaUnit(u, x, y, radius));
+        }else{
+            Units.nearby(null, x, y, radius, u -> addAreaUnit(u, x, y, radius));
+        }
+    }
+
+    private static void addAreaUnit(Unit unit, float x, float y, float radius){
+        if(!unit.hittable() || !unit.checkTarget(true, true) || !unit.within(x, y, radius)) return;
+        areaUnits.add(unit);
+        areaHealth.add(unit.health());
+        areaShield.add(unit.shield());
+    }
+
+    private static void showArea(float x, float y, float radius, float amount, DamageType type){
+        for(int i = 0; i < areaUnits.size; i++){
+            Unit unit = areaUnits.get(i);
+            float scaled = radius <= 0.00001f ? amount
+                : amount * Mathf.lerp(1f - Math.min(unit.dst(x, y) / radius, 1f), 1f, 0.4f);
+            float blocked = DamageNumbers.blocked(unit, scaled, type);
+            float dealt = (areaHealth.get(i) + areaShield.get(i)) - (unit.health() + unit.shield());
+            DamageNumbers.show(unit, Math.max(0f, dealt), blocked, type);
+        }
+        areaUnits.clear();
+        areaHealth.clear();
+        areaShield.clear();
     }
 
     /**
@@ -168,7 +233,8 @@ public class Dmg{
         }
 
         if(damage > 0f){
-            area(bullet.team, x, y, type.splashDamageRadius, damage * bullet.damageMultiplier(), dtype, type.splashDamagePierce);
+            // 溅射不是 complete 伤害；splashDamagePierce 只影响护甲，这里保持普通范围结算
+            area(bullet.team, x, y, type.splashDamageRadius, damage * bullet.damageMultiplier(), dtype, false, true);
         }
     }
 
@@ -324,6 +390,9 @@ public class Dmg{
         register(((LiquidTurret) Blocks.tsunami).ammoTypes.get(Liquids.oil), DamageType.physical);
         register(((LiquidTurret) Blocks.wave).ammoTypes.get(Liquids.oil), DamageType.physical);
 
+        // 双管炮：用户点名的物理基准。换成 typed physical 后直伤也走 Dmg.bulletHit（伤害数字）
+        retypeItems((ItemTurret) Blocks.duo, DamageType.physical);
+
         // 5. 原版直射/激光/防空弹
         retypePower((PowerTurret) Blocks.lancer, DamageType.thunder);
         retypePower((PowerTurret) Blocks.malign, DamageType.energy);
@@ -338,6 +407,19 @@ public class Dmg{
                     bullet.statusDuration = type.statusDuration;
                     bullet.statusChance = type.statusChance;
                 }
+            }
+        }
+
+        if(!Vars.headless) DamageNumbers.init();
+    }
+
+    private static void retypeItems(ItemTurret turret, DamageType type){
+        if(turret == null || turret.ammoTypes == null) return;
+        Seq<Item> keys = turret.ammoTypes.keys().toSeq();
+        for(Item key : keys){
+            BulletType old = turret.ammoTypes.get(key);
+            if(old != null && !(old instanceof TypedBullet)){
+                turret.ammoTypes.put(key, copy(old, type));
             }
         }
     }

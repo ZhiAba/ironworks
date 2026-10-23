@@ -105,3 +105,16 @@ Dmg.register(Blocks.tsunami, DamageType.water);
 
 - `T154`：查询归属（海啸水、蓝瑟雷霆、魔灵能量、汽油弹火、腐蚀弹腐蚀、天罚雷霆）+
   实时结算（雷霆对 9 甲目标伤害 > 物理、潮湿目标雷霆伤害 > 干燥、水属性命中挂潮湿）。
+
+## 伤害飘字（2.1.0.0）
+
+`Dmg.hit` 结算前记录 `health + shield`，结算后取差值作为实际伤害；
+护甲抵消量用 `Damage.applyArmor(amount, armor * type.armorMult)` 单独算出，所以显示的是
+「实际掉血（-护甲抵消）」，例如 `17（-3）`，没有抵消时显示 `-0`。
+
+- 颜色：`DamageType.hex`。
+- 生命周期：180 tick；最后 60 tick 渐隐，并上浮约 18 世界单位。
+- 对象池 + 最多 64 条，超出丢最旧。
+- 模组直接结算与 typed bullet 全部覆盖；未走 `Dmg` 的原版普通子弹由 `UnitDamageEvent` 兜底估算。
+- typed 弹体的溅射会由 `Dmg.area(..., showNumbers=true)` 逐个单位显示；原版未替换弹体的溅射、持续激光、连锁闪电不显示，避免把直伤数值错误地显示到溅射目标上。
+- 设置 → 铁流工业 → 「显示伤害数字」可整体关闭。

@@ -76,7 +76,7 @@ public class SingularityTurret extends PowerTurret{
                     float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
                     float force = Mathf.clamp(1f - len / pullRadius) * 2.4f;
                     u.vel.add(dx / len * force, dy / len * force);
-                    Dmg.hit(u, pullDps * Time.delta / 60f, damageType);
+                    Dmg.hitSilent(u, pullDps * Time.delta / 60f, damageType);
                     u.apply(StatusEffects.slow, 20f);
                 });
 
