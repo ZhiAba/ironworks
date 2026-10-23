@@ -33,6 +33,23 @@
 
 ## 0.64.x
 
+### 1.5.1.0 — 修复运行中拆除崩溃 + 彩蛋不触发
+
+- **修复（崩溃，日志实证）**：`crash_*.txt` 里是
+  `NullPointerException: Attempt to write to field 'boolean Building.dead' on a null object reference in Build.beginBreak`。
+  根因：拆除运行中的反应堆时，我们在 `onDeconstructed()` 里直接 `detonate()` → `kill()` 把 tile 清掉了；
+  而引擎的 `Build.beginBreak` 在调用 `onDeconstructed` 之后还要写 `tile.build.dead = true`，
+  此时 `tile.build` 已是 null → NPE 崩游戏。
+  **修法**：`detonate()` 拆成 `detonate(boolean removeSelf)`；拆除路径用 `detonate(false)`——
+  只结算爆炸伤害/辐射/熔融物，**方块交给引擎自己的拆除流程处理**，不再自己移除。
+  正常熔毁/被炸毁/SCRAM 仍然走 `detonate(true)`。
+- **修复（彩蛋不炸）**：
+  1. 触发链上加了 `[IRONWORKS] meme step x/3 matched` 日志，下次不生效可以直接从 `last_log.txt` 定位卡在第几步；
+  2. 第一句的匹配放宽：`核` + `轻而易` **或** `轻易`；
+  3. 「正在工作的反应堆」判定放宽为 `通量 > 0.01` **或** `堆温 > 5%`，避免刚降功率/刚停堆就不认；
+  4. 引爆前先快照（上一版已修）避免遍历时被删。
+- **测试**：新增 T137（拆除运行中的反应堆：爆炸、tile 不被自己清掉、不抛异常）；T133/T136 全绿。
+
 ### 1.5.0.0 — 彩蛋：嘴炮引爆反应堆
 
 - **触发方式**（任何玩家都可以，聊天框）：**15 秒内按顺序**说出三句话

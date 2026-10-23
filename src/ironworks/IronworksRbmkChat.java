@@ -43,9 +43,10 @@ public class IronworksRbmkChat{
         }
 
         if(step == 0){
-            if(msg.contains("核") && msg.contains("轻而易")){
+            if(msg.contains("核") && (msg.contains("轻而易") || msg.contains("轻易"))){
                 step = 1;
                 lastAt = now;
+                Log.info("[IRONWORKS] meme step 1/3 matched");
             }
             return;
         }
@@ -54,6 +55,7 @@ public class IronworksRbmkChat{
             if(count(msg, "坏") >= 1){
                 step = 2;
                 lastAt = now;
+                Log.info("[IRONWORKS] meme step 2/3 matched");
             }
             return;
         }
@@ -62,6 +64,7 @@ public class IronworksRbmkChat{
         if(count(msg, "坏") >= 2){
             lastAt = now;
             step = 0;
+            Log.info("[IRONWORKS] meme step 3/3 matched -> detonate");
             detonateAll();
         }
     }

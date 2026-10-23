@@ -126,7 +126,7 @@ public class IronworksRBMK{
     public static int detonateAllWorking(){
         arc.struct.Seq<RBMKReactor.RBMKReactorBuild> targets = new arc.struct.Seq<>();
         for(mindustry.gen.Building b : mindustry.gen.Groups.build){
-            if(b instanceof RBMKReactor.RBMKReactorBuild r && !r.melted && !b.dead && r.flux > 0.01f){
+            if(b instanceof RBMKReactor.RBMKReactorBuild r && !r.melted && !b.dead && (r.flux > 0.01f || r.heat > 0.05f)){
                 targets.add(r);
             }
         }
@@ -476,11 +476,24 @@ public class IronworksRBMK{
 
             @Override
             public void onDeconstructed(mindustry.gen.Unit unit){
-                explodeIfLive();
+                // 只结算爆炸，不自己移除方块：让引擎继续把 tile 换成 ConstructBlock，
+                // 否则 beginBreak 里后面的 tile.build.dead 会 NPE（实测崩溃）。
+                if(!melted && state.rules.reactorExplosions && (flux > 0.15f || heat > 0.5f)){
+                    detonate(false);
+                }
                 super.onDeconstructed(unit);
             }
 
             public void detonate(){
+                detonate(true);
+            }
+
+            /**
+             * @param removeSelf true = 自己 kill 掉；false = 只造成爆炸效果，方块本身交给引擎处理。
+             * 拆除流程里必须传 false：{@code Build.beginBreak} 在调用 onDeconstructed 之后
+             * 还要写 {@code tile.build.dead}，我们自己把 tile 移除会变成 null → 引擎 NPE 崩溃。
+             */
+            public void detonate(boolean removeSelf){
                 // 注意：不能判 dead——被炸死时引擎先置 dead 再调 onDestroyed，
                 // 这里如果因为 dead 提前 return，运行时被摧毁就永远不会炸了。
                 if(melted) return;
@@ -506,7 +519,7 @@ public class IronworksRBMK{
                     Fx.dynamicExplosion.at(x, y);
                 }
 
-                if(!dead) kill();
+                if(removeSelf && !dead) kill();
             }
 
             // 只收水，热冷却液不被邻居倒灌

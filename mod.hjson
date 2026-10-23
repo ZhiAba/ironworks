@@ -4,7 +4,7 @@ name: "ironworks"
 author: "DSH"
 description: "冶金产线 + 弹药链 + 战术支援：从铁砂到钢板，从弹壳到穿甲弹，再到能给单位挂状态的光环方块。"
 
-version: 1.5.0.0
+version: 1.5.1.0
 minGameVersion: 160
 java: true
 

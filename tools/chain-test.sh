@@ -1042,5 +1042,8 @@ cd "$TESTDIR" || exit 1
   echo 'js var E=Packages.mindustry.game.EventType.PlayerChatEvent; Packages.arc.Events.fire(new E(null,"核电，轻而易举啊")); Log.info("T136c started=true")'
   sleep 16
   echo 'js var b=Vars.world.tile(150,208).build; var E=Packages.mindustry.game.EventType.PlayerChatEvent; Packages.arc.Events.fire(new E(null,"坏了")); Packages.arc.Events.fire(new E(null,"坏了坏了")); Log.info("T136c timedOutAlive=" + (b!=null && !b.melted))'
+  # ---- 137. 拆除运行中的反应堆：爆炸但**不能**自己清掉 tile（否则 Build.beginBreak 里 tile.build.dead 会 NPE 崩溃） ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=224;y<=236;y++){for(var x=150;x<=200;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.state.rules.reactorExplosions=true; Vars.world.tile(160,230).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(160,230).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.add(Vars.content.liquid("water"),500); b.targetRods=0; b.rods=0; b.flux=0.9; var ok=false; try{ b.onDeconstructed(null); ok=true; }catch(e){ Log.info("T137 err=" + e); } var tb=Vars.world.tile(160,230).build; Log.info("T137 aliveTile=" + (tb!=null) + " melted=" + b.melted + " noCrash=" + ok)'
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
