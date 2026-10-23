@@ -45,3 +45,4 @@
 119	T119 power=[1-9][0-9]* water=[1-9][0-9]* flow=100
 120b	T120b wallHurt=true wallHp=-1
 121	T121 configurable=true outputsPower=true
+123	T123 tiers=3 hasCryo=true accept=true

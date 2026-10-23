@@ -45,12 +45,16 @@ public class IronworksTianfa{
 
             liquidCapacity = 1440f;     // 冷液容量
             coolantUse = 2f;           // 2/刻 = 120/秒
+            // 冷却液档位（下标即档位）：
+            //   0 = 模组防冻冷却液，1 = 石墨烯冷却液（唯一会转热液的档），2 = 原版冷冻液
+            // 原版冷冻液和 0 档完全同数值——同类东西不认原版说不过去（0.56.0 漏的）
             coolantLiquids = new mindustry.type.Liquid[]{
-                IronworksLiquids.chiller, IronworksLiquids.grapheneCoolant};
-            coolantFireMult = new float[]{1.25f, 1.45f};
-            coolantStackPerShot = new float[]{0.09f, 0.13f};
-            coolantStackCap = new float[]{1.35f, 2.60f};
-            coolantHeatMult = new float[]{0.50f, 0f};
+                IronworksLiquids.chiller, IronworksLiquids.grapheneCoolant,
+                mindustry.content.Liquids.cryofluid};
+            coolantFireMult = new float[]{1.25f, 1.45f, 1.25f};
+            coolantStackPerShot = new float[]{0.09f, 0.13f, 0.09f};
+            coolantStackCap = new float[]{1.35f, 2.60f, 1.35f};
+            coolantHeatMult = new float[]{0.50f, 0f, 0.50f};
             noCoolantStackCap = 0.75f;
             shotHeat = true;
             shotHeatAmount = 0.05f;

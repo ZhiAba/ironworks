@@ -949,5 +949,9 @@ cd "$TESTDIR" || exit 1
   # 116f：反应堆必须打开 configurable（否则点击方块根本不弹面板）
   echo 'js var r=Vars.content.block("ironworks-rbmk-reactor"); Log.info("T121 configurable=" + r.configurable + " outputsPower=" + r.outputsPower)'
 
+  # ---- 123. 天罚冷却液档位：原版冷冻液必须被认（0.56.0 漏的） ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=148;y<=152;y++){for(var x=148;x<=152;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(150,150).setBlock(Vars.content.block("ironworks-tianfa"),T); var b=Vars.world.tile(150,150).build; var k=b.block; var cryo=Vars.content.liquid("cryofluid"); var has=false; for(var i=0;i<k.coolantLiquids.length;i++){if(k.coolantLiquids[i]==cryo) has=true;} Log.info("T123 tiers=" + k.coolantLiquids.length + " hasCryo=" + has + " accept=" + b.acceptLiquid(b, cryo))'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"
