@@ -166,7 +166,7 @@ public class IronworksRadar{
             /** 测试/UI 用：加入或移除一个炮塔。 */
             public void toggleLink(Building b){
                 if(!(b instanceof Turret.TurretBuild t)) return;
-                if(t.team != team || b == this || !b.within(this, linkRangeTiles * 8f)) return;
+                if(b == this || !b.within(this, linkRangeTiles * 8f)) return;
 
                 int pos = b.pos();
                 if(links.contains(pos)){
@@ -174,14 +174,16 @@ public class IronworksRadar{
                     release(t);
                     return;
                 }
+                // 新链接只收友军；已经链接的炮塔之后被改成别的队伍也保持链接（不自动断开）
+                if(t.team != team) return;
                 if(links.size >= maxLinks) return;
                 links.add(pos);
             }
 
             void release(Turret.TurretBuild t){
                 t.target = null;
-                // 恢复炮塔自己的索敌计时器
-                t.timer().getTimes()[((Turret)t.block).timerTarget] = Time.time;
+                // 解除接管：让 elapsed 超过 targetInterval，下一 tick 炮塔恢复自己索敌
+                t.timer().getTimes()[((Turret)t.block).timerTarget] = Time.time - 1000f;
             }
 
             void releaseAll(){
@@ -255,7 +257,7 @@ public class IronworksRadar{
             void updateLinks(){
                 for(int i = links.size - 1; i >= 0; i--){
                     Building b = Vars.world.build(links.get(i));
-                    if(!(b instanceof Turret.TurretBuild t) || t.dead() || t.team != team){
+                    if(!(b instanceof Turret.TurretBuild t) || t.dead()){
                         links.removeIndex(i);
                         continue;
                     }
@@ -270,8 +272,9 @@ public class IronworksRadar{
                     }
                     t.target = canHit ? target : null;
 
-                    // 把炮塔自己的索敌计时器推到很远的未来，雷达接管期间它不会再自己找目标。
-                    t.timer().getTimes()[((Turret)t.block).timerTarget] = Time.time + 1e9f;
+                    // 每 tick 把炮塔的索敌计时器按到“刚刚”：elapsed=0 < targetInterval，它不会自己找目标。
+                    // 绝不能设成未来——Interval.check 会把“未来”判成时钟回拨并立刻触发（实测会抢目标）。
+                    t.timer().getTimes()[((Turret)t.block).timerTarget] = Time.time;
                 }
             }
 

@@ -63,7 +63,14 @@ public class VerboseLogger extends Block{
                         .append(" H=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(hot)))
                         .append(" L=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(chill)))
                         .append(" tgt=").append(t.target != null)
+                        .append(" ttgt=").append(t.target == null ? "-" : (t.target instanceof mindustry.gen.Unit u ? u.type.name + "/" + u.team.id + "/" + Math.round(u.health) : "bldg"))
                         .append(" heat=").append(t.isShooting() ? 1 : 0)
+                        .append(" | ");
+                }else if(b instanceof IronworksRadar.Radar.RadarBuild rr){
+                    mods.append("[RADAR]@").append(b.tileX()).append(',').append(b.tileY())
+                        .append(" mode=").append(rr.mode)
+                        .append(" links=").append(rr.links.size)
+                        .append(" target=").append(rr.target == null ? "-" : rr.target.type.name + "/" + rr.target.team.id + "/" + Math.round(rr.target.health))
                         .append(" | ");
                 }else if(b instanceof IronworksRBMK.RBMKReactor.RBMKReactorBuild r){
                     mods.append("[RBMK]@").append(b.tileX()).append(',').append(b.tileY())

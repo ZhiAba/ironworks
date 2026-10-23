@@ -88,4 +88,5 @@
 149	T149 autoRods=100 water=9000 steam=2000 melted=false boom=0
 150	T150 autoRods=100 water=1000 melted=false
 151	T151 survivor=true coriumCount=[2-9][0-9]* melted=true
-152	T152 maxHp=mace nearest=dagger lowHp=mace dense=true linked=true timer=true cap=10
+152	T152 maxHp=mace nearest=dagger lowHp=mace dense=true linked=true timer=true teamKeep=true cap=10
+153	T153 after=mace same=true
