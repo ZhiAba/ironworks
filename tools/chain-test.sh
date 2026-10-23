@@ -946,5 +946,8 @@ cd "$TESTDIR" || exit 1
   echo 'js Vars.state.rules.reactorExplosions=true; var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,60).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(64,60).setBlock(Vars.content.block("thorium-wall"),T); var u=Packages.mindustry.content.UnitTypes.dagger.spawn(T,784,480); var b=Vars.world.tile(70,60).build; b.items.add(Vars.content.item("thorium"),5); b.liquids.add(Vars.content.liquid("water"),500); b.heat=1.6; for(var i=0;i<180 && !b.melted;i++) b.updateTile(); var r=Vars.content.statusEffect("ironworks-radiation"); Log.info("T120a gone=" + (Vars.world.tile(70,60).block()==Vars.content.block("air")) + " melted=" + b.melted + " rad=" + (u!=null && r!=null && u.hasEffect(r)))'
   sleep 1
   echo 'js var wall=Vars.world.tile(64,60).build; Log.info("T120b wallHurt=" + (wall==null || wall.health<wall.maxHealth) + " wallHp=" + (wall==null?-1:Math.round(wall.health)))'
+  # 116f：反应堆必须打开 configurable（否则点击方块根本不弹面板）
+  echo 'js var r=Vars.content.block("ironworks-rbmk-reactor"); Log.info("T121 configurable=" + r.configurable + " outputsPower=" + r.outputsPower)'
+
   echo 'exit'
 ) | timeout 700 "$JDK/bin/java" -jar "$JAR" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\[.*\] \[I\] T[0-9]+[a-z]? |Error|Exception"

@@ -22,9 +22,13 @@ import mindustry.graphics.Pal;
 import mindustry.type.Category;
 import mindustry.type.Liquid;
 import mindustry.ui.Bar;
+import mindustry.ui.Styles;
 import mindustry.world.blocks.power.PowerGenerator;
 import mindustry.world.meta.Stat;
 import mindustry.world.meta.StatUnit;
+import mindustry.world.meta.StatValue;
+import arc.util.Strings;
+import mindustry.gen.Icon;
 
 import static mindustry.Vars.*;
 import static mindustry.type.ItemStack.with;
@@ -125,6 +129,8 @@ public class IronworksRBMK{
             powerProduction = reactorPower / 60f;
             buildType = RBMKReactorBuild::new;
 
+            //Block.config() 只注册处理器，不会打开 configurable——漏了这句，点击方块就没有面板
+            configurable = true;
             config(Integer.class, (RBMKReactorBuild b, Integer v) -> b.applyConfig(v));
         }
 
@@ -138,11 +144,34 @@ public class IronworksRBMK{
         public void setStats(){
             super.setStats();
             stats.remove(Stat.basePowerGeneration);
-            stats.add(Stat.basePowerGeneration, reactorPower, StatUnit.powerSecond);
-            stats.add(new Stat("ironworks-rbmk-coolant"), (int)waterPerSecond + "/秒");
-            stats.add(new Stat("ironworks-rbmk-hot"), (int)(waterPerSecond * hotRatio) + "/秒");
-            stats.add(new Stat("ironworks-rbmk-fuel"), thoriumPerSecond + "/秒");
-            stats.add(new Stat("ironworks-rbmk-rods"), Core.bundle.get("ironworks.rbmk.rods.hint"));
+
+            // 堆芯参数：一块灰底规格表（图标 + 名称 + 带色数值）
+            stats.add(new Stat("ironworks-rbmk-specs"), (StatValue)table -> {
+                IronworksStats.specRow(table, Icon.power,
+                    Core.bundle.get("ironworks.rbmk.spec.power"),
+                    (int)reactorPower + StatUnit.powerSecond.localized(), Pal.accent);
+                IronworksStats.specRow(table, Liquids.water.uiIcon,
+                    Core.bundle.get("ironworks.rbmk.spec.water"),
+                    (int)waterPerSecond + "/" + StatUnit.perSecond.localized(), Liquids.water.color);
+                IronworksStats.specRow(table, IronworksLiquids.hotCoolant.uiIcon,
+                    Core.bundle.get("ironworks.rbmk.spec.hot"),
+                    (int)(waterPerSecond * hotRatio) + "/" + StatUnit.perSecond.localized(),
+                    IronworksLiquids.hotCoolant.color);
+                IronworksStats.specRow(table, Items.thorium.uiIcon,
+                    Core.bundle.get("ironworks.rbmk.spec.fuel"),
+                    Strings.autoFixed(thoriumPerSecond, 2) + "/" + StatUnit.perSecond.localized(),
+                    Items.thorium.color);
+                IronworksStats.specRow(table, Icon.paste,
+                    Core.bundle.get("ironworks.rbmk.spec.rods"),
+                    "0–100%", Pal.accent);
+            });
+
+            // 运行风险：橙色提示，跟参数分开
+            stats.add(new Stat("ironworks-rbmk-risk"), (StatValue)table ->
+                IronworksStats.notes(table, Color.valueOf("ffb066"),
+                    Core.bundle.get("ironworks.rbmk.risk.1"),
+                    Core.bundle.get("ironworks.rbmk.risk.2"),
+                    Core.bundle.get("ironworks.rbmk.risk.3")));
         }
 
         @Override
@@ -350,37 +379,84 @@ public class IronworksRBMK{
 
             @Override
             public void buildConfiguration(Table table){
-                table.defaults().pad(3f);
+                table.defaults().pad(2f);
+                float w = 262f;
 
-                Label rodLabel = new Label("");
-                rodLabel.update(() -> rodLabel.setText(
-                    Core.bundle.format("ironworks.rbmk.rods.now", Mathf.round(rods * 100f))));
-                table.add(rodLabel).row();
+                // 标题
+                table.add(Core.bundle.get("ironworks.rbmk.panel.title")).color(Pal.accent)
+                    .padBottom(3f).row();
 
-                Slider slider = new Slider(0f, 100f, 1f, false);
-                slider.setValue(rods * 100f);
-                slider.moved(v -> configure((int)v));
-                table.add(slider).width(240f).row();
+                // —— 控制棒 ——
+                table.table(Styles.grayPanel, c -> {
+                    c.defaults().pad(5f);
+                    Label rodLabel = new Label("");
+                    rodLabel.update(() -> rodLabel.setText(
+                        Core.bundle.format("ironworks.rbmk.rods.now", Mathf.round(rods * 100f))));
+                    c.add(rodLabel).left().growX().row();
 
-                table.add(new Label(Core.bundle.get("ironworks.rbmk.rodhint"))).wrap().width(240f).padTop(2f).row();
+                    Slider slider = new Slider(0f, 100f, 1f, false);
+                    slider.setValue(rods * 100f);
+                    slider.moved(v -> configure((int)v));
+                    c.add(slider).width(230f).row();
 
-                Label readout = new Label("");
-                readout.update(() -> readout.setText(Core.bundle.format("ironworks.rbmk.readout",
-                    Mathf.round(flux * 100f), Mathf.round(heat * 100f),
-                    Mathf.round(tempK), Mathf.round(xenon * 100f), Mathf.round(flow * 100f))));
-                table.add(readout).padTop(6f).row();
+                    c.add(Core.bundle.get("ironworks.rbmk.rodhint")).wrap()
+                        .width(230f).color(Color.lightGray).left().row();
+                }).width(w).row();
 
+                // —— 实时读数 ——
+                table.table(Styles.grayPanel, c -> {
+                    c.defaults().padLeft(8f).padRight(8f).padTop(2f).padBottom(2f);
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.flux"),
+                        () -> Mathf.round(flux * 100f) + "%",
+                        () -> Pal.accent);
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.heat"),
+                        () -> Mathf.round(heat * 100f) + "%  (" + Mathf.round(tempK) + "K)",
+                        () -> heat >= 1.05f ? Pal.remove : heat >= 0.9f ? Color.valueOf("ffd166") : Color.valueOf("7fe08a"));
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.xenon"),
+                        () -> Mathf.round(xenon * 100f) + "%",
+                        () -> Color.valueOf("b6a8ff"));
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.coolant"),
+                        () -> Mathf.round(flow * 100f) + "%",
+                        () -> flow < 0.9f ? Pal.remove : Color.valueOf("7fe08a"));
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.fuel"),
+                        () -> items.get(Items.thorium) + " / " + itemCapacity,
+                        () -> Items.thorium.color);
+                    c.add().height(2f).row();
+                }).width(w).row();
+
+                // —— 状态 ——
                 Label status = new Label("");
                 status.update(() -> {
-                    if(heat >= meltTemp) status.setText(Core.bundle.get("ironworks.rbmk.state.melt"));
-                    else if(heat > 1.05f) status.setText(Core.bundle.get("ironworks.rbmk.state.danger"));
-                    else if(flow < 0.9f) status.setText(Core.bundle.get("ironworks.rbmk.state.dry"));
-                    else status.setText(Core.bundle.get("ironworks.rbmk.state.ok"));
+                    if(heat >= meltTemp){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.melt"));
+                        status.setColor(Pal.remove);
+                    }else if(heat > 1.05f){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.danger"));
+                        status.setColor(Pal.remove);
+                    }else if(flow < 0.9f){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.dry"));
+                        status.setColor(Color.valueOf("ffd166"));
+                    }else{
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.ok"));
+                        status.setColor(Color.valueOf("7fe08a"));
+                    }
                 });
-                table.add(status).padTop(2f).row();
+                table.add(status).padTop(4f).row();
 
-                table.button(Core.bundle.get("ironworks.rbmk.scram"), () -> configure(-1))
-                    .size(200f, 40f).padTop(6f).row();
+                // —— 紧急停堆 ——
+                table.button(Core.bundle.get("ironworks.rbmk.scram"), Styles.defaultt, () -> configure(-1))
+                    .size(w, 42f).padTop(6f).with(b -> b.setColor(Pal.remove)).row();
+            }
+
+            /** 面板里的一行读数：左灰标签，右带色实时值。 */
+            void readout(Table c, String label, arc.func.Prov<String> value, arc.func.Prov<Color> color){
+                c.add(label).left().color(Color.lightGray).growX();
+                Label v = new Label("");
+                v.update(() -> {
+                    v.setText(value.get());
+                    v.setColor(color.get());
+                });
+                c.add(v).right().padLeft(8f).row();
             }
 
             @Override
@@ -446,8 +522,20 @@ public class IronworksRBMK{
         public void setStats(){
             super.setStats();
             stats.remove(Stat.basePowerGeneration);
-            stats.add(Stat.basePowerGeneration, turbinePower, StatUnit.powerSecond);
-            stats.add(new Stat("ironworks-rbmk-turbine-hot"), (int)turbineHotPerSecond + "/秒");
+
+            stats.add(new Stat("ironworks-rbmk-turbine-specs"), (StatValue)table -> {
+                IronworksStats.specRow(table, Icon.power,
+                    Core.bundle.get("ironworks.turbine.spec.power"),
+                    (int)turbinePower + StatUnit.powerSecond.localized(), Pal.accent);
+                IronworksStats.specRow(table, IronworksLiquids.hotCoolant.uiIcon,
+                    Core.bundle.get("ironworks.turbine.spec.hot"),
+                    (int)turbineHotPerSecond + "/" + StatUnit.perSecond.localized(),
+                    IronworksLiquids.hotCoolant.color);
+                IronworksStats.specRow(table, Liquids.water.uiIcon,
+                    Core.bundle.get("ironworks.turbine.spec.water"),
+                    (int)(turbineHotPerSecond * turbineWaterReturn) + "/" + StatUnit.perSecond.localized(),
+                    Liquids.water.color);
+            });
         }
 
         @Override

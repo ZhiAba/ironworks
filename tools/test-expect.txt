@@ -44,3 +44,4 @@
 118	T118 rise=true flow=0
 119	T119 power=[1-9][0-9]* water=[1-9][0-9]* flow=100
 120b	T120b wallHurt=true wallHp=-1
+121	T121 configurable=true outputsPower=true
