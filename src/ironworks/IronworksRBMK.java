@@ -85,6 +85,8 @@ public class IronworksRBMK{
     public static final float boronReactivity = 0.05f, boronDecaySeconds = 45f;
     /** 控制棒行程速度（每 tick 的插入比例）：正常 ~2000 tick 走完全程，急停 ~180 tick。 */
     public static final float rodSpeedNormal = 1f / 2000f, rodSpeedScram = 1f / 180f;
+    /** 全自动模式的保护性插棒速度（1.5 秒走完全程），比手动 SCRAM 更快。 */
+    public static final float rodSpeedAuto = 1f / 90f;
     /** 控制模式：0 半自动（棒有行程 + 自动保护）、1 全自动（自动跟踪目标功率）、2 强制手动（无缓冲无保护）。 */
     public static final int MODE_SEMI = 0, MODE_AUTO = 1, MODE_MANUAL = 2;
     /** 通量上限。 */
@@ -371,13 +373,25 @@ public class IronworksRBMK{
                     // 强制手动：严格按操作，棒立刻就位，没有缓冲
                     rods = targetRods;
                 }else if(controlMode == MODE_AUTO){
-                    // 全自动：滑条给的是**目标功率**，后台反算棒位（含氙/硼压制）
+                    // 全自动：目标功率 + 水位/蒸汽/温度三重保护
+                    // 蒸汽憋到 50%~90% 时线性降功率，给水低于 10%~30% 时降功率，温度 0.95~1.15 时降功率；
+                    // 任何一项到极限 → 目标功率 0（棒全插）；插棒用 1.5 秒行程，够快但不像手动那样瞬动。
+                    float steamFrac = Mathf.clamp(liquids.get(IronworksLiquids.steam) / steamCapacity, 0f, 1f);
+                    float waterFrac = Mathf.clamp(liquids.get(Liquids.water) / waterCapacity, 0f, 1f);
+                    float steamFactor = Mathf.clamp(1f - (steamFrac - 0.5f) / 0.4f, 0f, 1f);
+                    float waterFactor = Mathf.clamp((waterFrac - 0.1f) / 0.2f, 0f, 1f);
+                    float heatFactor = Mathf.clamp((1.15f - heat) / 0.2f, 0f, 1f);
+                    float effective = autoPower * Math.min(steamFactor, Math.min(waterFactor, heatFactor));
+
                     float poison = Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0.05f, 1f);
-                    float needCeil = autoPower / (fluxMax * poison);
+                    // 失冷时空泡会把通量顶高，反算棒位时必须算进去，否则“降功率”降了个寂寞
+                    float voidFactor = 1f + (1f - flow) * 1.2f;
+                    float needCeil = effective / (fluxMax * poison * voidFactor);
                     float idealRods = Mathf.clamp(1f - needCeil, 0f, 1f);
-                    if(heat > 0.95f) idealRods = Math.min(1f, idealRods + (heat - 0.95f) * 5f);
+                    // AZ-5 保护：水罐真的接近满（>95%）且汽包也满时，绝不把棒插过 98%
+                    if(waterFrac > 0.95f && steamFrac > 0.9f) idealRods = Math.min(idealRods, 0.98f);
                     targetRods = idealRods;
-                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
+                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedAuto : rodSpeedNormal);
                 }else{
                     // 半自动：棒按行程速度追目标（正常 33s，急停 3s）
                     rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
@@ -531,12 +545,12 @@ public class IronworksRBMK{
             /**
              * 汽路堵死 + 水罐满 + 控制棒插到底：AZ-5 式的正反应性尖峰，2 秒后炸堆。
              *
-             * <p>「水罐满」按**当前水位上限**算（手动=滑条，自动=算法），
-             * 而不是按 12000 L 总容量算：给水泵顶到上限、汽包也顶满，
-             * 就表示水进不去、汽出不来 —— 这时候插棒才是致命的。
+             * <p>「水罐满」按**实际水罐 98%（9800 L）**算，不按滑条上限：
+             * 自动水位最高 90%，天然不会触发 AZ-5；手动把水位上限拉到 100%
+             * 才可能把罐灌到 9800 以上 —— 这是操作员自己选的危险工况。
              */
             void checkPressureBoom(float dt, boolean hasFuel){
-                boolean waterFull = liquids.get(Liquids.water) >= waterLevel * waterCapacity - 2f;
+                boolean waterFull = liquids.get(Liquids.water) >= waterCapacity * 0.98f;
                 boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCapacity - 2f;
                 boolean rodsBottom = targetRods >= 0.995f && rods >= 0.995f;
                 boolean live = hasFuel && (heat > 0.1f || flux > 0.02f);
@@ -821,7 +835,10 @@ public class IronworksRBMK{
                         return;
                     }
                     boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCapacity - 2f;
-                    boolean waterFull = liquids.get(Liquids.water) >= waterLevel * waterCapacity - 2f;
+                    boolean waterFull = liquids.get(Liquids.water) >= waterCapacity * 0.98f;
+                    boolean autoProtect = controlMode != MODE_MANUAL
+                        && (liquids.get(IronworksLiquids.steam) >= steamCapacity * 0.5f
+                            || liquids.get(Liquids.water) < waterCapacity * 0.3f);
                     if(coreBoom > 0f){
                         status.setText(Core.bundle.get("ironworks.rbmk.state.pressure"));
                         status.setColor(Pal.remove);
@@ -834,6 +851,9 @@ public class IronworksRBMK{
                     }else if(heat > 1.05f){
                         status.setText(Core.bundle.get("ironworks.rbmk.state.danger"));
                         status.setColor(Pal.remove);
+                    }else if(autoProtect){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.autoprotect"));
+                        status.setColor(Color.valueOf("ffd166"));
                     }else if(flow < 0.9f){
                         status.setText(Core.bundle.get("ironworks.rbmk.state.dry"));
                         status.setColor(Color.valueOf("ffd166"));

@@ -85,3 +85,5 @@
 146	T146 side=2 leftSteam=0 rightSteam=[1-9][0-9]* reactorWater=[1-9][0-9]* melted=false
 147	T147 stopped=true steamKept=true resumed=true warm=[0-9]+
 148	T148 survivalBreak=false sandboxBreak=true damageIgnored=true stayed=true gone=true
+149	T149 autoRods=100 water=9000 steam=2000 melted=false boom=0
+150	T150 autoRods=100 water=1000 melted=false
