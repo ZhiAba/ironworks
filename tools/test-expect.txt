@@ -42,7 +42,7 @@
 116	T116 flux=[1-9][0-9]* heat=[0-9]+ power=0 steam=[1-9][0-9]*
 117	T117 dropped=true
 118	T118 rise=true flow=0
-119	T119 power=[1-9][0-9]* warm=[1-9][0-9]* flow=100
+119	T119 power=45000 warm=[1-9][0-9]* flow=100
 120b	T120b wallHurt=true wallHp=-1
 121	T121 configurable=true outputsPower=false
 123	T123 tiers=3 hasCryo=true accept=true
@@ -57,7 +57,7 @@
 131	T131 vitrified=[1-9][0-9]*
 132	T132 onlyVitrified=true
 133a	T133a water=[1-9][0-9]*
-133b	T133b steam=[1-9][0-9]*
+133b	T133b steam=[0-9]+ flow=[1-9][0-9]* power=[1-9][0-9]*
 133c	T133c boom=true
 133d	T133d boom=true
 133e	T133e boom=true
@@ -68,10 +68,17 @@
 134c	T134c before=[0-9]+ after=[0-9]+ pit=true
 135a	T135a mode=2 target=30 actual=30 instant=true
 135b	T135b mode=0 target=30 actual=[89][0-9] buffered=true
-135c	T135c mode=1 power=40 flux=[3-5][0-9] rods=[5-7][0-9]
+135c	T135c mode=1 power=40 flux=[3-5][0-9] rods=[5-8][0-9] water=[5-8][0-9]
 135d	T135d heat=[0-9]+ target=40 noAutoScram=true
 136a	T136a melted=true
 136b	T136b wrongOrderAlive=true
 136c	T136c timedOutAlive=true
 137	T137 aliveTile=true melted=true noCrash=true
 138	T138 meltedIn=([1-9]|[1-3][0-9])s melted=true water=0
+139	T139 water=[1-9][0-9]* steam=[1-9][0-9]* sum=10000 ratio=100
+140	T140 target=50 acceptHigh=false acceptLow=true
+141	T141 mode=1 auto=[5-8][0-9] rods=[5-8][0-9] flux=[3-5][0-9]
+142	T142 melted=true ticks=[0-9]+
+143	T143 power=45000 warm=[1-9][0-9]* flow=100
+144	T144 water=1200 warm=0
+145	T145 melted=false

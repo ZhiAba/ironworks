@@ -41,8 +41,8 @@ import static mindustry.type.ItemStack.with;
  *
  * <p>复用清单（这是这个机器最省钱的地方）：
  * <ul>
- *   <li>冷却液闭环全部复用老的：反应堆吐 {@link IronworksLiquids#hotCoolant}，
- *       汽轮机把它换成电 + 回收水，老「冷却工厂」也能吃热液再生产石墨烯冷却液；</li>
+ *   <li>冷却水闭环复用老的：反应堆把水烧成 {@link IronworksLiquids#steam}，
+ *       汽轮机吃蒸汽发电 + 吐温水，冷却塔再把温水冷凝回水；</li>
  *   <li>燃料直接用原版 {@link Items#thorium}，不新增物品；</li>
  *   <li>造价复用现有材料（碳化硅 / 钢板 / 量子核心 / 航空铝）；</li>
  *   <li>熔毁用引擎现成的 {@link Fx#reactorExplosion} + {@link Damage#damage}，
@@ -50,11 +50,15 @@ import static mindustry.type.ItemStack.with;
  *   <li>UI 沿用 MCT 节点的做法：{@code config(Class, Cons2)} + {@code buildConfiguration(Table)}。</li>
  * </ul>
  *
- * <p>核心机制：
+ * <p>核心机制（全部按 60 tick = 1 秒的真实量纲算）：
  * <ul>
- *   <li>控制棒（0=全提 / 100=全插）决定目标通量；</li>
- *   <li>通量决定发热与发电；水流量不够 → 发热压不住；</li>
- *   <li>**空泡正反应性**：冷却液不足时通量反而上涨（RBMK 的经典缺陷）；</li>
+ *   <li>控制棒 0=全提 / 100=全插；棒位决定**通量上限**，通量一阶滞后追随；</li>
+ *   <li>水→汽 **1:1**：100% 通量 = 980 L/s 给水、980 L/s 蒸汽；水罐 10000 L、汽包 2000 L；</li>
+ *   <li>堆芯温度由「发热（通量）− 冷却（给水流量 × 堆温）」实时积分，不是写死的曲线；</li>
+ *   <li>**空泡正反应性**：给水/排汽不足时通量上限反而上涨（RBMK 的经典缺陷）；</li>
+ *   <li>**AZ-5 憋压引爆**：汽路堵死 + 罐满 + 控制棒插到底 → 正反应性尖峰，几秒内炸堆；</li>
+ *   <li>三种模式：半自动（棒有行程 + 自动保护 + 自动水位）、全自动（滑条设目标功率，
+ *       后台自动算棒位与水位）、强制手动（棒瞬动、水位手动、无自动保护）；</li>
  *   <li>氙毒：降功率后碘衰变成氙，短时间内压着反应性（碘坑）；</li>
  *   <li>堆芯温度 &gt; 125% 持续 1 秒 → 熔毁：炸场 + 大范围辐射。</li>
  * </ul>
@@ -65,12 +69,14 @@ public class IronworksRBMK{
     public static SteamTurbine turbine;
 
     // ---- 反应堆参数 ----
-    /** 满通量发电（/秒）。 */
-    public static final float reactorPower = 45000f;
-    /** 满通量耗水（/秒）。 */
-    public static final float waterPerSecond = 40f;
-    /** 满通量吐热冷却液（/秒，按实际用水量的 85%）。 */
-    public static final float hotRatio = 0.85f;
+    /** 额定给水/蒸汽流量（/秒，100% 通量）；水→汽 1:1，不多不少。 */
+    public static final float waterPerSecond = 980f;
+    /** 水罐容量（L）：10 秒额定给水。 */
+    public static final float waterCapacity = 10000f;
+    /** 蒸汽缓冲容量（L）：约 2 秒额定产汽，排不出去就先憋在这里。 */
+    public static final float steamCapacity = 2000f;
+    /** 给水泵最大抽水速率（/秒）：反应堆自己从相邻管道/水罐抽水。 */
+    public static final float feedwaterRate = 1400f;
     /** 满通量烧钍（/秒）：1 根 = 200 秒。 */
     public static final float thoriumPerSecond = 0.05f;
     /** 满通量烧燃料棒（/秒）：1 根 = 900 秒（加工过的燃料耐烧得多）。 */
@@ -85,6 +91,8 @@ public class IronworksRBMK{
     public static final float fluxMax = 1.25f;
     /** 熔毁温度阈值（归一化）。 */
     public static final float meltTemp = 1.25f;
+    /** 汽路憋压 + 插棒到底后的引爆倒计时（秒）。 */
+    public static final float pressureFuse = 2f;
     /** 熔毁后爆炸半径（tile）与伤害。 */
     public static final int meltRadius = 26;
     public static final float meltDamage = 12000f;
@@ -95,11 +103,11 @@ public class IronworksRBMK{
 
     // ---- 汽轮机参数 ----
     /** 满流发电（/秒）。 */
-    public static final float turbinePower = 18000f;
-    /** 满流吃热冷却液（/秒）。 */
-    public static final float turbineHotPerSecond = 20f;
-    /** 回收水的比例。 */
-    public static final float turbineWaterReturn = 0.9f;
+    public static final float turbinePower = 45000f;
+    /** 满流吃蒸汽（/秒）—— 一台汽轮机正好配一台反应堆。 */
+    public static final float turbineSteamPerSecond = 980f;
+    /** 冷凝水回收比例（1 = 质量守恒，蒸汽 980 → 温水 980）。 */
+    public static final float turbineWaterReturn = 1f;
 
     public static void load(){
         reactor = new RBMKReactor("rbmk-reactor");
@@ -150,7 +158,8 @@ public class IronworksRBMK{
             hasItems = true;
             itemCapacity = 40;
             hasLiquids = true;
-            liquidCapacity = 900f;
+            // 水罐 10000 + 汽包 2000：两者共用这一个总容量，罐满 = 水和汽都无处可去
+            liquidCapacity = waterCapacity + steamCapacity;
             // 熔毁自己算（带辐射），别让引擎再炸一次
             explosionDamage = 0;
             explosionRadius = 0;
@@ -180,11 +189,14 @@ public class IronworksRBMK{
             stats.add(new Stat("ironworks-rbmk-specs"), (StatValue)table -> {
                 IronworksStats.specRow(table, IronworksLiquids.steam.uiIcon,
                     Core.bundle.get("ironworks.rbmk.spec.steam"),
-                    (int)(waterPerSecond * hotRatio) + "/" + StatUnit.perSecond.localized(),
+                    (int)waterPerSecond + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.steam.color);
                 IronworksStats.specRow(table, Liquids.water.uiIcon,
                     Core.bundle.get("ironworks.rbmk.spec.water"),
                     (int)waterPerSecond + "/" + StatUnit.perSecond.localized(), Liquids.water.color);
+                IronworksStats.specRow(table, Liquids.water.uiIcon,
+                    Core.bundle.get("ironworks.rbmk.spec.tank"),
+                    (int)waterCapacity + " / " + (int)steamCapacity + " L", Color.valueOf("8fd4ff"));
                 IronworksStats.specRow(table, IronworksNuclear.fuelRod.uiIcon,
                     Core.bundle.get("ironworks.rbmk.spec.fuel"),
                     Core.bundle.get("ironworks.rbmk.spec.fuel.value"),
@@ -206,8 +218,20 @@ public class IronworksRBMK{
         public void setBars(){
             super.setBars();
 
-            // 引擎自动加的 "liquid" 条显示 liquids.current()，反应堆里水/热液来回跳 → 改成每种液体各一条
-            CoreBars.perLiquid(this, Liquids.water, IronworksLiquids.steam);
+            // 引擎自动加的 "liquid" 条显示 liquids.current()（水/汽来回跳）→ 换成每罐一条，按各自容量算
+            CoreBars.removeGenericLiquidBar(this);
+
+            addBar("rbmk-water", (RBMKReactorBuild b) -> new Bar(
+                () -> Core.bundle.format("bar.ironworks-rbmk-water",
+                    Mathf.round(b.liquids.get(Liquids.water)), (int)waterCapacity),
+                () -> Liquids.water.color,
+                () -> Mathf.clamp(b.liquids.get(Liquids.water) / waterCapacity)));
+
+            addBar("rbmk-steam", (RBMKReactorBuild b) -> new Bar(
+                () -> Core.bundle.format("bar.ironworks-rbmk-steam",
+                    Mathf.round(b.liquids.get(IronworksLiquids.steam)), (int)steamCapacity),
+                () -> IronworksLiquids.steam.color,
+                () -> Mathf.clamp(b.liquids.get(IronworksLiquids.steam) / steamCapacity)));
 
             addBar("rbmk-heat", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-heat", Mathf.round(b.heat * 100f)),
@@ -221,8 +245,13 @@ public class IronworksRBMK{
 
             addBar("rbmk-coolant", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-coolant", Mathf.round(b.flow * 100f)),
-                () -> b.flow < 0.9f ? Pal.remove : IronworksLiquids.grapheneCoolant.color,
+                () -> b.flow < 0.9f ? Pal.remove : Liquids.water.color,
                 () -> Mathf.clamp(b.flow)));
+
+            addBar("rbmk-pressure", (RBMKReactorBuild b) -> b.coreBoom <= 0.001f ? null : new Bar(
+                () -> Core.bundle.format("bar.ironworks-rbmk-pressure", Mathf.round(b.coreBoom / pressureFuse * 100f)),
+                () -> Pal.remove,
+                () -> Mathf.clamp(b.coreBoom / pressureFuse)));
 
             addBar("rbmk-fuel", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-fuel",
@@ -258,8 +287,16 @@ public class IronworksRBMK{
             public float heat = 0f;
             /** 氙毒 0..1.5。 */
             public float xenon = 0f, iodine = 0f;
-            /** 实际冷却液满足率 0..1。 */
+            /** 实际冷却液满足率 0..1（给水量 / 需水量）。 */
             public float flow = 1f;
+            /** 强制手动模式下的水位上限 0..1（占 10000 L 水罐的比例）。 */
+            public float waterTarget = 1f;
+            /** 当前生效的水位上限 0..1：手动=滑条，半自动/全自动=后台算法。 */
+            public float waterLevel = 1f;
+            /** 平滑后的水→汽流量（L/s），面板显示用。 */
+            public float steamRate = 0f;
+            /** 汽路憋压 + 插棒到底的引爆倒计时（秒）。 */
+            public float coreBoom = 0f;
             /** 烧掉的钍的余数。 */
             public float fuelUse = 0f;
             /** 熔毁计时（tick）。 */
@@ -306,6 +343,11 @@ public class IronworksRBMK{
                     boronArmed = true;
                     return;
                 }
+                if(v >= 1000){
+                    // 1000 + 百分比：强制手动的水位上限（最大可接受液体容量）
+                    waterTarget = Mathf.clamp((v - 1000) / 100f, 0f, 1f);
+                    return;
+                }
                 if(v < 0) return;
                 if(controlMode == MODE_AUTO){
                     // 自动模式下滑条设的是目标功率
@@ -327,30 +369,53 @@ public class IronworksRBMK{
                     // 强制手动：严格按操作，棒立刻就位，没有缓冲
                     rods = targetRods;
                 }else if(controlMode == MODE_AUTO){
-                    // 全自动：自动算棒位以维持目标功率（过热时额外插棒）
-                    float needCeil = autoPower / Math.max(0.05f, Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0.05f, 1f));
+                    // 全自动：滑条给的是**目标功率**，后台反算棒位（含氙/硼压制）
+                    float poison = Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0.05f, 1f);
+                    float needCeil = autoPower / (fluxMax * poison);
                     float idealRods = Mathf.clamp(1f - needCeil, 0f, 1f);
                     if(heat > 0.95f) idealRods = Math.min(1f, idealRods + (heat - 0.95f) * 5f);
                     targetRods = idealRods;
-                    float autoSpeed = targetRods > rods ? rodSpeedScram : rodSpeedNormal;
-                    rods = Mathf.approachDelta(rods, targetRods, autoSpeed);
+                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
                 }else{
                     // 半自动：棒按行程速度追目标（正常 33s，急停 3s）
-                    float rodSpeed = targetRods > rods ? rodSpeedScram : rodSpeedNormal;
-                    rods = Mathf.approachDelta(rods, targetRods, rodSpeed);
+                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
                 }
 
-                // —— 1. 冷却液：流量有惯性（泵与管路不会瞬间归零/拉满） ——
-                float need = flux * waterPerSecond * dt;
-                float have = liquids.get(Liquids.water);
-                float used = Math.min(need, have);
-                if(used > 0f) liquids.remove(Liquids.water, used);
-                float flowRaw = need < 0.0001f ? 1f : used / need;
-                flow = Mathf.lerpDelta(flow, flowRaw, 0.06f);
+                // —— 1. 水位上限：强制手动=滑条；半自动/全自动=后台算法 ——
+                if(controlMode == MODE_MANUAL){
+                    waterLevel = waterTarget;
+                }else{
+                    // 高功率多留水（热惯性大），低功率少留水；55%~90% 之间自动找平衡
+                    float autoTarget = Mathf.clamp(0.55f + 0.35f * Math.min(flux, 1f), 0.55f, 0.9f);
+                    waterLevel = Mathf.lerpDelta(waterLevel, autoTarget, 0.02f);
+                }
 
-                // —— 2. 棒位 = 功率上限（拟真核心）——
-                // 之前用「反应性积分」驱动通量，只要净反应性为正就会一路顶到上限；
-                // 现在改成：每根棒的插入深度直接决定**稳态上限**，通量只朝这个上限收敛。
+                // —— 2. 排汽：先把上一 tick 的蒸汽推给汽轮机/蒸汽管 ——
+                if(liquids.get(IronworksLiquids.steam) > 0.001f){
+                    dumpLiquid(IronworksLiquids.steam);
+                }
+
+                // —— 3. 给水泵：从相邻管路/水罐主动抽水，补到水位上限 ——
+                pullFeedwater(dt);
+
+                // —— 4. 水 → 汽 1:1（受水、汽包空间、总容量三重限制）——
+                float demand = Math.max(flux, 0f) * waterPerSecond * dt;
+                float water = liquids.get(Liquids.water);
+                float steamRoom = steamCapacity - liquids.get(IronworksLiquids.steam);
+                float totalRoom = LiquidKit.totalSpace(this);
+                float converted = Math.min(demand, Math.min(water, Math.min(steamRoom, totalRoom)));
+                if(converted > 0.0001f){
+                    liquids.remove(Liquids.water, converted);
+                    liquids.add(IronworksLiquids.steam, converted);
+                }
+                float flowRaw = demand <= 0.0001f ? 1f : converted / demand;
+                flow = Mathf.lerpDelta(flow, flowRaw, 0.08f);
+                // 流量读数（L/s）：1:1，给水多少就产汽多少
+                float instRate = dt <= 0.00001f ? 0f : converted / dt;
+                steamRate = Mathf.lerpDelta(steamRate, instRate, 0.03f);
+
+                // —— 5. 棒位 = 功率上限（拟真核心）——
+                // 每根棒的插入深度直接决定**稳态上限**，通量只朝这个上限收敛：
                 //   rods = 0   → 上限 100%（满功率）
                 //   rods = 50% → 上限 50%
                 //   rods = 90% → 上限 10%
@@ -360,7 +425,7 @@ public class IronworksRBMK{
                 if(poisoned) poisonFactor = 0f;
 
                 float target = fluxMax * rodCeiling * poisonFactor;
-                // 空泡正反应性：没水时上限被顶到 2.2 倍，可越过棒位限制（RBMK 的致命点）
+                // 空泡正反应性：没水/没汽路时上限被顶到 2.2 倍，可越过棒位限制（RBMK 的致命点）
                 target *= 1f + (1f - flow) * 1.2f;
                 target = Mathf.clamp(target, 0f, fluxMax);
 
@@ -369,7 +434,7 @@ public class IronworksRBMK{
                 productionEfficiency = flux;
                 rodCeilingPct = rodCeiling * 100f;
 
-                // —— 3. 燃料：燃料棒优先（耐烧 + 吐乏燃料），钍是应急替代 ——
+                // —— 6. 燃料：燃料棒优先（耐烧 + 吐乏燃料），钍是应急替代 ——
                 if(hasFuel && flux > 0.01f){
                     boolean rod = items.get(IronworksNuclear.fuelRod) > 0;
                     float perSecond = rod ? rodPerSecond : thoriumPerSecond;
@@ -396,26 +461,14 @@ public class IronworksRBMK{
                 // 燃耗进度 = 当前这根烧到哪儿了（0..1）
                 if(hasFuel && flux > 0.01f) rodBurn = Mathf.clamp(fuelUse);
 
-                // —— 4. 热 ——
-                float heatGen = flux * 0.50f;
-                float cooling = flow * 0.60f * heat + 0.05f;
-                heat = Mathf.clamp(heat + (heatGen - cooling) * 0.12f * dt, 0f, 2f);
+                // —— 7. 热：发热 ∝ 通量；冷却 ∝ 给水流量 × 堆温（含少量本底散热）——
+                // 满通量 + 满给水：平衡温度 ≈ 79%；给水掉一半 → 平衡温度 >100%（会烧）；
+                // 完全断水：约 9 秒从 0 升到 125% → 再加 1 秒熔毁确认。
+                float heatGen = flux * 0.14f;
+                float cooling = flow * (0.06f + 0.09f * heat) + 0.01f;
+                heat = Mathf.clamp(heat + (heatGen - cooling) * dt, 0f, 2f);
 
-                // —— 5. 热冷却液（用水量的 85%），罐满=背压升温 ——
-                float hotOut = used * hotRatio;
-                if(hotOut > 0f){
-                    // 水冷堆：水吸热变成的是**热水**（热冷却液是石墨烯冷却液回路的产物，别混）
-                    float stored = LiquidKit.addCappedShared(this, IronworksLiquids.steam, hotOut);
-                    if(hotOut > stored + 0.0001f){
-                        // 排不出去 = 热也带走不出去
-                        heat = Mathf.clamp(heat + (hotOut - stored) * 0.9f * dt, 0f, 2f);
-                    }
-                }
-                if(liquids.get(IronworksLiquids.steam) > 0.01f){
-                    dumpLiquid(IronworksLiquids.steam);
-                }
-
-                // —— 6. 氙毒（碘 → 氙，氙被通量烧掉）——
+                // —— 8. 氙毒（碘 → 氙，氙被通量烧掉）——
                 // 碘半衰期 ~90 秒（游戏内压缩），氙被通量强烈烧掉、停堆后衰变很慢
                 // → 满功率运行时氙毒很小，降功率/停堆后反而堆起来（碘坑）
                 iodine = Mathf.clamp(iodine + (flux * 0.02f - iodine * 0.011f) * dt, 0f, 1.5f);
@@ -435,18 +488,24 @@ public class IronworksRBMK{
                     flux = Mathf.approachDelta(flux, 0f, 0.02f);
                 }
 
+                // —— 9. 汽路憋压引爆：罐满 + 蒸汽排不出去 + 控制棒插到底 ——
+                // 真实 RBMK 的 AZ-5：堆芯被汽泡占据时把棒插到底，石墨补偿段先挤走水
+                // → 正反应性尖峰。这里用 2 秒倒计时让你看到「憋压」警告条。
+                checkPressureBoom(dt, hasFuel);
+                if(melted) return;
+
                 // SCRAM 引爆倒计时
                 if(scramBoom > 0f){
                     scramBoom -= dt * 60f;
                     if(scramBoom <= 0f) detonate();
                 }
 
-                // —— 7. 自动 SCRAM：半自动/全自动才有；强制手动模式没有任何自动保护 ——
+                // —— 10. 自动 SCRAM：半自动/全自动才有；强制手动模式没有任何自动保护 ——
                 if(controlMode != MODE_MANUAL && heat > 1.05f && targetRods < 0.999f){
                     targetRods = 1f;
                 }
 
-                // —— 8. 熔毁 ——
+                // —— 11. 熔毁 ——
                 if(heat >= meltTemp && !melted){
                     meltTimer += second;
                     if(meltTimer >= 60f) detonate();
@@ -454,11 +513,51 @@ public class IronworksRBMK{
                     meltTimer = Math.max(0f, meltTimer - second * 2f);
                 }
 
-                // —— 9. 显示/视觉 ——
+                // —— 12. 显示/视觉 ——
                 // 冷却剂出口温度（°C）：名义工况 ~280°C，熔毁前逼近 900°C
                 tempK = 280f + heat * 500f;
                 if(flux > 0.05f && Mathf.chanceDelta(flux * 0.15f)){
                     Fx.smoke.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
+                }
+            }
+
+            /**
+             * 汽路堵死 + 水罐满 + 控制棒插到底：AZ-5 式的正反应性尖峰，2 秒后炸堆。
+             *
+             * <p>「水罐满」按**当前水位上限**算（手动=滑条，自动=算法），
+             * 而不是按 12000 L 总容量算：给水泵顶到上限、汽包也顶满，
+             * 就表示水进不去、汽出不来 —— 这时候插棒才是致命的。
+             */
+            void checkPressureBoom(float dt, boolean hasFuel){
+                boolean waterFull = liquids.get(Liquids.water) >= waterLevel * waterCapacity - 2f;
+                boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCapacity - 2f;
+                boolean rodsBottom = targetRods >= 0.995f && rods >= 0.995f;
+                boolean live = hasFuel && (heat > 0.1f || flux > 0.02f);
+                if(waterFull && steamStuck && rodsBottom && live && !melted){
+                    coreBoom += dt;
+                    if(coreBoom >= pressureFuse) detonate();
+                }else{
+                    coreBoom = Math.max(0f, coreBoom - dt * 1.5f);
+                }
+            }
+
+            /** 从相邻管路/水罐主动抽水到水位上限（反应堆自带给水泵，不靠导管慢慢渗）。 */
+            void pullFeedwater(float dt){
+                float target = waterLevel * waterCapacity;
+                float need = target - liquids.get(Liquids.water);
+                if(need <= 0.5f) return;
+                float budget = Math.min(need, feedwaterRate * dt);
+                if(budget <= 0.001f) return;
+
+                for(Building other : proximity){
+                    if(budget <= 0.001f) break;
+                    if(other == null || other == this || other.team != team || other.liquids == null) continue;
+                    float avail = other.liquids.get(Liquids.water);
+                    if(avail <= 0.001f) continue;
+                    float before = liquids.get(Liquids.water);
+                    other.transferLiquid(this, Math.min(budget, avail), Liquids.water);
+                    float moved = liquids.get(Liquids.water) - before;
+                    if(moved > 0f) budget -= moved;
                 }
             }
 
@@ -539,7 +638,11 @@ public class IronworksRBMK{
              */
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                if(liquid == Liquids.water) return LiquidKit.hasSpace(this, liquid);
+                // 水：只接到「水位上限」为止（手动=滑条，自动=算法），超过就不再收
+                if(liquid == Liquids.water){
+                    return liquids.get(Liquids.water) < waterLevel * waterCapacity - 0.5f
+                        && LiquidKit.totalSpace(this) > LiquidKit.EPS;
+                }
                 // 硼酸只有在「已武装注入」后才收（点击按钮之后才允许接液）
                 if(boronArmed && liquid == IronworksLiquids.boricAcid) return LiquidKit.hasSpace(this, liquid);
                 return false;
@@ -622,6 +725,39 @@ public class IronworksRBMK{
                         .width(230f).color(Color.lightGray).left().row();
                 }).width(w).row();
 
+                // —— 水位上限（最大可接受液体容量）：仅强制手动可拖，半自动/全自动后台算 ——
+                table.table(Styles.grayPanel, c -> {
+                    c.defaults().pad(5f);
+                    Label waterLabel = new Label("");
+                    waterLabel.update(() -> {
+                        int cur = Mathf.round(liquids.get(Liquids.water));
+                        waterLabel.setText(controlMode == MODE_MANUAL
+                            ? Core.bundle.format("ironworks.rbmk.water.now",
+                                Mathf.round(waterTarget * 100f), cur, (int)waterCapacity)
+                            : Core.bundle.format("ironworks.rbmk.water.auto",
+                                Mathf.round(waterLevel * 100f), cur, (int)waterCapacity));
+                    });
+                    c.add(waterLabel).left().growX().row();
+
+                    Slider waterSlider = new Slider(0f, 100f, 1f, false);
+                    waterSlider.moved(v -> {
+                        // 半自动/全自动「不接这条」：后台算法说了算
+                        if(controlMode == MODE_MANUAL) configure(1000 + (int)v);
+                    });
+                    waterSlider.update(() -> {
+                        waterSlider.touchable = controlMode == MODE_MANUAL
+                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
+                        float shown = controlMode == MODE_MANUAL ? waterTarget : waterLevel;
+                        if(!waterSlider.isDragging()) waterSlider.setValue(shown * 100f);
+                    });
+                    c.add(waterSlider).width(230f).row();
+
+                    Label waterHint = new Label("");
+                    waterHint.update(() -> waterHint.setText(Core.bundle.get(
+                        controlMode == MODE_MANUAL ? "ironworks.rbmk.waterhint.manual" : "ironworks.rbmk.waterhint.auto")));
+                    c.add(waterHint).wrap().width(230f).color(Color.lightGray).left().row();
+                }).width(w).row();
+
                 // —— 实时读数 ——
                 table.table(Styles.grayPanel, c -> {
                     c.defaults().padLeft(8f).padRight(8f).padTop(2f).padBottom(2f);
@@ -634,6 +770,15 @@ public class IronworksRBMK{
                     readout(c, Core.bundle.get("ironworks.rbmk.row.heat"),
                         () -> Mathf.round(heat * 100f) + "%  (" + Mathf.round(tempK) + "°C)",
                         () -> heat >= 1.05f ? Pal.remove : heat >= 0.9f ? Color.valueOf("ffd166") : Color.valueOf("7fe08a"));
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.water"),
+                        () -> Mathf.round(liquids.get(Liquids.water)) + "/" + (int)waterCapacity + " L",
+                        () -> Liquids.water.color);
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.steam"),
+                        () -> Mathf.round(liquids.get(IronworksLiquids.steam)) + "/" + (int)steamCapacity + " L",
+                        () -> IronworksLiquids.steam.color);
+                    readout(c, Core.bundle.get("ironworks.rbmk.row.rate"),
+                        () -> Mathf.round(steamRate) + " L/s",
+                        () -> Liquids.water.color);
                     readout(c, Core.bundle.get("ironworks.rbmk.row.xenon"),
                         () -> Mathf.round(xenon * 100f) + "%",
                         () -> Color.valueOf("b6a8ff"));
@@ -664,7 +809,15 @@ public class IronworksRBMK{
                         status.setColor(Color.valueOf("8fd4ff"));
                         return;
                     }
-                    if(heat >= meltTemp){
+                    boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCapacity - 2f;
+                    boolean waterFull = liquids.get(Liquids.water) >= waterLevel * waterCapacity - 2f;
+                    if(coreBoom > 0f){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.pressure"));
+                        status.setColor(Pal.remove);
+                    }else if(steamStuck && waterFull){
+                        status.setText(Core.bundle.get("ironworks.rbmk.state.blocked"));
+                        status.setColor(Pal.remove);
+                    }else if(heat >= meltTemp){
                         status.setText(Core.bundle.get("ironworks.rbmk.state.melt"));
                         status.setColor(Pal.remove);
                     }else if(heat > 1.05f){
@@ -705,7 +858,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 4;
+                return 5;
             }
 
             @Override
@@ -725,6 +878,7 @@ public class IronworksRBMK{
                 write.f(targetRods);
                 write.i(controlMode);
                 write.f(autoPower);
+                write.f(waterTarget);
             }
 
             @Override
@@ -745,6 +899,7 @@ public class IronworksRBMK{
                     targetRods = read.f();
                     controlMode = read.i();
                     autoPower = read.f();
+                    if(revision >= 5) waterTarget = read.f();
                 }
             }
         }
@@ -762,7 +917,8 @@ public class IronworksRBMK{
             solid = true;
             update = true;
             hasLiquids = true;
-            liquidCapacity = 240f;
+            // 1.2 秒的蒸汽缓冲，够一根导管供汽
+            liquidCapacity = 1200f;
             explosionDamage = 0;
             explosionRadius = 0;
             baseExplosiveness = 0f;
@@ -787,11 +943,11 @@ public class IronworksRBMK{
                     (int)turbinePower + StatUnit.powerSecond.localized(), Pal.accent);
                 IronworksStats.specRow(table, IronworksLiquids.steam.uiIcon,
                     Core.bundle.get("ironworks.turbine.spec.steam"),
-                    (int)turbineHotPerSecond + "/" + StatUnit.perSecond.localized(),
+                    (int)turbineSteamPerSecond + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.steam.color);
                 IronworksStats.specRow(table, Liquids.water.uiIcon,
                     Core.bundle.get("ironworks.turbine.spec.water"),
-                    (int)(turbineHotPerSecond * turbineWaterReturn) + "/" + StatUnit.perSecond.localized(),
+                    (int)(turbineSteamPerSecond * turbineWaterReturn) + "/" + StatUnit.perSecond.localized(),
                     IronworksLiquids.warmWater.color);
             });
         }
@@ -810,6 +966,8 @@ public class IronworksRBMK{
         public class SteamTurbineBuild extends PowerGenerator.GeneratorBuild{
             public float flow = 0f;
             public float spin = 0f;
+            /** 蒸汽从哪一侧进来（0=右 1=上 2=左 3=下）。温水不能从这一侧倒回蒸汽管。 */
+            public int inputSide = -1;
 
             @Override
             public float getPowerProduction(){
@@ -817,10 +975,19 @@ public class IronworksRBMK{
             }
 
             @Override
+            public void handleLiquid(Building source, Liquid liquid, float amount){
+                if(liquid == IronworksLiquids.steam && source != null){
+                    int side = relativeTo(source);
+                    if(side >= 0) inputSide = side;
+                }
+                super.handleLiquid(source, liquid, amount);
+            }
+
+            @Override
             public void updateTile(){
                 float dt = delta() / 60f;
 
-                float need = turbineHotPerSecond * dt;
+                float need = turbineSteamPerSecond * dt;
                 float have = liquids.get(IronworksLiquids.steam);
                 float used = Math.min(need, have);
                 if(used > 0f) liquids.remove(IronworksLiquids.steam, used);
@@ -831,9 +998,18 @@ public class IronworksRBMK{
 
                 // 冷凝水回收
                 if(used > 0f){
-                    // 做完功的乏汽冷凝成「温水」，要过冷却塔才能回反应堆
-                    LiquidKit.addCappedShared(this, IronworksLiquids.warmWater, used * turbineWaterReturn);
-                    if(liquids.get(IronworksLiquids.warmWater) > 0.01f) dumpLiquid(IronworksLiquids.warmWater);
+                    // 做完功的乏汽冷凝成「温水」，要过冷却塔才能回反应堆。
+                    // 注意用 addCapped（按单液体容量）而不是 addCappedShared：
+                    // 汽轮机里蒸汽和温水是两条独立的腔室，不能让蒸汽把温水的空间吃掉。
+                    LiquidKit.addCapped(this, IronworksLiquids.warmWater, used * turbineWaterReturn);
+                }
+                if(liquids.get(IronworksLiquids.warmWater) > 0.01f){
+                    // 只从「非进汽侧」排温水：否则蒸汽管一旦被抽空，
+                    // 温水就会倒灌进去把导管变成温水，蒸汽线直接死掉（实测）。
+                    for(int d = 0; d < 4; d++){
+                        if(d == inputSide) continue;
+                        dumpLiquid(IronworksLiquids.warmWater, 2f, d);
+                    }
                 }
             }
 

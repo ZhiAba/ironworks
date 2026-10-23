@@ -76,6 +76,11 @@ public class VerboseLogger extends Block{
                         .append(" spent=").append(r.items == null ? 0 : r.items.get(IronworksNuclear.depletedRod))
                         .append(" steam=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(IronworksLiquids.steam)))
                         .append(" water=").append(IronworksLog.fmt(b.liquids == null ? 0f : b.liquids.get(mindustry.content.Liquids.water)))
+                        .append(" wlvl=").append(Math.round(r.waterLevel * 100)).append('%')
+                        .append(" wtarget=").append(Math.round(r.waterTarget * 100)).append('%')
+                        .append(" flow=").append(Math.round(r.flow * 100)).append('%')
+                        .append(" rate=").append(Math.round(r.steamRate)).append("/s")
+                        .append(" boom=").append(IronworksLog.fmt(r.coreBoom))
                         .append(" melted=").append(r.melted)
                         .append(" | ");
                 }else if(b.liquids != null){

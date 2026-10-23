@@ -3,7 +3,6 @@ package ironworks;
 import arc.Core;
 import arc.Events;
 import arc.util.Log;
-import arc.util.Time;
 import mindustry.Vars;
 import mindustry.game.EventType;
 import mindustry.gen.Building;
@@ -36,20 +35,29 @@ public class IronworksRbmkChat{
         Events.on(EventType.PlayerChatEvent.class, e -> feed(e.message));
         // 自己发的消息：聊天框发送时会先发 ClientChatEvent（单机/多人都有）
         Events.on(EventType.ClientChatEvent.class, e -> feed(e.message));
+        // 换地图/重开时清空序列，免得上一局的 lastAt 把新一局顶成负数
+        Events.on(EventType.ResetEvent.class, e -> reset());
     }
 
     /** 吃掉一条聊天消息，推进/重置/触发序列。测试也直接调这个。 */
     public static void feed(String msg){
         if(msg == null || msg.isEmpty()) return;
 
-        float now = Time.time;
+        // 用游戏 tick 计时，不用 Time.time：
+        // Time.time 在打开键盘/暂停恢复后可能被暂停时长顶一下，导致「明明很快却超时」。
+        // state.tick 只在游戏真正推进时增长，15 秒 = 900 tick，暂停打字不吃时间。
+        float now = (float)(mindustry.Vars.state.tick / 60.0);
 
         // 同一条消息可能同时触发 ClientChatEvent 与 PlayerChatEvent（自己发时两个都来），去重
         if(msg.equals(lastMsg) && now - lastMsgAt < 1f) return;
         lastMsg = msg;
         lastMsgAt = now;
         if(step > 0 && now - lastAt > window){
+            IronworksLog.event("[MEME] timeout after " + Math.round(now - lastAt) + "s, seq reset");
             step = 0;   // 超时，序列作废
+        }
+        if(step > 0){
+            IronworksLog.event("[MEME] feed step=" + step + " gap=" + Math.round((now - lastAt) * 10f) / 10f + "s msg=" + msg);
         }
 
         if(step == 0){

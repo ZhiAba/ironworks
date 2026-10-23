@@ -217,18 +217,20 @@ public class IronworksNuclear{
         }};
 
         // —— 冷却塔：温水 → 水（把汽轮机的回水做成独立闭环） ——
+        // 汽轮机满流吐 980 L/s 温水，冷却塔按 1200 L/s 上限设计（20% 余量）。
         coolingTower = new MultiCrafter("cooling-tower"){{
             requirements(Category.crafting,
                 with(IronworksItems.steelPlate, 60, Items.metaglass, 60, Items.lead, 40, Items.titanium, 30));
             size = 3;
             itemCapacity = 10;
-            liquidCapacity = 120f;
+            // 大缓冲：一根导管 20/tick 的补给要撑住 980 L/s 的连续冷凝
+            liquidCapacity = 1200f;
             health = 460;
             recipes = new Recipe[]{
-                new Recipe("cool", 30f)
-                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 6f))
+                new Recipe("cool", 6f)
+                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 120f))
                     .power(1f)
-                    .outputLiquid(new LiquidStack(Liquids.water, 6f))
+                    .outputLiquid(new LiquidStack(Liquids.water, 120f))
             };
         }};
 
