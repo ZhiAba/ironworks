@@ -74,7 +74,7 @@ public class IronworksSidebar{
             style.imageUpColor = Color.lightGray;
             ImageButton button = new ImageButton(style);
             button.resizeImage(20f);
-            button.clicked(IronworksLogDialog::show);
+            button.clicked(IronworksLogPanel::toggle);
 
             Tooltip tip = new Tooltip(t -> t.background(Styles.black6).margin(4f)
                 .add(Core.bundle.get("ironworks.sidebar.tooltip")).style(Styles.outlineLabel));

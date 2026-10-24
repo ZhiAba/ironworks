@@ -16,7 +16,7 @@ import static mindustry.Vars.*;
  * 左侧长条的「日志」数据源（v2.1.3.0）。
  *
  * 只保留最近 100 条，进程内存储；不写文件、不联网。
- * 由 IronworksLogDialog 渲染，侧栏长条点击即可打开。
+ * 由 IronworksLogPanel 渲染，侧栏长条点击即可打开。
  */
 public class IronworksNotifications{
     public static final int maxEntries = 100;
@@ -64,6 +64,10 @@ public class IronworksNotifications{
 
     public static Seq<Entry> entries(){
         return entries;
+    }
+
+    public static void remove(Entry entry){
+        entries.remove(entry);
     }
 
     public static void clear(){

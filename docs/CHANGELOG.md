@@ -37,10 +37,18 @@
 
 ## 2.1.x
 
+### 2.1.4.0 — 独立动画日志面板
+
+- **从 Dialog 改成独立界面**：`IronworksLogPanel` 取代 `IronworksLogDialog`，不再用 `BaseDialog`。`windowBack + panel` 直接挂在 `ui.hudGroup`：全屏暗色背景淡入，面板从左侧滑入居中（`pow3Out`）；关闭时反向滑出（`pow3In`），点面板外或右上 × 都能关。
+- **逐条消除**：每条日志右侧的 `<` 按钮先让该行 `fadeOut(0.25s)` 并向左 `moveBy(..., pow3In)`，动画结束后才从 `IronworksNotifications` 移除并重建列表；清空和「辅助界面…」入口保留。
+- **数据与开关**：新增 `IronworksNotifications.remove(Entry)`；左侧长条点击改为开关（开/关日志面板）。
+- **边界**：客户端 only，无头不初始化；不改变任何游戏数值。
+- **测试**：T30 + T154 + T155 子集 **3/3**，20 秒；动画和面板位置需实机确认。
+
 ### 2.1.3.0 — 左侧长条 + 日志
 
 - **仿 DeepSpace 的 NotificationFrag**：它的左侧长边是 `NotificationFrag` 里一个 26×520 的侧边按钮（`SglStyles.sideButtonRight`），点击展开 notificationHistory 面板；不是一排功能图标。
-- **左侧长条**：`IronworksSidebar` 在屏幕左缘居中放 26×520 的 `Styles.black6` 长条，中间一枚齿轮；点击打开 `IronworksLogDialog`。不挂 `PlacementFragment.blockCatTable`——我们的方块搜索已经在重排那张表。
+- **左侧长条**：`IronworksSidebar` 在屏幕左缘居中放 26×520 的 `Styles.black6` 长条，中间一枚齿轮；点击打开日志（2.1.4.0 起为独立动画面板）。不挂 `PlacementFragment.blockCatTable`——我们的方块搜索已经在重排那张表。
 - **日志面板**：`IronworksNotifications` 保留最近 100 条：模组加载、进入地图、电网缺电/恢复、RBMK 熔毁、彩蛋熔毁、辅助开关变更；面板显示时间/警告图标，可清空或跳转辅助界面。
 - **设置**：`ironworks.sidebar.enabled` 默认开，子设置界面「显示左侧长条」可关。
 - **边界**：客户端 only，无头跳过；不改变任何游戏数值；长条不拦截地图点击（除自身 26px 区域）。

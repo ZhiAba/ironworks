@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.3.0）
+# 铁流工业 交接文档（2026-10-24，v2.1.4.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,16 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`8d66775dbab305441a87d42c58b8a46c`（2.1.3.0，已部署双客户端）
+- 当前 jar md5：`536bb43f1994be7afd3ff93cc45bc65e`（2.1.4.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.1.4.0）：独立动画日志面板
+- `IronworksLogDialog` 已删除，换成 `IronworksLogPanel`：不再用 `BaseDialog`，直接挂 `hudGroup` 的 `windowBack + panel`
+- 打开：背景 `fadeIn`，面板从左侧 `moveToAligned` 居中，`0.42s`、`Interp.pow3Out`；关闭：反向 `0.30s`、`pow3In`，点面板外/右上 × 均可关
+- 逐条消除：每条右侧 `<` 先 `fadeOut(0.25s)` + 向左 `moveBy`，动画结束后才 `IronworksNotifications.remove(entry)` 并重建列表；避免行先消失导致动画看不到
+- 左侧长条点击改为 toggle；`ironworks.sidebar.enabled` 与「辅助界面…」入口保持不变
+- 测试：T30/T154/T155 子集 **3/3**，20 秒；动画/尺寸/位置需实机确认
+- 当前 jar md5：`536bb43f1994be7afd3ff93cc45bc65e`（2.1.4.0，已部署双客户端）
 
 ## 本次（2.1.3.0）：左侧长条 + 日志
 - 研究 DeepSpace 的 `singularity.ui.fragments.NotificationFrag`：左侧长边是一个 26×520 的侧边按钮（`SglStyles.sideButtonRight`），点击展开 notificationHistory；不是一排功能图标

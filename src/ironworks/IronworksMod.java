@@ -56,6 +56,7 @@ public class IronworksMod extends Mod{
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
         IronworksNotifications.init(); // 左侧日志数据源
+        IronworksLogPanel.init();      // 动画日志面板
         IronworksSidebar.init();      // 左侧长条：点击打开日志
         IronworksHud.init();          // 辅助 HUD：电网总览 + 物流监视
         IronworksSettings.init();    // 设置 → 铁流工业
