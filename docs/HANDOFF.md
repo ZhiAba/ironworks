@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.4.0）
+# 铁流工业 交接文档（2026-10-24，v2.1.5.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,17 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`14876dcf8a4859efd56768b7cd35b8ff`（2.1.4.0，已部署双客户端）
+- 当前 jar md5：`2bf598f8d1cf85bf7f45e51b54375831`（2.1.5.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.1.5.0）：RBMK 异常广播
+- 新增 `IronworksRbmkAlerts`：在 `RBMKReactorBuild.updateTile` 末尾调用，客户端按条件边沿写 `IronworksNotifications.warn`；异常消失并稳定 3 秒后重新武装，避免抖动刷屏
+- 温度安全阈值 **100%**（约 780°C；熔毁 125%）；温度/流量/水罐/汽包/汽路/压力/SCRAM/中毒分别有独立提示；消息带 tile 坐标、当前百分比、控制模式和动作
+- 动作文案：全自动「已自动降功率/已紧急停堆」；半自动「已紧急停堆/未自动介入，请手动插棒」；强制手动「未自动介入，请立即手动插棒」
+- 熔毁日志改为 `⚠️警告：位于 x,y 的 RBMK 反应堆堆芯已熔毁`；去重状态 `alertMask/alertQuiet` 是运行时字段，不写存档
+- 边界：客户端本地通知、headless 跳过、不改反应堆逻辑或数值
+- 测试：RBMK 116/135/136/142/149 共 **15/15**，24 秒；T30/T154/T155 共 **3/3**，20 秒；文案/触发时机需实机确认
+- 当前 jar md5：`2bf598f8d1cf85bf7f45e51b54375831`（2.1.5.0，已部署双客户端）
 
 ## 本次（2.1.4.0）：独立动画日志面板
 - `IronworksLogDialog` 已删除，换成 `IronworksLogPanel`：不再用 `BaseDialog`，直接挂 `hudGroup` 的 `windowBack + panel`
@@ -168,8 +177,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-24 08:25）
-状态：v2.1.3.0 已构建并部署双客户端，md5 `8d66775dbab305441a87d42c58b8a46c`。
-全量回归 **93/93**（700 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 20 秒通过。最终 jar 仅客户端 HUD/侧栏变化，无服务端行为改动。
+状态：v2.1.5.0 已构建并部署双客户端，md5 `2bf598f8d1cf85bf7f45e51b54375831`。
+最近子集：RBMK 116/135/136/142/149 共 **15/15**（24 秒）；T30/T154/T155 共 **3/3**（20 秒）。RBMK 广播属客户端通知，文案/触发时机需实机确认；反应堆数值逻辑未改。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。

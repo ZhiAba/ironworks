@@ -321,6 +321,10 @@ public class IronworksRBMK{
             public float rodCeilingPct = 0f;
             /** 是否已熔毁（防止重复爆炸）。 */
             public boolean melted = false;
+            /** 通知去重位掩码；运行时状态，不写入存档（重载后若工况仍在会重新提醒一次）。 */
+            public int alertMask = 0;
+            /** 每个通知条件恢复后的静默计时（秒），同样是运行时状态。 */
+            public float[] alertQuiet = new float[8];
 
             @Override
             public float getPowerProduction(){
@@ -540,6 +544,8 @@ public class IronworksRBMK{
                 if(flux > 0.05f && Mathf.chanceDelta(flux * 0.15f)){
                     Fx.smoke.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
                 }
+
+                IronworksRbmkAlerts.update(this, dt);
             }
 
             /**
