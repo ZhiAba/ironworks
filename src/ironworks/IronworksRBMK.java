@@ -340,6 +340,11 @@ public class IronworksRBMK{
             public float[] alertQuiet = new float[8];
             /** 手动模式开关：关闭本反应堆的异常广播（含熔毁通知），不影响反应堆物理。 */
             public boolean alertsMuted = false;
+            /** 半自动/全自动的实时保护插棒量（0..1）；按水位、给水、温度趋势等动态计算。 */
+            public float protectRods = 0f;
+            /** 平滑后的水位变化率（L/s）和堆温变化率（每秒），运行时状态。 */
+            public float waterTrend = 0f, heatTrend = 0f;
+            private float lastWater = -1f, lastHeat = -1f;
 
             @Override
             public float getPowerProduction(){
@@ -352,8 +357,9 @@ public class IronworksRBMK{
             }
 
             public void applyConfig(int v){
-                if(v == -10){ controlMode = MODE_SEMI; return; }
-                if(v == -11){ controlMode = MODE_AUTO; return; }
+                // 通知静音只属于强制手动；切回半自动/全自动时立即恢复通知
+                if(v == -10){ controlMode = MODE_SEMI; alertsMuted = false; return; }
+                if(v == -11){ controlMode = MODE_AUTO; alertsMuted = false; return; }
                 if(v == -12){ controlMode = MODE_MANUAL; syncManualWaterLines(); return; }
                 if(v == -1){
                     // SCRAM：棒全部插进去。高功率时 AZ-5 会先闪蒸冷却水、抬高堆温，
@@ -465,12 +471,92 @@ public class IronworksRBMK{
                 enforceWaterLimit();
             }
 
+            /**
+             * 半自动/全自动的实时保护：不是等到温度 100% 才动作，而是同时看
+             * 水位余量、水位下降速度、给水实际流量、堆温及其变化率、汽包压力。
+             *
+             * <p>核心目标是「在水烧干之前先把功率降下来」：水位低于低线
+             * 约 25% 时开始插棒；水位继续下降、流量掉、温度上升都会加权。
+             * 保护量 {@link #protectRods} 是杆位下限，不覆盖用户/自动设定的目标，
+             * 风险解除后缓慢回落。
+             */
+            void updateProtection(float dt, boolean hasFuel){
+                if(dt <= 0.0001f) return;
+                float water = liquids.get(Liquids.water);
+                if(lastWater < 0f){
+                    lastWater = water;
+                    lastHeat = heat;
+                    return;
+                }
+                waterTrend = Mathf.lerpDelta(waterTrend, (water - lastWater) / dt, 0.15f);
+                heatTrend = Mathf.lerpDelta(heatTrend, (heat - lastHeat) / dt, 0.15f);
+                lastWater = water;
+                lastHeat = heat;
+
+                if(controlMode == MODE_MANUAL || !hasFuel){
+                    protectRods = 0f;
+                    return;
+                }
+
+                float waterFrac = water / waterCapacity;
+                float low = Math.max(waterLowLevel, 0.10f);
+                // 低于低线的 75% 才开始硬保护；正常「低线启泵→高线」循环不会误触发
+                float trigger = Math.max(0.12f, low * 0.75f);
+                float below = Mathf.clamp((trigger - waterFrac) / Math.max(trigger * 0.75f, 0.05f), 0f, 1f);
+
+                // 附近有没有可抽的水源：没有水源时不能等「低线」才动作，
+                // 按当前库存/消耗算剩余时间，提前降功率。
+                boolean feedwaterAvailable = false;
+                for(Building other : proximity){
+                    if(other != null && other != this && other.team == team
+                        && other.liquids != null && other.liquids.get(Liquids.water) > 0.5f){
+                        feedwaterAvailable = true;
+                        break;
+                    }
+                }
+
+                float demand = Math.max(flux, 0f) * waterPerSecond;
+                float runway = demand > 1f ? water / demand : 99f;
+                float runwayRisk = Mathf.clamp((9f - runway) / 6f, 0f, 1f);
+                float waterRisk = below;
+                if(!feedwaterAvailable){
+                    // 断水时用剩余时间提前介入；有水源时只在低于保护线后参考 runway
+                    waterRisk = Math.max(waterRisk, runwayRisk);
+                }else if(below > 0f){
+                    waterRisk = Math.max(waterRisk, runwayRisk);
+                }
+
+                // 温度趋势往前看 2.5 秒：刚出现上升趋势就提前插棒，不等 100%
+                float futureHeat = heat + Math.max(heatTrend, 0f) * 2.5f;
+                float heatRisk = Mathf.clamp((futureHeat - 0.92f) / 0.18f, 0f, 1f);
+
+                float flowRisk = (waterFrac < trigger || heat > 0.9f)
+                    ? Mathf.clamp((0.9f - flow) / 0.4f, 0f, 1f) : 0f;
+                float steamFrac = Mathf.clamp(liquids.get(IronworksLiquids.steam) / steamCapacity, 0f, 1f);
+                float steamRisk = Mathf.clamp((steamFrac - 0.8f) / 0.15f, 0f, 1f);
+
+                float risk = Math.max(waterRisk, Math.max(heatRisk,
+                    Math.max(flowRisk * 0.9f, steamRisk * 0.85f)));
+                if(waterFrac <= 0.02f) risk = Math.max(risk, 0.9f);
+                if(heat >= 1.0f) risk = 1f;
+
+                float rate = risk > protectRods ? 0.10f : 0.02f;
+                protectRods = Mathf.lerpDelta(protectRods, risk, rate);
+                if(heat >= 1.0f) protectRods = Math.max(protectRods, 0.98f);
+            }
+
             @Override
             public void updateTile(){
                 float dt = delta() / 60f;
                 float second = delta();
 
+                // 静音开关只属于强制手动；自动/半自动始终恢复异常通知
+                if(controlMode != MODE_MANUAL) alertsMuted = false;
+
                 boolean hasFuel = items.get(IronworksNuclear.fuelRod) > 0 || items.get(Items.thorium) > 0;
+
+                // 半自动/全自动实时保护：先按上一 tick 的水位/温度/流量趋势算保护杆位
+                updateProtection(dt, hasFuel);
 
                 // —— 0. 控制棒：三种模式 ——
                 if(controlMode == MODE_MANUAL){
@@ -494,11 +580,17 @@ public class IronworksRBMK{
                     float idealRods = Mathf.clamp(1f - needCeil, 0f, 1f);
                     // AZ-5 保护：水罐真的接近满（>95%）且汽包也满时，绝不把棒插过 98%
                     if(waterFrac > 0.95f && steamFrac > 0.9f) idealRods = Math.min(idealRods, 0.98f);
-                    targetRods = idealRods;
+                    // 实时保护量是杆位下限，不允许自动目标把棒留在危险位置
+                    targetRods = Math.max(idealRods, protectRods);
                     rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedAuto : rodSpeedNormal);
                 }else{
-                    // 半自动：棒按行程速度追目标（正常 33s，急停 3s）
-                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
+                    // 半自动：用户目标 + 实时保护下限；普通插棒仍走 3 秒行程，
+                    // 保护量超过用户目标时才用 1.5 秒的快速插入。
+                    float demand = Math.max(targetRods, protectRods);
+                    float speed = demand > rods
+                        ? (protectRods > targetRods ? rodSpeedAuto : rodSpeedScram)
+                        : rodSpeedNormal;
+                    rods = Mathf.approachDelta(rods, demand, speed);
                 }
 
                 // —— 1. 双水位线：最高线是硬上限，最低线是给水泵启动线 ——
@@ -638,12 +730,12 @@ public class IronworksRBMK{
                     }
                 }
 
-                // —— 10. 自动 SCRAM：半自动/全自动才有；强制手动模式没有任何自动保护 ——
-                // 自动保护同样会触发 AZ-5 闪蒸（高功率插棒一样有正反应性尖峰），
-                // 但不会直接引爆；如果冷却已经救不回来，仍然走堆温熔毁。
-                if(controlMode != MODE_MANUAL && heat > 1.05f && targetRods < 0.999f){
-                    startScramFlash();
-                    targetRods = 1f;
+                // —— 10. 最后防线：实时保护没压住时至少全插棒，不再自动触发 AZ-5 闪蒸 ——
+                // AZ-5 闪蒸只保留给操作员手动按紧急停堆；自动系统应该在更早的水位/温度趋势阶段
+                // 就把功率降下来，而不是等 105% 才插棒、再制造一次正反应性尖峰。
+                if(controlMode != MODE_MANUAL && heat > 1.0f){
+                    protectRods = 1f;
+                    if(controlMode == MODE_AUTO) targetRods = Math.max(targetRods, 1f);
                 }
 
                 // —— 11. 熔毁 ——
@@ -804,6 +896,22 @@ public class IronworksRBMK{
                 // 硼酸只有在「已武装注入」后才收（点击按钮之后才允许接液）
                 if(boronArmed && liquid == IronworksLiquids.boricAcid) return LiquidKit.hasSpace(this, liquid);
                 return false;
+            }
+
+            /**
+             * 真正的进水硬闸：`transferLiquid` 只调用一次 `acceptLiquid` 判断布尔值，
+             * 之后会把整批流量交给 `handleLiquid`。如果这里不按剩余容积截断，
+             * 一次 5000 L 的批量进水就能冲过高线（实测会在 500↔5291 L 之间来回跳）。
+             * 只截断水，不动蒸汽/硼酸；真正的 10000 L 物理上限仍由 waterCapacity 保留。
+             */
+            @Override
+            public void handleLiquid(Building source, Liquid liquid, float amount){
+                if(liquid == Liquids.water){
+                    float room = Math.max(0f, waterLimit() - liquids.get(Liquids.water));
+                    if(room <= 0.001f) return;
+                    amount = Math.min(amount, room);
+                }
+                super.handleLiquid(source, liquid, amount);
             }
 
             @Override

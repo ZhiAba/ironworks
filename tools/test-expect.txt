@@ -101,3 +101,7 @@
 161	T161 water=2500 steam=7500 flash=7500 immediate=false spike=true melted=true ticks=[0-9]+
 162	T162 line=10 clamped=1000 bulk=1000 accept=false
 163	T163 on=true off=false locked=false
+164	T164 line=100 bulk=500 clamped=500 trueCap=10000
+165	T165 line=5 water=500 source=[0-9]+
+166	T166 startHeat=[0-9]+ startWater=[0-9]+ melted=false maxHeat=[0-9]+ protect=[0-9]+ rods=[0-9]+ water=[0-9]+
+167	T167 manual=true auto=false semi=false
