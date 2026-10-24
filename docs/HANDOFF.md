@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.10.0）
+# 铁流工业 交接文档（2026-10-24，v2.2.0.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,23 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`267e831654957917b31ebab3310bd80b`（2.1.10.0，已部署双客户端）
+- 当前 jar md5：`7794bde81517a2a920ab12afaa9d17dd`（2.2.0.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.2.0.0）：RBMK-9 分区堆芯 + 顶部横向堆号选择器
+
+- 新方块 `ironworks-rbmk-reactor-9`：`size=9`、`health=24000`、`itemCapacity=120`；旧 5×5 `ironworks-rbmk-reactor` 原样保留，旧存档/旧测试不受影响。贴图 `assets/sprites/rbmk-reactor-9.png` 为 288×288（9×32），UI 图 256×256；由 `tools/make-rbmk9-sprite.js` 生成占位图（5×5 底图放大 + 3×3 网格 + 九个状态灯）。
+- 分区数组：`zoneHeat/zoneFlux/zoneFlow/zoneRods/zoneTarget/zonePrompt/zoneThrottle`，每区独立 3×3。热方程完全沿用：
+  `heatGen = flux*0.14 + promptHeat`；`cooling = flow*(0.06 + 0.09*heat) + 0.01`；`heat += (heatGen-cooling)*dt`，钳 0..2；`meltTemp=1.25` 持续 1 秒 → 整堆熔毁。全局 `heat=max(zoneHeat)`、`flux=avg(zoneFlux)`、`flow=avg(zoneFlow)` 只用于保护/UI/氙毒/燃料；任意最热区到阈值都会炸。
+- 水/汽仍走整堆公共集管：总给水需求按 `zoneFlux*980/9*dt`（9 区合计仍 980 L/s）；手动节流阀 `zoneThrottle[9]` 降低该区实际进水量，换算成 `zoneFlow = supply * zoneBias * throttle`；固定并联通道偏差 `zoneBias≈0.96..1.00`。自动/半自动强制 `throttle=1`，所以单区节流只在强制手动生效。
+- UI：面板顶部 `总控` + `1号堆`…`9号堆`，用横向 `ScrollPane` 左右滑，`flatTogglet` 选中框高亮；`-30` 选总控，`-20..-28` 选 1..9 区。选中后显示该区通量/温度/冷却/棒位，并有两根滑条：
+  - 目标棒位：普通值 0..100，手动模式下总控写全部 9 区，单区只写当前区；
+  - 冷却节流：配置码 `3000 + 0..100`，总控写全 9 区，单区只写当前区。
+  自动/半自动下滑条 `touchable=disabled`，只读；选择器仍可看各区读数。旧 5×5 保留原全局棒位面板，不显示分区 UI。
+- SCRAM：`applyZonedConfig(-1)` 先 `startScramFlash()`，把全局热冲击按 jump 分摊到 9 个 `zoneHeat`，`promptHeat` 复制到 9 个 `zonePrompt`；压力 AZ-5 要求 9 区 `zoneTarget` 与 `zoneRods` 全部 ≥0.995。`poisoned`/无燃料时每区目标通量归零。
+- 存档：分区堆 `version()` = **10**；在旧 8 字段后写 `selectedZone`、9×(heat/flux/flow/rods/target/prompt)、9×throttle。旧 5×5 仍为 8；旧分区 v9 读取时 throttle 缺省 1。`selectedZone=-1` 为总控。
+- 测试：新增 T168（size=9/9 区/默认总控）、T169（手动 0/80/20 三区通量分离）、T170（总控写 9 区）、T171（节流 50% 流量下降）、T172（单区节流不污染其它区）、T173（半自动切区不改公共目标）、T174（自动忽略节流）、T175（SCRAM 热冲击分 9 区）。全量回归 **113/113**（698 秒，T1–T175）通过；最终 jar 的带 T1 暖场 RBMK 子集 **8/8**（13 秒）复核通过。
+- 注意：`buildConfiguration` 依赖 `Core.scene`；无头直接构造 Table 会 NPE，所以 UI 只用实机验收，不放进无头用例。
 
 ## 本次（2.1.10.0）：进水口铁闸 + 半自动/全自动实时保护
 - 真正修复「高线 5% 却看到 500↔5291 L 跳」：`transferLiquid` 只做布尔 `acceptLiquid`，真正整批加水在 `handleLiquid`；新增 `handleLiquid` 水位截断，批量 5000 L 到 5% 高线只能进 500 L。`acceptLiquid`/update 削顶保留，100% 时真上限 10000 L，`liquidCapacity` 仍为 10000 水 + 2000 汽
@@ -223,8 +238,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-24 12:40）
-状态：v2.1.10.0 已构建并部署双客户端，md5 `267e831654957917b31ebab3310bd80b`。
-最近子集：T1 暖场 + RBMK 116/133/134/135/136/137/138/139/140/141/142/143/144/145/146/148/149/150/151/155/156/157/158/159/160/161/162/163/164/165/166/167 共 **51/51**（52 秒），2.1.10.0 最终冒烟 15/15。水位硬闸、实时保护、静音跨模式恢复已验；实际滑条/液源/保护动作手感需实机确认。
+状态：v2.2.0.0 已构建并部署双客户端，md5 `7794bde81517a2a920ab12afaa9d17dd`。
+最近回归：全量 **113/113**（698 秒，T1–T175），最终 jar 的 RBMK 分区子集 **8/8**（13 秒）。RBMK-9 尺寸、9 区独立棒位/通量、总控、节流、半自动不串目标、自动忽略节流、SCRAM 热冲击分配已验；顶部横向选择器、高亮框架、两根滑条的实际手感与布局需实机确认。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。

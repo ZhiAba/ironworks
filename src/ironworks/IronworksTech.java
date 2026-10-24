@@ -183,6 +183,11 @@ public class IronworksTech{
         TechNode rbmk = node(clusterNode, IronworksRBMK.reactor,
             with(IronworksMaterials.siliconCarbide, 120, IronworksItems.steelPlate, 400,
                  IronworksSilicon.quantumCore, 4, Items.silicon, 500));
+        // 9×9 分区堆芯（2.2.0.0）：3×3 个独立 3×3 区块，共用给水/蒸汽集管
+        node(rbmk, IronworksRBMK.zonedReactor,
+            with(IronworksMaterials.siliconCarbide, 360, IronworksItems.steelPlate, 1200,
+                 IronworksSilicon.quantumCore, 12, IronworksAluminum.aviationAluminum, 240,
+                 Items.silicon, 1500, Items.metaglass, 600));
         TechNode turbineNode = node(rbmk, IronworksRBMK.turbine,
             with(IronworksItems.steelPlate, 150, IronworksSilicon.quantumCore, 1,
                  Items.silicon, 200, Items.metaglass, 120));
