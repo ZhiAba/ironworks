@@ -34,6 +34,15 @@ public class IronworksMod extends Mod{
         IronworksRadar.load();     // 自动雷达（3×3，索敌 + 接管炮塔）
         IronworksBlocks.load();    // 方块要引用上面所有
         IronworksOre.load();       // 铁矿脉 + 塞普罗生成器补丁
+        // 原版导管/传送带的侧面贴图只对 outputsLiquid/outputsItems 为 true 的邻居张开。
+        // 我们的液体建筑（汽轮机、反应堆、多配方机、冷却塔等）一直能侧面进出，
+        // 但 outputsLiquid 默认 false，导致实际导通、贴图不连。这里统一补旗标。
+        for(mindustry.world.Block b : mindustry.Vars.content.blocks()){
+            if(b.name.startsWith("ironworks-") && b.hasLiquids){
+                b.outputsLiquid = true;
+            }
+        }
+
         IronworksTech.load();
 
         // 普通管道（钢化玻璃）拒收熔融金属，必须用耐高温管道。

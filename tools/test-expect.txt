@@ -80,7 +80,7 @@
 141	T141 mode=1 auto=[5-8][0-9] rods=[5-8][0-9] flux=[3-5][0-9]
 142	T142 melted=true ticks=[0-9]+
 143	T143 power=24000 warm=[1-9][0-9]* flow=100
-144	T144 water=1200 warm=0
+144	T144 water=96 warm=0
 145	T145 melted=false
 146	T146 side=2 leftSteam=0 rightSteam=[1-9][0-9]* reactorWater=[1-9][0-9]* melted=false
 147	T147 stopped=true steamKept=true resumed=true warm=[0-9]+
@@ -115,3 +115,5 @@
 175	T175 flash=true prompts=9 targets=9
 176	T176 power=72000 warm=[0-9]+ used=[0-9]+ ratio=1(\.0[0-9])? flow=100
 177	T177 rate=[0-9]+ perZone=[0-9]+ near=true
+178	T178 water=960 warm=0
+179	T179 outs=true side=true bits=[1-9][0-9]*

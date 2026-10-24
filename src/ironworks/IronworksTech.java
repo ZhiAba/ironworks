@@ -196,9 +196,12 @@ public class IronworksTech{
             with(IronworksItems.steelPlate, 800, IronworksMaterials.siliconCarbide, 200,
                  IronworksSilicon.quantumCore, 16, IronworksAluminum.aviationAluminum, 400,
                  Items.silicon, 1200, Items.metaglass, 600));
-        // 冷却塔：汽轮机回水的闭环
-        node(turbineNode, IronworksNuclear.coolingTower,
-            with(IronworksItems.steelPlate, 60, Items.metaglass, 60, Items.titanium, 30));
+        // 冷却塔：汽轮机回水的闭环。2×2 小型 120 L/s → 4×4 大型 600 L/s
+        TechNode coolingNode = node(turbineNode, IronworksNuclear.coolingTower,
+            with(IronworksItems.steelPlate, 40, Items.metaglass, 40, Items.titanium, 15));
+        node(coolingNode, IronworksNuclear.largeCoolingTower,
+            with(IronworksItems.steelPlate, 240, Items.metaglass, 240, Items.lead, 160,
+                 Items.titanium, 120, IronworksMaterials.siliconCarbide, 60));
 
         // 核工业全套（0.67.0.0）：浸出 → 浓缩 → 制棒 → 乏燃料池 → 后处理 → 固化 → 干式储存
         TechNode nukeLeach = node(rbmk, IronworksNuclear.leachPlant,

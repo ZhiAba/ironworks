@@ -2,6 +2,7 @@ package ironworks;
 
 import arc.Core;
 import arc.math.Mathf;
+import ironworks.IronworksRBMK.RBMKReactor;
 import ironworks.IronworksRBMK.RBMKReactor.RBMKReactorBuild;
 import mindustry.content.Liquids;
 
@@ -39,16 +40,20 @@ public class IronworksRbmkAlerts{
             b.alertMask = 0;
         }
 
-        float steamFrac = Mathf.clamp(b.liquids.get(IronworksLiquids.steam) / IronworksRBMK.steamCapacity, 0f, 1f);
-        float waterFrac = Mathf.clamp(b.liquids.get(Liquids.water) / IronworksRBMK.waterCapacity, 0f, 1f);
-        boolean steamStuck = b.liquids.get(IronworksLiquids.steam) >= IronworksRBMK.steamCapacity - 2f;
-        boolean waterFull = b.liquids.get(Liquids.water) >= IronworksRBMK.waterCapacity * 0.98f;
+        float steamFrac = Mathf.clamp(b.liquids.get(IronworksLiquids.steam) / b.steamCap(), 0f, 1f);
+        float waterFrac = Mathf.clamp(b.liquids.get(Liquids.water) / b.waterCap(), 0f, 1f);
+        boolean steamStuck = b.liquids.get(IronworksLiquids.steam) >= b.steamCap() - 2f;
+        boolean waterFull = b.liquids.get(Liquids.water) >= b.waterCap() * 0.98f;
         boolean rodsBottom = b.targetRods >= 0.995f && b.rods >= 0.995f;
+
+        int hotZone = hottestZone(b);
+        int coldZone = driestZone(b);
 
         if(b.heat >= heatThreshold){
             if(raise(b, TEMP)){
-                warn(b, Core.bundle.format("ironworks.log.reactor.temp",
-                    Mathf.round(heatThreshold * 100f), Mathf.round(b.heat * 100f), action(b)));
+                warn(b, zoneTag(b, hotZone, "ironworks.log.reactor.zone.hot")
+                    + Core.bundle.format("ironworks.log.reactor.temp",
+                        Mathf.round(heatThreshold * 100f), Mathf.round(b.heat * 100f), action(b)));
             }
         }else if(lower(b, TEMP, b.heat < heatThreshold - 0.03f, dt)){
             info(b, "ironworks.log.reactor.temp.ok");
@@ -56,8 +61,9 @@ public class IronworksRbmkAlerts{
 
         if(b.flow < flowThreshold){
             if(raise(b, FLOW)){
-                warn(b, Core.bundle.format("ironworks.log.reactor.flow",
-                    Mathf.round(b.flow * 100f), action(b)));
+                warn(b, zoneTag(b, coldZone, "ironworks.log.reactor.zone.cold")
+                    + Core.bundle.format("ironworks.log.reactor.flow",
+                        Mathf.round(b.flow * 100f), action(b)));
             }
         }else if(lower(b, FLOW, b.flow > flowThreshold + 0.05f, dt)){
             info(b, "ironworks.log.reactor.flow.ok");
@@ -65,8 +71,9 @@ public class IronworksRbmkAlerts{
 
         if(steamFrac >= steamThreshold){
             if(raise(b, STEAM)){
-                warn(b, Core.bundle.format("ironworks.log.reactor.steam",
-                    Mathf.round(steamFrac * 100f), action(b)));
+                warn(b, zoneTag(b, hotZone, "ironworks.log.reactor.zone.hot")
+                    + Core.bundle.format("ironworks.log.reactor.steam",
+                        Mathf.round(steamFrac * 100f), action(b)));
             }
         }else if(lower(b, STEAM, steamFrac < steamThreshold - 0.08f, dt)){
             info(b, "ironworks.log.reactor.steam.ok");
@@ -74,8 +81,9 @@ public class IronworksRbmkAlerts{
 
         if(waterFrac <= waterThreshold){
             if(raise(b, WATER)){
-                warn(b, Core.bundle.format("ironworks.log.reactor.water",
-                    Mathf.round(waterFrac * 100f), action(b)));
+                warn(b, zoneTag(b, hotZone, "ironworks.log.reactor.zone.hot")
+                    + Core.bundle.format("ironworks.log.reactor.water",
+                        Mathf.round(waterFrac * 100f), action(b)));
             }
         }else if(lower(b, WATER, waterFrac > waterThreshold + 0.05f, dt)){
             info(b, "ironworks.log.reactor.water.ok");
@@ -84,7 +92,8 @@ public class IronworksRbmkAlerts{
         boolean blocked = steamStuck && waterFull && !rodsBottom;
         if(blocked){
             if(raise(b, BLOCKED)){
-                warn(b, Core.bundle.get("ironworks.log.reactor.blocked"));
+                warn(b, zoneTag(b, hotZone, "ironworks.log.reactor.zone.hot")
+                    + Core.bundle.get("ironworks.log.reactor.blocked"));
             }
         }else if(lower(b, BLOCKED, true, dt)){
             info(b, "ironworks.log.reactor.blocked.ok");
@@ -92,19 +101,55 @@ public class IronworksRbmkAlerts{
 
         if(b.coreBoom > 0f){
             if(raise(b, PRESSURE)){
-                warn(b, Core.bundle.get("ironworks.log.reactor.pressure"));
+                warn(b, zoneTag(b, hotZone, "ironworks.log.reactor.zone.hot")
+                    + Core.bundle.get("ironworks.log.reactor.pressure"));
             }
         }else if(lower(b, PRESSURE, true, dt)){
             info(b, "ironworks.log.reactor.pressure.ok");
         }
 
         if(b.scramBoom > 0f && raise(b, SCRAM)){
-            warn(b, Core.bundle.get("ironworks.log.reactor.scram"));
+            warn(b, zoneTag(b, -2, "ironworks.log.reactor.zone.all")
+                + Core.bundle.get("ironworks.log.reactor.scram"));
         }
 
         if(b.poisoned && raise(b, POISON)){
-            warn(b, Core.bundle.get("ironworks.log.reactor.poisoned"));
+            warn(b, zoneTag(b, -3, "ironworks.log.reactor.zone.allcore")
+                + Core.bundle.get("ironworks.log.reactor.poisoned"));
         }
+    }
+
+    /** 只有「12×12 分区堆 + 强制手动」才带区位；自动/半自动保持原句。 */
+    private static boolean zonedManual(RBMKReactorBuild b){
+        return b.block instanceof RBMKReactor r && r.zoned
+            && b.controlMode == IronworksRBMK.MODE_MANUAL;
+    }
+
+    private static int hottestZone(RBMKReactorBuild b){
+        if(!(b.block instanceof RBMKReactor r) || !r.zoned) return -1;
+        int best = 0;
+        for(int i = 1; i < 9; i++){
+            if(b.zoneHeat[i] > b.zoneHeat[best]) best = i;
+        }
+        return best;
+    }
+
+    private static int driestZone(RBMKReactorBuild b){
+        if(!(b.block instanceof RBMKReactor r) || !r.zoned) return -1;
+        int best = 0;
+        for(int i = 1; i < 9; i++){
+            if(b.zoneFlow[i] < b.zoneFlow[best]) best = i;
+        }
+        return best;
+    }
+
+    /** key 为 zone.hot/cold/all/allcore；非手动或非分区堆返回空串。 */
+    private static String zoneTag(RBMKReactorBuild b, int zone, String key){
+        if(!zonedManual(b)) return "";
+        String label = zone >= 0
+            ? Core.bundle.format(key, zone + 1)
+            : Core.bundle.get(key);
+        return label + "：";
     }
 
     private static boolean raise(RBMKReactorBuild b, int index){

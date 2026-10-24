@@ -56,7 +56,7 @@ public class IronworksNuclear{
     public static Block uraniumOreBlock;
     public static Block leachPlant, enrichmentPlant, fuelFactory;
     public static Block spentFuelPool, reprocessor, vitrifier, dryStorage;
-    public static Block coolingTower, corium;
+    public static Block coolingTower, largeCoolingTower, corium;
 
     public static void load(){
         loadItems();
@@ -217,20 +217,36 @@ public class IronworksNuclear{
         }};
 
         // —— 冷却塔：温水 → 水（把汽轮机的回水做成独立闭环） ——
-        // 汽轮机满流吐 980 L/s 温水，冷却塔按 1200 L/s 上限设计（20% 余量）。
+        // 小型 2×2：120 L/s；大型 4×4：600 L/s。配方 6 tick 一炉，按 1:1 出同量水。
         coolingTower = new MultiCrafter("cooling-tower"){{
             requirements(Category.crafting,
-                with(IronworksItems.steelPlate, 60, Items.metaglass, 60, Items.lead, 40, Items.titanium, 30));
-            size = 3;
-            itemCapacity = 10;
-            // 大缓冲：一根导管 20/tick 的补给要撑住 980 L/s 的连续冷凝
-            liquidCapacity = 1200f;
-            health = 460;
+                with(IronworksItems.steelPlate, 40, Items.metaglass, 40, Items.lead, 20, Items.titanium, 15));
+            size = 2;
+            itemCapacity = 5;
+            liquidCapacity = 300f;
+            health = 360;
             recipes = new Recipe[]{
                 new Recipe("cool", 6f)
-                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 120f))
-                    .power(1f)
-                    .outputLiquid(new LiquidStack(Liquids.water, 120f))
+                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 12f))
+                    .power(0.2f)
+                    .outputLiquid(new LiquidStack(Liquids.water, 12f))
+            };
+        }};
+
+        largeCoolingTower = new MultiCrafter("cooling-tower-large"){{
+            requirements(Category.crafting,
+                with(IronworksItems.steelPlate, 240, Items.metaglass, 240, Items.lead, 160,
+                     Items.titanium, 120, IronworksMaterials.siliconCarbide, 60));
+            size = 4;
+            itemCapacity = 30;
+            // 6 秒缓冲，够 600 L/s 连续冷凝
+            liquidCapacity = 3600f;
+            health = 1200;
+            recipes = new Recipe[]{
+                new Recipe("cool-large", 6f)
+                    .liquids(new LiquidStack(IronworksLiquids.warmWater, 60f))
+                    .power(5f)
+                    .outputLiquid(new LiquidStack(Liquids.water, 60f))
             };
         }};
 

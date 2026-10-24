@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.3.0.0）
+# 铁流工业 交接文档（2026-10-24，v2.4.0.1）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,25 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`8f618d0be02c19de6ee0c5742d3f9e05`（2.3.0.0，已部署双客户端）
+- 当前 jar md5：`aa73ba0ddef1adaf65e978d93a2087a7`（2.4.0.1，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.4.0.1）：侧面贴图 `outputsLiquid` + 分区手动告警到 X 号堆
+
+- 原版 `Conduit.blends` 需要邻居 `outputsLiquid=true` 才会在非正对侧张开 `blendbits`；模组液体方块默认 false，实际侧面通液、贴图不连。`IronworksMod.loadContent()` 末尾遍历所有 `ironworks-` 前缀且 `hasLiquids` 的方块，统一设 `outputsLiquid=true`。
+- 传送带使用 `outputsItems()`，其实现等于 `hasItems`，所以物品方块原本已可侧连；本次不改。
+- `IronworksRbmkAlerts`：分区堆 + 强制手动时，温度/蒸汽/水位/憋压用最高温区，流量用最低流量区，SCRAM 标全9区，中毒标全堆；自动/半自动/旧5×5 保持原句。告警的汽包/水罐百分比改用 `b.steamCap()/b.waterCap()`，分区堆按6480/32400 L 判断。
+- 熔毁日志：分区堆强制手动带最高温区号；自动/半自动原句。
+- 测试：新增 T179（导管在汽轮机侧面、不朝前，`blendbits=1`），T144/T178 冷却塔用例保持；全量回归 **117/117**（699 秒）通过。
+- 用户问「为什么原版不会自动改贴图」：原版 autotiler 只认 `outputsLiquid`/`outputsItems` 与朝向，不会为了任意相邻建筑自动转向；补 flag 只让侧面连接**被承认**，不会强制旋转管道本体。
+
+## 本次（2.4.0.0）：冷却塔分级：2×2 / 120 L/s + 4×4 / 600 L/s
+
+- 小型 `ironworks-cooling-tower` 改为 **2×2**，效率 **120 L/s**：`Recipe("cool",6f)`，每炉 12 L 温水→12 L 水，即 12×10=120 L/s；液容 300 L，功耗 0.2，血量 360。
+- 新增 `ironworks-cooling-tower-large`（4×4）：每炉 60 L / 6 tick = **600 L/s**，液容 3600 L，功耗 5，血量 1200；六台处理 3240 L/s 分区堆回水。
+- 科技树：2×2 冷却塔成本变为 40 钢板/40 玻璃/20 铅/15 钛；大型塔挂在其下，成本 240/240/160/120/60 碳化硅。贴图小型 64×64、大型 128×128。
+- 测试：T133f/T144 的 power-source 按偶数尺寸贴到左边界；T144 样本 1200→96 L，验证 2×2 全转化；T178 验证 4×4 960 L 全转化。全量回归 116/116 后写最终数字。
+- 注意：MultiCrafter 的 `craftTime` 是 tick；120/600 L/s 是每 6 tick 一炉的折算值，不是单炉量。
 
 ## 本次（2.3.0.0）：RBMK-9 扩到 12×12、3240 L/s + 4×4 大型汽轮机
 
@@ -248,8 +265,8 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-24 12:40）
-状态：v2.3.0.0 已构建并部署双客户端，md5 `8f618d0be02c19de6ee0c5742d3f9e05`。
-最近回归：全量 **115/115**（711 秒，T1–T177）。12×12 尺寸、九区独立棒位/通量、3240 L/s 常态转化、4×4 汽轮机 72000 电与 1:1 温水已验；顶部横向选择器、高亮框架、两根滑条的实际手感与布局需实机确认。
+状态：v2.4.0.1 已构建并部署双客户端，md5 `aa73ba0ddef1adaf65e978d93a2087a7`。
+最近回归：全量 **117/117**（699 秒，T1–T179）。12×12 分区堆、3240 L/s、4×4 汽轮机、2×2/4×4 冷却塔、液体建筑侧面导管贴图已验；RBMK 分区手动告警的 X 号堆文案属客户端 UI，无头不覆盖，需实机看通知面板确认。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。

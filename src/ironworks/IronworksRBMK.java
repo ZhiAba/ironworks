@@ -1237,7 +1237,15 @@ public class IronworksRBMK{
                 if(melted) return;
                 melted = true;
                 if(!headless && !alertsMuted){
-                    IronworksNotifications.warn(Core.bundle.format("ironworks.log.reactor.meltdown", tileX(), tileY()));
+                    boolean zonedManual = ((RBMKReactor)block).zoned && controlMode == MODE_MANUAL;
+                    if(zonedManual){
+                        int hottest = 0;
+                        for(int z = 1; z < 9; z++) if(zoneHeat[z] > zoneHeat[hottest]) hottest = z;
+                        IronworksNotifications.warn(Core.bundle.format(
+                            "ironworks.log.reactor.meltdown.zone", tileX(), tileY(), hottest + 1));
+                    }else{
+                        IronworksNotifications.warn(Core.bundle.format("ironworks.log.reactor.meltdown", tileX(), tileY()));
+                    }
                 }
 
                 if(state.rules.reactorExplosions){
