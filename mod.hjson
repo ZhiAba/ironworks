@@ -2,9 +2,9 @@ displayName: "铁流工业"
 name: "ironworks"
 
 author: "DSH"
-description: "冶金产线 + 属性伤害 + 弹药链 + 战术支援 + RBMK 核电站（AZ-5 闪蒸）+ 自动雷达：七种属性伤害、彩色伤害飘字、详情页、电网/物流 HUD、左侧长条与动画日志面板，从铁砂到钢板，从弹壳到元素弹，从铀矿到 980 L/s 蒸汽轮机。"
+description: "冶金产线 + 属性伤害 + 弹药链 + 战术支援 + RBMK 核电站（AZ-5 闪蒸/硬水位线/可静音）+ 自动雷达：七种属性伤害、彩色伤害飘字、详情页、电网/物流 HUD、左侧长条与动画日志面板，从铁砂到钢板，从弹壳到元素弹，从铀矿到 980 L/s 蒸汽轮机。"
 
-version: 2.1.8.0
+version: 2.1.9.0
 minGameVersion: 160
 java: true
 

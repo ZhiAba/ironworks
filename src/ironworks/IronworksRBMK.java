@@ -338,6 +338,8 @@ public class IronworksRBMK{
             public int alertMask = 0;
             /** 每个通知条件恢复后的静默计时（秒），同样是运行时状态。 */
             public float[] alertQuiet = new float[8];
+            /** 手动模式开关：关闭本反应堆的异常广播（含熔毁通知），不影响反应堆物理。 */
+            public boolean alertsMuted = false;
 
             @Override
             public float getPowerProduction(){
@@ -352,7 +354,7 @@ public class IronworksRBMK{
             public void applyConfig(int v){
                 if(v == -10){ controlMode = MODE_SEMI; return; }
                 if(v == -11){ controlMode = MODE_AUTO; return; }
-                if(v == -12){ controlMode = MODE_MANUAL; return; }
+                if(v == -12){ controlMode = MODE_MANUAL; syncManualWaterLines(); return; }
                 if(v == -1){
                     // SCRAM：棒全部插进去。高功率时 AZ-5 会先闪蒸冷却水、抬高堆温，
                     // 是否熔毁由后续的堆温积分决定，不再在倒计时结束时直接 detonate()。
@@ -365,15 +367,22 @@ public class IronworksRBMK{
                     boronArmed = true;
                     return;
                 }
+                if(v == -3){
+                    // 手动模式专用：只关本堆的通知，不改任何物理/水量/温度逻辑
+                    if(controlMode == MODE_MANUAL) alertsMuted = !alertsMuted;
+                    return;
+                }
                 if(v >= 2000){
                     // 2000 + 百分比：强制手动的最低水位线（低于它才启动给水泵）
                     waterLowTarget = Mathf.clamp((v - 2000) / 100f, 0f, waterTarget);
+                    if(controlMode == MODE_MANUAL) syncManualWaterLines();
                     return;
                 }
                 if(v >= 1000){
                     // 1000 + 百分比：强制手动的最高水位线（水罐硬上限）
                     waterTarget = Mathf.clamp((v - 1000) / 100f, 0f, 1f);
                     waterLowTarget = Math.min(waterLowTarget, waterTarget);
+                    if(controlMode == MODE_MANUAL) syncManualWaterLines();
                     return;
                 }
                 if(v < 0) return;
@@ -431,6 +440,31 @@ public class IronworksRBMK{
                 lastFlash = flashed;
             }
 
+            /** 当前允许的最高水位（L）：手动看滑条目标，自动/半自动看自动水位。 */
+            float waterLimit(){
+                return (controlMode == MODE_MANUAL ? waterTarget : waterLevel) * waterCapacity;
+            }
+
+            /**
+             * 手动水位线是**硬上限**，不是「只停止新水」：
+             * 从自动切手动、或把最高线往下拖时，罐里原有的水可能远高于新线；
+             * 这里把超出的部分从溢流口排掉，避免出现「高线 8%、罐里还有 3000 L」。
+             * 自动/半自动不执行，保留它们的自动水位调节。
+             */
+            void enforceWaterLimit(){
+                if(controlMode != MODE_MANUAL) return;
+                float cap = waterTarget * waterCapacity;
+                float water = liquids.get(Liquids.water);
+                if(water > cap + 0.01f) liquids.remove(Liquids.water, water - cap);
+            }
+
+            /** 手动模式当前水位立即对齐滑条（不等到下一次 updateTile），并排掉超出硬上限的水。 */
+            void syncManualWaterLines(){
+                waterLevel = waterTarget;
+                waterLowLevel = Math.min(waterLowTarget, waterLevel);
+                enforceWaterLimit();
+            }
+
             @Override
             public void updateTile(){
                 float dt = delta() / 60f;
@@ -469,8 +503,7 @@ public class IronworksRBMK{
 
                 // —— 1. 双水位线：最高线是硬上限，最低线是给水泵启动线 ——
                 if(controlMode == MODE_MANUAL){
-                    waterLevel = waterTarget;
-                    waterLowLevel = Math.min(waterLowTarget, waterLevel);
+                    syncManualWaterLines();
                 }else{
                     // 自动/半自动：高功率留更多水，但最高线始终 ≤90%；低线随高线上下浮动。
                     float autoHigh = Mathf.clamp(0.55f + 0.35f * Math.min(flux, 1f), 0.55f, 0.9f);
@@ -628,7 +661,7 @@ public class IronworksRBMK{
                     Fx.smoke.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
                 }
 
-                IronworksRbmkAlerts.update(this, dt);
+                if(!alertsMuted) IronworksRbmkAlerts.update(this, dt);
             }
 
             /**
@@ -653,7 +686,7 @@ public class IronworksRBMK{
 
             /** 从相邻管路/水罐主动抽水：低于最低线才启泵，补到最高线停止。 */
             void pullFeedwater(float dt){
-                float high = waterLevel * waterCapacity;
+                float high = waterLimit();
                 float low = waterLowLevel * waterCapacity;
                 float water = liquids.get(Liquids.water);
                 if(water >= high - 0.5f){
@@ -715,7 +748,7 @@ public class IronworksRBMK{
                 // 这里如果因为 dead 提前 return，运行时被摧毁就永远不会炸了。
                 if(melted) return;
                 melted = true;
-                if(!headless){
+                if(!headless && !alertsMuted){
                     IronworksNotifications.warn(Core.bundle.format("ironworks.log.reactor.meltdown", tileX(), tileY()));
                 }
 
@@ -765,7 +798,7 @@ public class IronworksRBMK{
                         int side = relativeTo(source);
                         if(side >= 0) waterSide = side;
                     }
-                    return liquids.get(Liquids.water) < waterLevel * waterCapacity - 0.5f
+                    return liquids.get(Liquids.water) < waterLimit() - 0.5f
                         && LiquidKit.totalSpace(this) > LiquidKit.EPS;
                 }
                 // 硼酸只有在「已武装注入」后才收（点击按钮之后才允许接液）
@@ -825,6 +858,23 @@ public class IronworksRBMK{
                     manual.update(() -> manual.setChecked(controlMode == MODE_MANUAL));
                     t.add(manual).size(82f, 34f);
                 }).row();
+
+                // —— 异常通知开关（只对当前反应堆生效；仅强制手动模式可切换）——
+                table.table(Styles.grayPanel, c -> {
+                    c.defaults().pad(4f);
+                    TextButton mute = new TextButton("", Styles.flatTogglet);
+                    mute.clicked(() -> configure(-3));
+                    mute.update(() -> {
+                        mute.setText(Core.bundle.format("ironworks.rbmk.alerts",
+                            Core.bundle.get(alertsMuted ? "ironworks.rbmk.alerts.off" : "ironworks.rbmk.alerts.on")));
+                        mute.setChecked(alertsMuted);
+                        mute.touchable = controlMode == MODE_MANUAL
+                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
+                    });
+                    c.add(mute).width(w - 16f).height(30f).row();
+                    c.add(Core.bundle.get("ironworks.rbmk.alerts.hint")).wrap()
+                        .width(w - 16f).color(Color.lightGray).left().row();
+                }).width(w).row();
 
                 // —— 控制棒 ——
                 table.table(Styles.grayPanel, c -> {
@@ -1009,7 +1059,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 7;
+                return 8;
             }
 
             @Override
@@ -1032,6 +1082,7 @@ public class IronworksRBMK{
                 write.f(waterTarget);
                 write.f(waterLowTarget);
                 write.b(waterSide);
+                write.bool(alertsMuted);
             }
 
             @Override
@@ -1055,6 +1106,7 @@ public class IronworksRBMK{
                     if(revision >= 5) waterTarget = read.f();
                     if(revision >= 7) waterLowTarget = read.f();
                     if(revision >= 6) waterSide = read.b();
+                    if(revision >= 8) alertsMuted = read.bool();
                 }
                 waterLowTarget = Math.min(waterLowTarget, waterTarget);
             }

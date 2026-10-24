@@ -99,3 +99,5 @@
 159	T159 high=[0-9]+ low=[0-9]+ cap=true band=true
 160	T160 melted=false boom=0
 161	T161 water=2500 steam=7500 flash=7500 immediate=false spike=true melted=true ticks=[0-9]+
+162	T162 line=10 clamped=1000 bulk=1000 accept=false
+163	T163 on=true off=false locked=false

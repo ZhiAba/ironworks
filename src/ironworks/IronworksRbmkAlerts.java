@@ -33,7 +33,7 @@ public class IronworksRbmkAlerts{
     }
 
     public static void update(RBMKReactorBuild b, float dt){
-        if(headless || b == null || b.melted || b.liquids == null) return;
+        if(headless || b == null || b.alertsMuted || b.melted || b.liquids == null) return;
         if(b.alertQuiet == null || b.alertQuiet.length < 8){
             b.alertQuiet = new float[8];
             b.alertMask = 0;
