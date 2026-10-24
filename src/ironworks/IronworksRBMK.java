@@ -53,20 +53,21 @@ import static mindustry.type.ItemStack.with;
  * <p>核心机制（全部按 60 tick = 1 秒的真实量纲算）：
  * <ul>
  *   <li>控制棒 0=全提 / 100=全插；棒位决定**通量上限**，通量一阶滞后追随；</li>
- *   <li>水→汽 **1:1**：100% 通量 = 980 L/s 给水、980 L/s 蒸汽；水罐 10000 L、汽包 2000 L；</li>
- *   <li>堆芯温度由「发热（通量）− 冷却（给水流量 × 堆温）」实时积分，不是写死的曲线；</li>
+ *   <li>旧 5×5：水→汽 1:1，100% 通量=980 L/s；水罐 10000 L、汽包 2000 L；</li>
+ *   <li>RBMK-9：9 区独立水/汽账面与独立转化，燃料/冷却剂双节点热积分；</li>
+ *   <li>燃料温度触发多普勒负反馈；0～20% 棒尖先引入正反应性；停堆后仍有衰变热；</li>
  *   <li>**空泡正反应性**：给水/排汽不足时通量上限反而上涨（RBMK 的经典缺陷）；</li>
  *   <li>**AZ-5 憋压引爆**：汽路堵死 + 罐满 + 控制棒插到底 → 正反应性尖峰，几秒内炸堆；</li>
  *   <li>三种模式：半自动（棒有行程 + 自动保护 + 自动水位）、全自动（滑条设目标功率，
  *       后台自动算棒位与水位）、强制手动（棒瞬动、水位手动、无自动保护）；</li>
  *   <li>氙毒：降功率后碘衰变成氙，短时间内压着反应性（碘坑）；</li>
- *   <li>堆芯温度 &gt; 125% 持续 1 秒 → 熔毁：炸场 + 大范围辐射。</li>
+ *   <li>旧 5×5：堆芯温度 &gt;125% 持续1秒熔毁；RBMK-9：燃料温度 ≥200% 累积逐区损伤，任意一区到1爆炸。</li>
  * </ul>
  */
 public class IronworksRBMK{
 
     public static RBMKReactor reactor;
-    /** 12×12 分区堆芯：3×3 个 4×4 区块，每区独立热/通量/棒位，水汽走公共集管。 */
+    /** 12×12 分区堆芯：3×3 个 4×4 区块，每区独立热/通量/棒位；水汽分区记账，公共汽包兼容原版汽轮机。 */
     public static RBMKReactor zonedReactor;
     public static SteamTurbine turbine;
     /** 4×4 大型汽轮机：360 蒸汽/秒 → 72000 电/秒 + 360 温水/秒。 */
@@ -80,6 +81,9 @@ public class IronworksRBMK{
     public static final float zonedWaterPerZone = 360f;
     public static final float zonedWaterCapacity = 32400f;
     public static final float zonedSteamCapacity = 6480f;
+    /** 单区水/汽基准容量：9×3600=32400，9×720=6480 */
+    public static final float zonedWaterPerZoneCapacity = 3600f;
+    public static final float zonedSteamPerZoneCapacity = 720f;
     public static final float zonedFeedwaterRate = 4700f;
     /** 水罐容量（L）：10 秒额定给水。 */
     public static final float waterCapacity = 10000f;
@@ -101,8 +105,21 @@ public class IronworksRBMK{
     public static final int MODE_SEMI = 0, MODE_AUTO = 1, MODE_MANUAL = 2;
     /** 通量上限。 */
     public static final float fluxMax = 1.25f;
-    /** 熔毁温度阈值（归一化）。 */
+    /** 旧 5×5 熔毁温度阈值（归一化）。 */
     public static final float meltTemp = 1.25f;
+    /** RBMK-9 双节点燃料温度熔毁阈值；2.0 约等于建议里的 200%。 */
+    public static final float zonedMeltTemp = 2.0f;
+    /** 双节点热工：燃料→冷却剂传热系数、蒸发温度加速系数。 */
+    public static final float transferK = 2.0f;
+    public static final float evapK = 0.6f, evapRef = 0.5f, evapMax = 1.6f;
+    /** 燃料温度超过阈值后的熔毁损伤积分速率，以及冷却后的恢复速率（每秒）。 */
+    public static final float meltRate = 0.04f, meltRecover = 0.02f;
+    /** 衰变热：满功率历史的 7%，时间常数 300 秒。 */
+    public static final float decayHeatFraction = 0.07f, decayHeatTau = 300f;
+    /** 多普勒负反馈：燃料温度超过 0.8 后，每 1.0 温度降低 30% 反应性。 */
+    public static final float dopplerSlope = 0.30f, dopplerRef = 0.8f;
+    /** 控制棒棒尖（石墨 displacer）正反应性峰值；按现有 (1-rod) 上限调成可见的 +25%。 */
+    public static final float rodTipStrength = 0.35f;
     /** 汽路憋压 + 插棒到底后的引爆倒计时（秒）。 */
     public static final float pressureFuse = 2f;
     /** 熔毁后爆炸半径（tile）与伤害。 */
@@ -120,6 +137,61 @@ public class IronworksRBMK{
     public static final float turbineSteamPerSecond = 122.5f;
     /** 冷凝水回收比例（1 = 质量守恒，蒸汽 980 → 温水 980）。 */
     public static final float turbineWaterReturn = 1f;
+
+    /**
+     * 控制棒插入深度 r 的有效反应性因子。
+     *
+     * <p>0～20% 段模拟 RBMK 石墨棒尖：先引入正反应性，再转为负；
+     * 20% 以上按原来的线性棒价值，100% 时仍严格归零，保证 SCRAM 能停堆。
+     * 返回值乘到通量目标上，因此 0.1 左右会比全提略高，这是棒尖效应的“味道”。
+     */
+    public static float rodEffect(float r){
+        r = Mathf.clamp(r, 0f, 1f);
+        float worth = r;
+        if(r < 0.2f){
+            // 正弦凸起：r=0 时 0，r=0.1 左右为负棒价值（正反应性），r=0.2 回到 0.2
+            worth = r - rodTipStrength * Mathf.sin(Mathf.PI * (r / 0.2f));
+        }
+        return Mathf.clamp(1f - worth, 0f, 1.25f);
+    }
+
+    /** 多普勒负反馈：燃料温度越高，目标通量越低。 */
+    public static float dopplerFactor(float fuelHeat){
+        return Mathf.clamp(1f - dopplerSlope * Math.max(0f, fuelHeat - dopplerRef), 0.05f, 1f);
+    }
+
+    /**
+     * 反算全自动棒位：给定目标有效通量，解 rodEffect(r) = effective / base。
+     *
+     * <p>棒尖曲线在 0～0.2 不是单调的，所以先处理正常段 r≥0.2；
+     * 如果目标高到需要进入棒尖段，再从 0.2 往 0 扫描，取较大的解，避免自动钻到正反应性峰上。
+     */
+    public static float autoRodsFor(float effective, float poison, float doppler, float voidFactor){
+        float base = fluxMax * Math.max(poison, 0.0001f) * Math.max(doppler, 0.0001f) * Math.max(voidFactor, 0.0001f);
+        float ratio = Mathf.clamp(effective / base, 0f, 1f);
+        float atTip = rodEffect(0.2f);
+
+        if(ratio <= atTip){
+            float lo = 0.2f, hi = 1f;
+            for(int i = 0; i < 24; i++){
+                float mid = (lo + hi) * 0.5f;
+                if(rodEffect(mid) > ratio) lo = mid;
+                else hi = mid;
+            }
+            return Mathf.clamp((lo + hi) * 0.5f, 0.2f, 1f);
+        }
+
+        // 目标落在 0～0.2 的棒尖段：从 0.2 向 0 找最后一个 effect >= ratio 的点。
+        float best = 0f;
+        for(int i = 1; i <= 200; i++){
+            float r = 0.2f - i * 0.001f;
+            if(rodEffect(r) >= ratio){
+                best = r;
+                break;
+            }
+        }
+        return Mathf.clamp(best, 0f, 0.2f);
+    }
 
     public static void load(){
         reactor = new RBMKReactor("rbmk-reactor");
@@ -268,20 +340,24 @@ public class IronworksRBMK{
 
             addBar("rbmk-water", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-water",
-                    Mathf.round(b.liquids.get(Liquids.water)), (int)waterCapacity),
+                    Mathf.round(b.liquids.get(Liquids.water)), (int)((RBMKReactor)b.block).waterCap),
                 () -> Liquids.water.color,
-                () -> Mathf.clamp(b.liquids.get(Liquids.water) / waterCapacity)));
+                () -> Mathf.clamp(b.liquids.get(Liquids.water) / ((RBMKReactor)b.block).waterCap)));
 
             addBar("rbmk-steam", (RBMKReactorBuild b) -> new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-steam",
-                    Mathf.round(b.liquids.get(IronworksLiquids.steam)), (int)steamCapacity),
+                    Mathf.round(b.liquids.get(IronworksLiquids.steam)), (int)((RBMKReactor)b.block).steamCap),
                 () -> IronworksLiquids.steam.color,
-                () -> Mathf.clamp(b.liquids.get(IronworksLiquids.steam) / steamCapacity)));
+                () -> Mathf.clamp(b.liquids.get(IronworksLiquids.steam) / ((RBMKReactor)b.block).steamCap)));
 
-            addBar("rbmk-heat", (RBMKReactorBuild b) -> new Bar(
-                () -> Core.bundle.format("bar.ironworks-rbmk-heat", Mathf.round(b.heat * 100f)),
-                () -> heatColor(b.heat),
-                () -> Mathf.clamp(b.heat / meltTemp)));
+            addBar("rbmk-heat", (RBMKReactorBuild b) -> {
+                RBMKReactor r = (RBMKReactor)b.block;
+                float limit = r.zoned ? zonedMeltTemp : meltTemp;
+                return new Bar(
+                    () -> Core.bundle.format("bar.ironworks-rbmk-heat", Mathf.round(b.heat * 100f)),
+                    () -> heatColor(b.heat / limit),
+                    () -> Mathf.clamp(b.heat / limit));
+            });
 
             addBar("rbmk-xenon", (RBMKReactorBuild b) -> b.xenon <= 0.01f ? null : new Bar(
                 () -> Core.bundle.format("bar.ironworks-rbmk-xenon", Mathf.round(b.xenon * 100f)),
@@ -306,9 +382,9 @@ public class IronworksRBMK{
                 () -> (float)(b.items.get(IronworksNuclear.fuelRod) + b.items.get(Items.thorium)) / Math.max(b.block.itemCapacity - 8, 1)));
         }
 
-        static Color heatColor(float heat){
-            if(heat < 0.6f) return Color.valueOf("7fe08a");
-            if(heat < 0.9f) return Color.valueOf("ffd166");
+        static Color heatColor(float fraction){
+            if(fraction < 0.6f) return Color.valueOf("7fe08a");
+            if(fraction < 0.9f) return Color.valueOf("ffd166");
             return Color.valueOf("ff5c5c");
         }
 
@@ -383,6 +459,8 @@ public class IronworksRBMK{
             public float[] alertQuiet = new float[8];
             /** 手动模式开关：关闭本反应堆的异常广播（含熔毁通知），不影响反应堆物理。 */
             public boolean alertsMuted = false;
+            /** SCRAM 锁存：自动模式不会在下一 tick 用目标功率把棒重新拔出来；按复位解除。 */
+            public boolean scramLatch = false;
             /** 半自动/全自动的实时保护插棒量（0..1）；按水位、给水、温度趋势等动态计算。 */
             public float protectRods = 0f;
             /** 平滑后的水位变化率（L/s）和堆温变化率（每秒），运行时状态。 */
@@ -394,6 +472,18 @@ public class IronworksRBMK{
             public final float[] zoneHeat = new float[9], zoneFlux = new float[9],
                 zoneFlow = new float[9], zoneRods = new float[9], zoneTarget = new float[9],
                 zonePrompt = new float[9];
+            /** 双节点：zoneHeat 是燃料温度，zoneCoolant 是冷却剂温度；zoneMeltDamage 是逐区熔毁损伤。 */
+            public final float[] zoneCoolant = new float[9], zoneMeltDamage = new float[9];
+            /** 分区水汽账面：总和始终与公共水罐/汽包同步；汽轮机仍吃公共汽包，保持管路兼容。 */
+            public final float[] zoneWater = new float[9], zoneSteam = new float[9];
+            public final float[] zoneWaterCap = new float[9], zoneSteamCap = new float[9];
+            public final float[] zoneConverted = new float[9];
+            /** 全局冷却剂温度（显示用，取最热区）与当前衰变热（额定通量比例）。 */
+            public float coolantHeat = 0f, decayHeat = 0f;
+            /** 平滑通量历史与停堆计时，用于衰变热。 */
+            public float fluxHistory = 0f, decayTimer = 0f;
+            /** 冷却剂温度显示（K）。 */
+            public float coolantK = 300f;
             /** 并联冷却通道的固定节流偏差（0.96..1.00）：公共集管下每区流量略有差异。 */
             public final float[] zoneBias = new float[9];
             /** 手动模式下各区冷却节流阀（0..1）：旧存档缺省 1。 */
@@ -422,6 +512,7 @@ public class IronworksRBMK{
                 if(v == -11){ controlMode = MODE_AUTO; alertsMuted = false; return; }
                 if(v == -12){ controlMode = MODE_MANUAL; syncManualWaterLines(); return; }
                 if(v == -1){
+                    scramLatch = true;
                     // SCRAM：棒全部插进去。高功率时 AZ-5 会先闪蒸冷却水、抬高堆温，
                     // 是否熔毁由后续的堆温积分决定，不再在倒计时结束时直接 detonate()。
                     if(heat > 0.75f && flux > 0.9f && !melted) startScramFlash();
@@ -438,6 +529,7 @@ public class IronworksRBMK{
                     if(controlMode == MODE_MANUAL) alertsMuted = !alertsMuted;
                     return;
                 }
+                if(v == -4){ scramLatch = false; return; }
                 if(v >= 2000){
                     // 2000 + 百分比：强制手动的最低水位线（低于它才启动给水泵）
                     waterLowTarget = Mathf.clamp((v - 2000) / 100f, 0f, waterTarget);
@@ -473,13 +565,14 @@ public class IronworksRBMK{
                     return;
                 }
                 if(v == -1){
+                    scramLatch = true;
                     float beforeHeat = heat;
                     if(heat > 0.75f && flux > 0.9f && !melted) startScramFlash();
                     // 闪蒸是整堆现象：把全局热冲击均摊到 9 个分区，而不是只留在全局标量里
                     float jump = Math.max(0f, heat - beforeHeat);
                     for(int i = 0; i < 9; i++){
                         zoneTarget[i] = 1f;
-                        zoneHeat[i] = Math.min(2f, zoneHeat[i] + jump);
+                        zoneHeat[i] = Math.min(3f, zoneHeat[i] + jump);
                         if(promptHeat > 0f) zonePrompt[i] = Math.max(zonePrompt[i], promptHeat);
                     }
                     targetRods = 1f;
@@ -487,6 +580,7 @@ public class IronworksRBMK{
                 }
                 if(v == -2){ boronArmed = true; return; }
                 if(v == -3){ if(controlMode == MODE_MANUAL) alertsMuted = !alertsMuted; return; }
+                if(v == -4){ scramLatch = false; return; }
                 if(v >= 3000){
                     // 3000 + 百分比：手动模式的单区冷却节流阀；总控时写入全部 9 区
                     if(controlMode == MODE_MANUAL){
@@ -553,7 +647,8 @@ public class IronworksRBMK{
                 // 正反应性尖峰的热冲击：不是直接加 40% 堆温，而是一段持续数秒的额外发热率，
                 // 让温度曲线看起来像「瞬跳 + 快速爬升」，也给操作员留出补救窗口。
                 promptHeat = Math.max(promptHeat, 0.16f + severity * 0.18f);
-                heat = Math.min(2f, heat + 0.02f + severity * 0.06f);
+                heat = Math.min(((RBMKReactor)block).zoned ? 3f : 2f,
+                    heat + 0.02f + severity * 0.06f);
                 scramBoom = 4f;
 
                 if(!headless){
@@ -568,6 +663,75 @@ public class IronworksRBMK{
 
             /** 本方块的水罐容量（旧 5×5=10000 L；12×12 分区堆=32400 L）。 */
             float waterCap(){ return ((RBMKReactor)block).waterCap; }
+            /** 温度加速蒸发：冷却剂超过 0.5 后最高 1.6×。 */
+            float evapFactor(int zone){
+                return Mathf.clamp(1f + evapK * Math.max(0f, zoneCoolant[zone] - evapRef), 1f, evapMax);
+            }
+
+            void initZoneCaps(){
+                for(int i = 0; i < 9; i++){
+                    zoneWaterCap[i] = zonedWaterPerZoneCapacity;
+                    zoneSteamCap[i] = zonedSteamPerZoneCapacity;
+                }
+            }
+
+            /** 把公共水罐的当前总量按容量×固定偏差分到 9 区（只做账面分摊，物理水仍走公共罐）。 */
+            void distributeZone(float[] values, float[] caps, float amount){
+                for(int pass = 0; pass < 9 && amount > 0.0001f; pass++){
+                    float totalW = 0f;
+                    for(int i = 0; i < 9; i++){
+                        if(caps[i] - values[i] > 0.0001f) totalW += caps[i] * zoneBias[i];
+                    }
+                    if(totalW <= 0.0001f) break;
+                    float remaining = amount;
+                    for(int i = 0; i < 9; i++){
+                        float room = caps[i] - values[i];
+                        if(room <= 0.0001f) continue;
+                        float add = Math.min(room, amount * (caps[i] * zoneBias[i]) / totalW);
+                        values[i] += add;
+                        remaining -= add;
+                    }
+                    amount = remaining;
+                }
+            }
+
+            void syncZoneWater(){
+                initZoneCaps();
+                float total = liquids.get(Liquids.water);
+                float sum = 0f;
+                for(int i = 0; i < 9; i++) sum += zoneWater[i];
+                if(total <= 0.0001f){
+                    for(int i = 0; i < 9; i++) zoneWater[i] = 0f;
+                }else if(sum <= 0.0001f){
+                    distributeZone(zoneWater, zoneWaterCap, total);
+                }else if(total > sum + 0.001f){
+                    distributeZone(zoneWater, zoneWaterCap, total - sum);
+                }else if(total < sum - 0.001f){
+                    float scale = total / sum;
+                    for(int i = 0; i < 9; i++) zoneWater[i] *= scale;
+                }
+            }
+
+            void syncZoneSteam(){
+                initZoneCaps();
+                float total = liquids.get(IronworksLiquids.steam);
+                float sum = 0f;
+                for(int i = 0; i < 9; i++) sum += zoneSteam[i];
+                if(total <= 0.0001f){
+                    for(int i = 0; i < 9; i++) zoneSteam[i] = 0f;
+                }else if(sum <= 0.0001f){
+                    distributeZone(zoneSteam, zoneSteamCap, total);
+                }else if(total > sum + 0.001f){
+                    distributeZone(zoneSteam, zoneSteamCap, total - sum);
+                }else if(total < sum - 0.001f){
+                    float scale = total / sum;
+                    for(int i = 0; i < 9; i++) zoneSteam[i] *= scale;
+                }
+            }
+
+            float zoneWaterFrac(int zone){
+                return Mathf.clamp(zoneWater[zone] / Math.max(zoneWaterCap[zone], 1f), 0f, 1f);
+            }
             /** 本方块的汽包容量（旧 5×5=2000 L；12×12 分区堆=6480 L）。 */
             float steamCap(){ return ((RBMKReactor)block).steamCap; }
             /** 本方块的给水泵最大速率（旧 5×5=1400 L/s；12×12 分区堆=4700 L/s）。 */
@@ -655,23 +819,32 @@ public class IronworksRBMK{
                     waterRisk = Math.max(waterRisk, runwayRisk);
                 }
 
-                // 温度趋势往前看 2.5 秒：刚出现上升趋势就提前插棒，不等 100%
+                // 温度趋势往前看 2.5 秒：刚出现上升趋势就提前插棒，不等熔毁线。
+                // 分区堆用双节点：燃料温度是主判据，冷却剂温度乘 0.85 作为辅助。
+                boolean zoned = ((RBMKReactor)block).zoned;
                 float futureHeat = heat + Math.max(heatTrend, 0f) * 2.5f;
-                float heatRisk = Mathf.clamp((futureHeat - 0.92f) / 0.18f, 0f, 1f);
+                float heatRisk;
+                if(zoned){
+                    float thermal = Math.max(futureHeat, coolantHeat * 0.85f);
+                    heatRisk = Mathf.clamp((thermal - 1.15f) / 0.55f, 0f, 1f);
+                }else{
+                    heatRisk = Mathf.clamp((futureHeat - 0.92f) / 0.18f, 0f, 1f);
+                }
 
-                float flowRisk = (waterFrac < trigger || heat > 0.9f)
+                float flowRisk = (waterFrac < trigger || heat > (zoned ? 1.4f : 0.9f))
                     ? Mathf.clamp((0.9f - flow) / 0.4f, 0f, 1f) : 0f;
                 float steamFrac = Mathf.clamp(liquids.get(IronworksLiquids.steam) / steamCap(), 0f, 1f);
                 float steamRisk = Mathf.clamp((steamFrac - 0.8f) / 0.15f, 0f, 1f);
 
                 float risk = Math.max(waterRisk, Math.max(heatRisk,
                     Math.max(flowRisk * 0.9f, steamRisk * 0.85f)));
+                float hotLimit = zoned ? 1.8f : 1.0f;
                 if(waterFrac <= 0.02f) risk = Math.max(risk, 0.9f);
-                if(heat >= 1.0f) risk = 1f;
+                if(heat >= hotLimit) risk = 1f;
 
                 float rate = risk > protectRods ? 0.10f : 0.02f;
                 protectRods = Mathf.lerpDelta(protectRods, risk, rate);
-                if(heat >= 1.0f) protectRods = Math.max(protectRods, 0.98f);
+                if(heat >= hotLimit) protectRods = Math.max(protectRods, 0.98f);
             }
 
             void initZoneBias(){
@@ -686,16 +859,27 @@ public class IronworksRBMK{
             void initZones(){
                 initZoneBias();
                 if(zonesInit) return;
+                initZoneCaps();
                 for(int i = 0; i < 9; i++){
                     zoneHeat[i] = heat;
+                    zoneCoolant[i] = Math.max(0f, heat * 0.9f);
+                    zoneMeltDamage[i] = 0f;
                     zoneFlux[i] = 0f;
                     zoneFlow[i] = Mathf.clamp(Math.max(flow, 0.01f) * zoneBias[i], 0.005f, 1f);
                     zoneRods[i] = rods;
                     zoneTarget[i] = targetRods;
                     zonePrompt[i] = 0f;
                     zoneThrottle[i] = 1f;
+                    zoneWater[i] = 0f;
+                    zoneSteam[i] = 0f;
+                    zoneConverted[i] = 0f;
                 }
+                fluxHistory = flux;
+                decayTimer = 0f;
+                decayHeat = 0f;
                 zonesInit = true;
+                syncZoneWater();
+                syncZoneSteam();
             }
 
             /** 把全局显示量同步成当前选中的区（或总控平均），避免 selectedZone=-1 越界。 */
@@ -718,31 +902,37 @@ public class IronworksRBMK{
 
             /**
              * 12×12 分区堆芯：3×3 个 4×4 区块，每区独立热/通量/棒位/流量。
-             * 水与蒸汽共用一回路集管（真实 RBMK 也是公共给水/汽包），
-             * 每个分区仍使用原来同一套热方程和熔毁阈值。
+             * 水/汽分区记账、独立转化；公共水罐/汽包仍作为物理缓冲和原版管路接口。
+             * 热工为燃料/冷却剂双节点，熔毁为逐区损伤积分。
              */
             void updateZoned(float dt, float second, boolean hasFuel){
                 initZones();
+                syncZoneWater();
+                syncZoneSteam();
 
                 // 水位线仍是整堆公共目标
                 if(controlMode == MODE_MANUAL){
                     syncManualWaterLines();
                 }else{
                     float autoHigh = Mathf.clamp(0.55f + 0.35f * Math.min(flux, 1f), 0.55f, 0.9f);
+                    // 冷却剂热但燃料不热，说明传热差/水位低：优先加泵，不要先插棒。
+                    if(coolantHeat > 0.9f && heat < 1.2f) autoHigh = Math.min(autoHigh + 0.05f, 0.95f);
                     float autoLow = Mathf.clamp(autoHigh - 0.2f, 0.25f, autoHigh - 0.05f);
                     waterLevel = Mathf.lerpDelta(waterLevel, autoHigh, 0.02f);
                     waterLowLevel = Mathf.lerpDelta(waterLowLevel, autoLow, 0.02f);
                     if(waterLowLevel > waterLevel - 0.02f) waterLowLevel = Math.max(0f, waterLevel - 0.02f);
                 }
 
-                // 给保护算法看的全局量 = 最热区 + 平均流量/通量
-                float maxHeat = 0f, sumFlux = 0f, sumFlow = 0f;
+                // 给保护算法看的全局量 = 最热燃料区 + 平均流量/通量 + 最热冷却剂
+                float maxHeat = 0f, maxCoolant = 0f, sumFlux = 0f, sumFlow = 0f;
                 for(int i = 0; i < 9; i++){
                     maxHeat = Math.max(maxHeat, zoneHeat[i]);
+                    maxCoolant = Math.max(maxCoolant, zoneCoolant[i]);
                     sumFlux += zoneFlux[i];
                     sumFlow += zoneFlow[i];
                 }
                 heat = maxHeat;
+                coolantHeat = maxCoolant;
                 flux = sumFlux / 9f;
                 flow = sumFlow / 9f;
                 updateProtection(dt, hasFuel);
@@ -760,13 +950,16 @@ public class IronworksRBMK{
                         float waterFrac = Mathf.clamp(liquids.get(Liquids.water) / waterCap(), 0f, 1f);
                         float steamFactor = Mathf.clamp(1f - (steamFrac - 0.5f) / 0.4f, 0f, 1f);
                         float waterFactor = Mathf.clamp((waterFrac - 0.1f) / 0.2f, 0f, 1f);
-                        float heatFactor = Mathf.clamp((1.15f - heat) / 0.2f, 0f, 1f);
+                        // 双节点后全自动看燃料温度：1.5 以下满目标，2.0 熔毁线归零。
+                        float heatFactor = Mathf.clamp((zonedMeltTemp - heat) / 0.5f, 0f, 1f);
                         float effective = autoPower * Math.min(steamFactor, Math.min(waterFactor, heatFactor));
                         float poison = Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0.05f, 1f);
                         float voidFactor = 1f + (1f - flow) * 1.2f;
-                        float needCeil = effective / (fluxMax * poison * voidFactor);
-                        common = Mathf.clamp(1f - needCeil, 0f, 1f);
+                        float doppler = dopplerFactor(heat);
+                        // 反算要同时考虑多普勒和棒尖曲线，否则高温/棒尖段会追不上目标。
+                        common = autoRodsFor(effective, poison, doppler, voidFactor);
                     }
+                    if(scramLatch) common = 1f;
                     common = Math.max(common, protectRods);
                     for(int i = 0; i < 9; i++){
                         zoneTarget[i] = common;
@@ -789,59 +982,70 @@ public class IronworksRBMK{
                     }
                 }
                 pullFeedwater(dt);
+                syncZoneWater();
+                syncZoneSteam();
 
-                // —— 分区通量：同一套棒位/空泡公式 ——
+                // —— 分区通量：棒尖 + 多普勒 + 毒物 + 空泡 ——
                 float poison = Mathf.clamp(1f - xenon * 0.65f - boron * 1.2f, 0f, 1f);
                 for(int i = 0; i < 9; i++){
-                    float rodCeiling = (1f - zoneRods[i]) * (hasFuel ? 1f : 0f);
-                    float target = fluxMax * rodCeiling * poison;
+                    float rodFactor = rodEffect(zoneRods[i]) * (hasFuel ? 1f : 0f);
+                    float doppler = dopplerFactor(zoneHeat[i]);
+                    float target = fluxMax * rodFactor * poison * doppler;
                     if(poisoned) target = 0f;
                     target *= 1f + (1f - zoneFlow[i]) * 1.2f;
                     target = Mathf.clamp(target, 0f, controlMode == MODE_MANUAL ? fluxMax : 1f);
                     zoneFlux[i] = Mathf.lerpDelta(zoneFlux[i], target, 0.008f);
                 }
 
-                // —— 分区水→汽：公共水罐/汽包，按各区的通量需求分发转化量 ——
+                // —— 分区水→汽：每区独立转化，不跨区搬汽；公共汽包只做管路出口 ——
                 float water = liquids.get(Liquids.water);
-                float steamRoom = steamCap() - liquids.get(IronworksLiquids.steam);
+                float globalSteamRoom = steamCap() - liquids.get(IronworksLiquids.steam);
                 float totalRoom = LiquidKit.totalSpace(this);
-                float effectiveTotal = 0f;
-                // 常态：9 × 360 = 3240 L/s。手动 125% 通量时总峰值 4050 L/s，
-                // 沿用普通 RBMK 的 125% 峰值规则，不额外放大。
+                float convertedTotal = 0f;
                 for(int i = 0; i < 9; i++){
-                    float nominal = Math.max(zoneFlux[i], 0f) * zonedWaterPerZone * dt;
+                    float nominal = Math.max(zoneFlux[i], 0f) * zonedWaterPerZone * evapFactor(i) * dt;
                     float throttle = controlMode == MODE_MANUAL ? zoneThrottle[i] : 1f;
-                    effectiveTotal += nominal * throttle;
+                    float roomSteam = Math.max(0f, zoneSteamCap[i] - zoneSteam[i]);
+                    zoneConverted[i] = Math.max(0f, Math.min(nominal * throttle,
+                        Math.min(zoneWater[i], roomSteam)));
+                    convertedTotal += zoneConverted[i];
                 }
-                // 节流阀关小 -> 实际进水量下降；总汽量也按实际进水下降
-                float convertedTotal = Math.max(0f, Math.min(effectiveTotal,
-                    Math.min(water, Math.min(steamRoom, totalRoom))));
+
+                // 公共水罐/汽包仍可能有全局上限；按比例缩放，保证账面收支一致。
                 if(convertedTotal > 0.0001f){
-                    liquids.remove(Liquids.water, convertedTotal);
-                    liquids.add(IronworksLiquids.steam, convertedTotal);
-                }
-                float supply = effectiveTotal > 0.0001f ? convertedTotal / effectiveTotal : 1f;
-                float weightTotal = 0f;
-                for(int i = 0; i < 9; i++){
-                    float nominal = Math.max(zoneFlux[i], 0f) * zonedWaterPerZone * dt;
-                    float throttle = controlMode == MODE_MANUAL ? zoneThrottle[i] : 1f;
-                    weightTotal += nominal * zoneBias[i] * throttle;
-                }
-                for(int i = 0; i < 9; i++){
-                    float nominal = Math.max(zoneFlux[i], 0f) * zonedWaterPerZone * dt;
-                    float throttle = controlMode == MODE_MANUAL ? zoneThrottle[i] : 1f;
-                    float raw;
-                    if(nominal <= 0.0001f){
-                        raw = supply;
-                    }else if(throttle <= 0.0001f || weightTotal <= 0.0001f){
-                        raw = 0f;
-                    }else{
-                        // 公共集管 + 各分区并联通道：流量按需求×固定偏差×手动节流分配
-                        float converted = convertedTotal * (nominal * zoneBias[i] * throttle / weightTotal);
-                        raw = Mathf.clamp(converted / nominal, 0f, 1f);
+                    float scale = 1f;
+                    if(water < convertedTotal) scale = Math.min(scale, water / convertedTotal);
+                    if(globalSteamRoom < convertedTotal * scale) scale = Math.min(scale, globalSteamRoom / convertedTotal);
+                    if(totalRoom < convertedTotal * scale) scale = Math.min(scale, totalRoom / convertedTotal);
+                    scale = Mathf.clamp(scale, 0f, 1f);
+                    if(scale < 0.9999f){
+                        for(int i = 0; i < 9; i++) zoneConverted[i] *= scale;
+                        convertedTotal *= scale;
                     }
-                    zoneFlow[i] = Mathf.lerpDelta(zoneFlow[i], raw, 0.08f);
+
+                    for(int i = 0; i < 9; i++){
+                        float c = zoneConverted[i];
+                        if(c <= 0.00001f) continue;
+                        zoneWater[i] = Math.max(0f, zoneWater[i] - c);
+                        zoneSteam[i] = Math.min(zoneSteamCap[i], zoneSteam[i] + c);
+                    }
+                    if(convertedTotal > 0.0001f){
+                        liquids.remove(Liquids.water, convertedTotal);
+                        liquids.add(IronworksLiquids.steam, convertedTotal);
+                    }
+                }else{
+                    for(int i = 0; i < 9; i++) zoneConverted[i] = 0f;
                 }
+
+                for(int i = 0; i < 9; i++){
+                    float throttle = controlMode == MODE_MANUAL ? zoneThrottle[i] : 1f;
+                    boolean steamFull = zoneSteamCap[i] <= 0.0001f
+                        || zoneSteam[i] >= zoneSteamCap[i] - 0.001f
+                        || globalSteamRoom <= 0.001f;
+                    float flowTarget = (steamFull || throttle < 0.01f) ? 0f : throttle;
+                    zoneFlow[i] = Mathf.lerpDelta(zoneFlow[i], flowTarget, 0.08f);
+                }
+
                 float avgFlux = 0f, avgFlow = 0f;
                 for(int i = 0; i < 9; i++){
                     avgFlux += zoneFlux[i];
@@ -852,17 +1056,50 @@ public class IronworksRBMK{
                 float instRate = dt <= 0.00001f ? 0f : convertedTotal / dt;
                 steamRate = Mathf.lerpDelta(steamRate, instRate, 0.03f);
 
-                // —— 分区热积分：完全沿用原来的热方程，只是每区独立 ——
+                // —— 衰变热：停堆后裂变产物仍以约 7% 额定功率放热 ——
+                fluxHistory = Mathf.lerpDelta(fluxHistory, flux, 0.01f);
+                if(flux < 0.01f) decayTimer += dt;
+                else if(flux > 0.05f) decayTimer = 0f;
+                decayHeat = decayHeatFraction * fluxHistory
+                    * (float)Math.exp(-decayTimer / decayHeatTau);
+
+                // —— 双节点热积分：燃料节点 → 冷却剂节点 → 冷却剂损失 ——
                 for(int i = 0; i < 9; i++){
-                    float heatGen = zoneFlux[i] * 0.14f + zonePrompt[i];
-                    float cooling = zoneFlow[i] * (0.06f + 0.09f * zoneHeat[i]) + 0.01f;
-                    zoneHeat[i] = Mathf.clamp(zoneHeat[i] + (heatGen - cooling) * dt, 0f, 2f);
+                    float zoneWaterFrac = zoneWaterFrac(i);
+                    float heatGen = zoneFlux[i] * 0.14f + zonePrompt[i] + decayHeat / 9f;
+                    // 水少时燃料→冷却剂传热也弱；这是失水后燃料温度飙升的物理来源。
+                    float fuelToCoolant = transferK * zoneWaterFrac
+                        * Math.max(0f, zoneHeat[i] - zoneCoolant[i]);
+                    float coolingLoss = zoneFlow[i] * zoneWaterFrac
+                        * (0.06f + 0.09f * zoneCoolant[i]) + 0.01f;
+
+                    zoneHeat[i] = Mathf.clamp(zoneHeat[i] + (heatGen - fuelToCoolant) * dt, 0f, 3f);
+                    zoneCoolant[i] = Mathf.clamp(zoneCoolant[i] + (fuelToCoolant - coolingLoss) * dt, 0f, 1.5f);
                     zonePrompt[i] = Math.max(0f, zonePrompt[i] - dt * 0.22f);
                 }
-                // 任意一个分区熔毁 → 整堆熔毁；全局表显示最热区
+                // 任意一个分区熔毁 → 整堆熔毁；全局表显示最热燃料区
                 heat = 0f;
-                for(int i = 0; i < 9; i++) heat = Math.max(heat, zoneHeat[i]);
-                tempK = 280f + heat * 500f;
+                coolantHeat = 0f;
+                for(int i = 0; i < 9; i++){
+                    heat = Math.max(heat, zoneHeat[i]);
+                    coolantHeat = Math.max(coolantHeat, zoneCoolant[i]);
+                }
+                tempK = 280f + heat * 800f;
+                coolantK = 280f + coolantHeat * 80f;
+
+                // 逐区熔毁损伤：燃料温度 >= 2.0 才累积；损伤可恢复，任意一区到 1 即爆。
+                boolean zoneMelted = false;
+                for(int i = 0; i < 9; i++){
+                    if(zoneHeat[i] >= zonedMeltTemp){
+                        zoneMeltDamage[i] += (zoneHeat[i] - zonedMeltTemp + 0.10f) * meltRate * dt;
+                    }else{
+                        zoneMeltDamage[i] -= meltRecover * dt;
+                    }
+                    zoneMeltDamage[i] = Mathf.clamp(zoneMeltDamage[i], 0f, 1f);
+                    if(zoneMeltDamage[i] >= 1f) zoneMelted = true;
+                }
+                if(zoneMelted && !melted) detonate();
+                if(melted) return;
 
                 // 燃料/氙/硼沿用全局平均通量；分区只改变局部热与功率分布
                 if(hasFuel && flux > 0.01f){
@@ -920,16 +1157,19 @@ public class IronworksRBMK{
                         Fx.steam.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
                     }
                 }
-                if(controlMode != MODE_MANUAL && heat > 1.0f) protectRods = 1f;
+                if(controlMode != MODE_MANUAL && heat > 1.8f) protectRods = 1f;
 
-                if(heat >= meltTemp && !melted){
-                    meltTimer += second;
-                    if(meltTimer >= 60f) detonate();
-                }else if(meltTimer > 0f){
-                    meltTimer = Math.max(0f, meltTimer - second * 2f);
+                // 旧 5×5 仍用原来的 125%/1 秒计时；RBMK-9 走上面的逐区损伤积分。
+                if(!((RBMKReactor)block).zoned){
+                    if(heat >= meltTemp && !melted){
+                        meltTimer += second;
+                        if(meltTimer >= 60f) detonate();
+                    }else if(meltTimer > 0f){
+                        meltTimer = Math.max(0f, meltTimer - second * 2f);
+                    }
                 }
 
-                rodCeilingPct = (1f - rods) * 100f;
+                rodCeilingPct = rodEffect(rods) * 100f;
                 productionEfficiency = flux;
                 if(!headless && flux > 0.05f && Mathf.chanceDelta(flux * 0.15f)){
                     Fx.smoke.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
@@ -978,11 +1218,12 @@ public class IronworksRBMK{
                     if(waterFrac > 0.95f && steamFrac > 0.9f) idealRods = Math.min(idealRods, 0.98f);
                     // 实时保护量是杆位下限，不允许自动目标把棒留在危险位置
                     targetRods = Math.max(idealRods, protectRods);
+                    if(scramLatch) targetRods = 1f;
                     rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedAuto : rodSpeedNormal);
                 }else{
                     // 半自动：用户目标 + 实时保护下限；普通插棒仍走 3 秒行程，
                     // 保护量超过用户目标时才用 1.5 秒的快速插入。
-                    float demand = Math.max(targetRods, protectRods);
+                    float demand = scramLatch ? 1f : Math.max(targetRods, protectRods);
                     float speed = demand > rods
                         ? (protectRods > targetRods ? rodSpeedAuto : rodSpeedScram)
                         : rodSpeedNormal;
@@ -1364,368 +1605,30 @@ public class IronworksRBMK{
 
             @Override
             public void buildConfiguration(Table table){
-                table.defaults().pad(2f);
-                float w = 262f;
-
-                // 标题
+                table.defaults().pad(4f);
                 table.add(Core.bundle.get("ironworks.rbmk.panel.title")).color(Pal.accent)
-                    .padBottom(3f).row();
+                    .padBottom(4f).row();
 
-                if(((RBMKReactor)block).zoned){
-                    // 顶部横向滚动：总控 + 1..9 号堆，选中的按钮用 flatTogglet 的选中框高亮
-                    Table zoneRow = new Table();
-                    zoneRow.defaults().pad(2f);
+                Label summary = new Label("");
+                summary.update(() -> summary.setText(Core.bundle.format("ironworks.rbmk.win.short",
+                    Core.bundle.get(controlMode == MODE_AUTO ? "ironworks.rbmk.mode.auto"
+                        : controlMode == MODE_SEMI ? "ironworks.rbmk.mode.semi" : "ironworks.rbmk.mode.manual"),
+                    Mathf.round(flux * 100f), Mathf.round(heat * 100f))));
+                summary.setColor(Color.lightGray);
+                table.add(summary).wrap().width(290f).row();
 
-                    TextButton master = new TextButton(Core.bundle.get("ironworks.rbmk.zone.master"), Styles.flatTogglet);
-                    master.clicked(() -> configure(-30));
-                    master.update(() -> {
-                        boolean on = selectedZone < 0;
-                        master.setChecked(on);
-                        master.getLabel().setColor(on ? Pal.accent : Color.white);
-                    });
-                    zoneRow.add(master).size(76f, 34f);
+                table.button(Core.bundle.get("ironworks.rbmk.win.open"), Styles.defaultt,
+                    () -> IronworksRbmkWindow.show(this)).size(290f, 48f).padTop(8f).row();
+                table.add(Core.bundle.get("ironworks.rbmk.win.openHint")).wrap()
+                    .width(290f).color(Color.lightGray).padTop(4f).row();
 
-                    for(int i = 0; i < 9; i++){
-                        final int zone = i;
-                        TextButton z = new TextButton(Core.bundle.format("ironworks.rbmk.zone.unit", zone + 1),
-                            Styles.flatTogglet);
-                        z.clicked(() -> configure(-20 - zone));
-                        z.update(() -> {
-                            boolean on = selectedZone == zone;
-                            z.setChecked(on);
-                            z.getLabel().setColor(on ? Pal.accent : Color.white);
-                        });
-                        zoneRow.add(z).size(76f, 34f);
-                    }
-
-                    arc.scene.ui.ScrollPane pane = new arc.scene.ui.ScrollPane(zoneRow);
-                    pane.setFadeScrollBars(false);
-                    pane.setScrollingDisabled(false, true);
-                    pane.setOverscroll(false, false);
-                    table.add(pane).width(w).height(46f).row();
-                    table.add(Core.bundle.get("ironworks.rbmk.zone.swipe"))
-                        .color(Color.lightGray).padBottom(2f).row();
-                }
-
-                // —— 控制模式 ——
-                table.table(t -> {
-                    TextButton semi = new TextButton(Core.bundle.get("ironworks.rbmk.mode.semi"), Styles.flatTogglet);
-                    semi.clicked(() -> configure(-10));
-                    semi.update(() -> semi.setChecked(controlMode == MODE_SEMI));
-                    t.add(semi).size(82f, 34f).padRight(4f);
-
-                    TextButton auto = new TextButton(Core.bundle.get("ironworks.rbmk.mode.auto"), Styles.flatTogglet);
-                    auto.clicked(() -> configure(-11));
-                    auto.update(() -> auto.setChecked(controlMode == MODE_AUTO));
-                    t.add(auto).size(82f, 34f).padRight(4f);
-
-                    TextButton manual = new TextButton(Core.bundle.get("ironworks.rbmk.mode.manual"), Styles.flatTogglet);
-                    manual.clicked(() -> configure(-12));
-                    manual.update(() -> manual.setChecked(controlMode == MODE_MANUAL));
-                    t.add(manual).size(82f, 34f);
-                }).row();
-
-                // —— 选中堆芯的微调面板（仅强制手动模式可操作）——
-                if(((RBMKReactor)block).zoned){
-                    table.table(Styles.grayPanel, c -> {
-                        c.defaults().pad(4f);
-                        Label head = new Label("");
-                        head.update(() -> head.setText(selectedZone < 0
-                            ? Core.bundle.get("ironworks.rbmk.zone.head.master")
-                            : Core.bundle.format("ironworks.rbmk.zone.head.unit", selectedZone + 1)));
-                        c.add(head).left().growX().row();
-
-                        Label stats = new Label("");
-                        stats.update(() -> {
-                            if(selectedZone >= 0){
-                                stats.setText(Core.bundle.format("ironworks.rbmk.zone.stats",
-                                    Mathf.round(zoneFlux[selectedZone] * 100f),
-                                    Mathf.round(zoneHeat[selectedZone] * 100f),
-                                    Mathf.round(zoneFlow[selectedZone] * 100f),
-                                    Mathf.round(zoneRods[selectedZone] * 100f)));
-                            }else{
-                                stats.setText(Core.bundle.format("ironworks.rbmk.zone.stats",
-                                    Mathf.round(flux * 100f), Mathf.round(heat * 100f),
-                                    Mathf.round(flow * 100f), Mathf.round(rods * 100f)));
-                            }
-                        });
-                        c.add(stats).left().wrap().width(w - 18f).color(Color.lightGray).row();
-
-                        Label rodLabel = new Label("");
-                        rodLabel.update(() -> {
-                            if(controlMode == MODE_AUTO){
-                                rodLabel.setText(Core.bundle.format("ironworks.rbmk.power.now",
-                                    Mathf.round(autoPower * 100f), Mathf.round(Math.min(flux, 1f) * 100f)));
-                            }else{
-                                float t = selectedZone >= 0 ? zoneTarget[selectedZone] : targetRods;
-                                float a = selectedZone >= 0 ? zoneRods[selectedZone] : rods;
-                                rodLabel.setText(Core.bundle.format("ironworks.rbmk.zone.rodline",
-                                    Mathf.round(t * 100f), Mathf.round(a * 100f)));
-                            }
-                        });
-                        c.add(rodLabel).left().row();
-
-                        Slider rodSlider = new Slider(0f, 100f, 1f, false);
-                        rodSlider.moved(v -> {
-                            if(controlMode == MODE_MANUAL) configure((int)v);
-                        });
-                        rodSlider.update(() -> {
-                            rodSlider.touchable = controlMode == MODE_MANUAL
-                                ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
-                            float shown;
-                            if(controlMode == MODE_AUTO) shown = autoPower;
-                            else if(controlMode == MODE_MANUAL && selectedZone >= 0) shown = zoneTarget[selectedZone];
-                            else shown = targetRods;
-                            if(!rodSlider.isDragging()) rodSlider.setValue(shown * 100f);
-                        });
-                        c.add(rodSlider).width(w - 20f).row();
-
-                        Label throttleLabel = new Label("");
-                        throttleLabel.update(() -> {
-                            float th = 1f;
-                            if(controlMode == MODE_MANUAL){
-                                if(selectedZone >= 0) th = zoneThrottle[selectedZone];
-                                else{
-                                    th = 0f;
-                                    for(int i = 0; i < 9; i++) th += zoneThrottle[i];
-                                    th /= 9f;
-                                }
-                            }
-                            throttleLabel.setText(Core.bundle.format("ironworks.rbmk.zone.throttle",
-                                Mathf.round(th * 100f)));
-                        });
-                        c.add(throttleLabel).left().row();
-
-                        Slider throttleSlider = new Slider(0f, 100f, 1f, false);
-                        throttleSlider.moved(v -> {
-                            if(controlMode == MODE_MANUAL) configure(3000 + (int)v);
-                        });
-                        throttleSlider.update(() -> {
-                            throttleSlider.touchable = controlMode == MODE_MANUAL
-                                ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
-                            float th = 1f;
-                            if(controlMode == MODE_MANUAL){
-                                if(selectedZone >= 0) th = zoneThrottle[selectedZone];
-                                else{
-                                    th = 0f;
-                                    for(int i = 0; i < 9; i++) th += zoneThrottle[i];
-                                    th /= 9f;
-                                }
-                            }
-                            if(!throttleSlider.isDragging()) throttleSlider.setValue(th * 100f);
-                        });
-                        c.add(throttleSlider).width(w - 20f).row();
-
-                        Label hint = new Label("");
-                        hint.update(() -> hint.setText(Core.bundle.get(controlMode == MODE_MANUAL
-                            ? "ironworks.rbmk.zone.manualhint" : "ironworks.rbmk.zone.manualonly")));
-                        c.add(hint).wrap().width(w - 18f).color(Color.lightGray).left().row();
-                    }).width(w).row();
-                }
-
-                // —— 异常通知开关（只对当前反应堆生效；仅强制手动模式可切换）——
-                table.table(Styles.grayPanel, c -> {
-                    c.defaults().pad(4f);
-                    TextButton mute = new TextButton("", Styles.flatTogglet);
-                    mute.clicked(() -> configure(-3));
-                    mute.update(() -> {
-                        mute.setText(Core.bundle.format("ironworks.rbmk.alerts",
-                            Core.bundle.get(alertsMuted ? "ironworks.rbmk.alerts.off" : "ironworks.rbmk.alerts.on")));
-                        mute.setChecked(alertsMuted);
-                        mute.touchable = controlMode == MODE_MANUAL
-                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
-                    });
-                    c.add(mute).width(w - 16f).height(30f).row();
-                    c.add(Core.bundle.get("ironworks.rbmk.alerts.hint")).wrap()
-                        .width(w - 16f).color(Color.lightGray).left().row();
-                }).width(w).row();
-
-                // —— 控制棒（旧 5×5 没有分区，保留原来的全局滑条）——
-                if(!((RBMKReactor)block).zoned){
-                    table.table(Styles.grayPanel, c -> {
-                        c.defaults().pad(5f);
-                        Label rodLabel = new Label("");
-                        rodLabel.update(() -> rodLabel.setText(controlMode == MODE_AUTO
-                            ? Core.bundle.format("ironworks.rbmk.power.now",
-                                Mathf.round(autoPower * 100f), Mathf.round(Math.min(flux, 1f) * 100f))
-                            : Core.bundle.format("ironworks.rbmk.rods.now",
-                                Mathf.round(targetRods * 100f), Mathf.round(rods * 100f))));
-                        c.add(rodLabel).left().growX().row();
-
-                        Slider slider = new Slider(0f, 100f, 1f, false);
-                        slider.moved(v -> configure((int)v));
-                        slider.update(() -> {
-                            // 自动模式下显示/拖动的是目标功率，其它模式是棒位
-                            float shown = controlMode == MODE_AUTO ? autoPower : targetRods;
-                            if(!slider.isDragging()) slider.setValue(shown * 100f);
-                        });
-                        c.add(slider).width(230f).row();
-
-                        c.add(Core.bundle.get("ironworks.rbmk.rodhint")).wrap()
-                            .width(230f).color(Color.lightGray).left().row();
-                    }).width(w).row();
-                }
-
-                // —— 双水位线：最低线启动给水泵，最高线是水罐硬上限 ——
-                table.table(Styles.grayPanel, c -> {
-                    c.defaults().pad(5f);
-                    Label waterLabel = new Label("");
-                    waterLabel.update(() -> {
-                        int cur = Mathf.round(liquids.get(Liquids.water));
-                        float low = controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel;
-                        float high = controlMode == MODE_MANUAL ? waterTarget : waterLevel;
-                        waterLabel.setText(Core.bundle.format("ironworks.rbmk.water.line",
-                            cur, (int)waterCap(), Mathf.round(low * 100f), Mathf.round(high * 100f)));
-                    });
-                    c.add(waterLabel).left().growX().row();
-
-                    Label lowLabel = new Label("");
-                    lowLabel.update(() -> lowLabel.setText(Core.bundle.format("ironworks.rbmk.water.low",
-                        Mathf.round((controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel) * 100f))));
-                    c.add(lowLabel).left().row();
-
-                    Slider lowSlider = new Slider(0f, 100f, 1f, false);
-                    lowSlider.moved(v -> {
-                        if(controlMode == MODE_MANUAL) configure(2000 + (int)v);
-                    });
-                    lowSlider.update(() -> {
-                        lowSlider.touchable = controlMode == MODE_MANUAL
-                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
-                        float shown = controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel;
-                        if(!lowSlider.isDragging()) lowSlider.setValue(shown * 100f);
-                    });
-                    c.add(lowSlider).width(230f).row();
-
-                    Label highLabel = new Label("");
-                    highLabel.update(() -> highLabel.setText(Core.bundle.format("ironworks.rbmk.water.high",
-                        Mathf.round((controlMode == MODE_MANUAL ? waterTarget : waterLevel) * 100f))));
-                    c.add(highLabel).left().row();
-
-                    Slider highSlider = new Slider(0f, 100f, 1f, false);
-                    highSlider.moved(v -> {
-                        if(controlMode == MODE_MANUAL) configure(1000 + (int)v);
-                    });
-                    highSlider.update(() -> {
-                        highSlider.touchable = controlMode == MODE_MANUAL
-                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
-                        float shown = controlMode == MODE_MANUAL ? waterTarget : waterLevel;
-                        if(!highSlider.isDragging()) highSlider.setValue(shown * 100f);
-                    });
-                    c.add(highSlider).width(230f).row();
-
-                    Label waterHint = new Label("");
-                    waterHint.update(() -> waterHint.setText(Core.bundle.get(
-                        controlMode == MODE_MANUAL ? "ironworks.rbmk.waterhint.manual" : "ironworks.rbmk.waterhint.auto")));
-                    c.add(waterHint).wrap().width(230f).color(Color.lightGray).left().row();
-                }).width(w).row();
-
-                // —— 实时读数 ——
-                table.table(Styles.grayPanel, c -> {
-                    c.defaults().padLeft(8f).padRight(8f).padTop(2f).padBottom(2f);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.ceiling"),
-                        () -> Mathf.round(rodCeilingPct) + "%",
-                        () -> Pal.accent);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.flux"),
-                        () -> Mathf.round(flux * 100f) + "%",
-                        () -> Pal.accent);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.heat"),
-                        () -> Mathf.round(heat * 100f) + "%  (" + Mathf.round(tempK) + "°C)",
-                        () -> heat >= 1.05f ? Pal.remove : heat >= 0.9f ? Color.valueOf("ffd166") : Color.valueOf("7fe08a"));
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.water"),
-                        () -> Mathf.round(liquids.get(Liquids.water)) + "/" + (int)waterCap() + " L",
-                        () -> Liquids.water.color);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.steam"),
-                        () -> Mathf.round(liquids.get(IronworksLiquids.steam)) + "/" + (int)steamCap() + " L",
-                        () -> IronworksLiquids.steam.color);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.rate"),
-                        () -> Mathf.round(steamRate) + " L/s",
-                        () -> Liquids.water.color);
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.xenon"),
-                        () -> Mathf.round(xenon * 100f) + "%",
-                        () -> Color.valueOf("b6a8ff"));
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.coolant"),
-                        () -> Mathf.round(flow * 100f) + "%",
-                        () -> flow < 0.9f ? Pal.remove : Color.valueOf("7fe08a"));
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.burn"),
-                        () -> Mathf.round(rodBurn * 100f) + "%",
-                        () -> Color.valueOf("9fe8b0"));
-                    readout(c, Core.bundle.get("ironworks.rbmk.row.fuel"),
-                        () -> Core.bundle.format("ironworks.rbmk.fuelcount",
-                            items.get(IronworksNuclear.fuelRod), items.get(Items.thorium),
-                            items.get(IronworksNuclear.depletedRod), itemCapacity),
-                        () -> IronworksNuclear.fuelRod.color);
-                    if(boron > 0.001f){
-                        readout(c, Core.bundle.get("ironworks.rbmk.row.boron"),
-                            () -> Mathf.round(boron * 100f) + "%",
-                            () -> Color.valueOf("8fd4ff"));
-                    }
-                    c.add().height(2f).row();
-                }).width(w).row();
-
-                // —— 状态 ——
-                Label status = new Label("");
-                status.update(() -> {
-                    if(poisoned){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.poisoned"));
-                        status.setColor(Color.valueOf("8fd4ff"));
-                        return;
-                    }
-                    boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCap() - 2f;
-                    boolean waterFull = liquids.get(Liquids.water) >= waterCap() * 0.98f;
-                    boolean autoProtect = controlMode != MODE_MANUAL
-                        && (liquids.get(IronworksLiquids.steam) >= steamCap() * 0.5f
-                            || liquids.get(Liquids.water) < waterCap() * 0.3f);
-                    if(coreBoom > 0f){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.pressure"));
-                        status.setColor(Pal.remove);
-                    }else if(steamStuck && waterFull){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.blocked"));
-                        status.setColor(Pal.remove);
-                    }else if(heat >= meltTemp){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.melt"));
-                        status.setColor(Pal.remove);
-                    }else if(heat > 1.05f){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.danger"));
-                        status.setColor(Pal.remove);
-                    }else if(autoProtect){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.autoprotect"));
-                        status.setColor(Color.valueOf("ffd166"));
-                    }else if(flow < 0.9f){
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.dry"));
-                        status.setColor(Color.valueOf("ffd166"));
-                    }else{
-                        status.setText(Core.bundle.get("ironworks.rbmk.state.ok"));
-                        status.setColor(Color.valueOf("7fe08a"));
-                    }
-                });
-                table.add(status).padTop(4f).row();
-
-                // —— 紧急停堆 ——
-                table.button(Core.bundle.get("ironworks.rbmk.scram"), Styles.defaultt, () -> configure(-1))
-                    .size(w, 42f).padTop(6f).with(b -> b.setColor(Pal.remove)).row();
-
-                // 硼酸注入：比 SCRAM 更狠，几十秒内别想再启动
-                TextButton boronBtn = new TextButton("", Styles.defaultt);
-                boronBtn.clicked(() -> configure(-2));
-                boronBtn.update(() -> boronBtn.setText(Core.bundle.get(
-                    boronArmed ? "ironworks.rbmk.boron.armed" : "ironworks.rbmk.boron.idle")));
-                table.add(boronBtn).size(w, 36f).padTop(4f).with(b -> b.setColor(Color.valueOf("8fd4ff"))).row();
-            }
-
-            /** 面板里的一行读数：左灰标签，右带色实时值。 */
-            void readout(Table c, String label, arc.func.Prov<String> value, arc.func.Prov<Color> color){
-                c.add(label).left().color(Color.lightGray).growX();
-                Label v = new Label("");
-                v.update(() -> {
-                    v.setText(value.get());
-                    v.setColor(color.get());
-                });
-                c.add(v).right().padLeft(8f).row();
+                // 点击方块直接弹出控制台；方块 config 只留摘要入口。
+                if(!headless) Core.app.post(() -> IronworksRbmkWindow.show(this));
             }
 
             @Override
             public byte version(){
-                return ((RBMKReactor)block).zoned ? (byte)10 : (byte)8;
+                return ((RBMKReactor)block).zoned ? (byte)12 : (byte)8;
             }
 
             @Override
@@ -1760,6 +1663,13 @@ public class IronworksRBMK{
                         write.f(zonePrompt[i]);
                     }
                     for(int i = 0; i < 9; i++) write.f(zoneThrottle[i]);
+                    for(int i = 0; i < 9; i++) write.f(zoneCoolant[i]);
+                    for(int i = 0; i < 9; i++) write.f(zoneMeltDamage[i]);
+                    for(int i = 0; i < 9; i++) write.f(zoneWater[i]);
+                    for(int i = 0; i < 9; i++) write.f(zoneSteam[i]);
+                    write.f(fluxHistory);
+                    write.f(decayTimer);
+                    write.f(decayHeat);
                 }
             }
 
@@ -1798,7 +1708,29 @@ public class IronworksRBMK{
                         for(int i = 0; i < 9; i++){
                             zoneThrottle[i] = revision >= 10 ? read.f() : 1f;
                         }
+                        if(revision >= 11){
+                            for(int i = 0; i < 9; i++) zoneCoolant[i] = read.f();
+                            for(int i = 0; i < 9; i++) zoneMeltDamage[i] = read.f();
+                            if(revision >= 12){
+                                for(int i = 0; i < 9; i++) zoneWater[i] = read.f();
+                                for(int i = 0; i < 9; i++) zoneSteam[i] = read.f();
+                            }
+                            fluxHistory = read.f();
+                            decayTimer = read.f();
+                            decayHeat = read.f();
+                        }else{
+                            for(int i = 0; i < 9; i++){
+                                zoneCoolant[i] = Math.max(0f, zoneHeat[i] * 0.9f);
+                                zoneMeltDamage[i] = 0f;
+                            }
+                            fluxHistory = flux;
+                            decayTimer = 0f;
+                            decayHeat = 0f;
+                        }
                         zonesInit = true;
+                        initZoneCaps();
+                        syncZoneWater();
+                        syncZoneSteam();
                     }
                 }
                 waterLowTarget = Math.min(waterLowTarget, waterTarget);

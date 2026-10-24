@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v2.4.0.1，Java 编写，自研多配方库 + 属性伤害 + 伤害飘字 + 电网/物流 HUD + 左侧长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播 + RBMK 双水位线与 980 L/s 通量上限 + AZ-5 闪蒸/硬水位线/实时保护/异常通知静音 + RBMK-9 12×12 分区堆芯（3240 L/s）+ 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案），已装到手机两个客户端。
+Mindustry 模组「铁流工业」v2.5.0.0，Java 编写，自研多配方库 + 属性伤害 + 伤害飘字 + 电网/物流 HUD + 左侧长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播 + RBMK-9 12×12 分区堆芯（3240 L/s，双节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽）+ 黑色半透明弹出控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案），已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -12,10 +12,15 @@ Mindustry 模组「铁流工业」v2.4.0.1，Java 编写，自研多配方库 + 
 - 无头测试: /root/api/server-release-160.3.jar，测试目录 /root/test160
 - 构建: `bash /sdcard/dsh/mindustry-mod/build.sh` → out/ironworks.jar
 
+## RBMK 数据与公式
+- 当前：`docs/RBMK-BALANCE.md`（v2.5 双节点/棒尖/多普勒/衰变热/逐区熔毁/自动算法）
+- 旧版：`docs/RBMK-BALANCE-2.4.md`
+
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v2.4.0.1 / md5 `aa73ba0ddef1adaf65e978d93a2087a7`，双端已部署（2026-10-24）
+- 当前：v2.5.0.0 / md5 `19679174bd39e8f203cb1ff31ecf92a5`，双端已部署（2026-10-24）
+- 最近全量：**123/123**（705 秒，T1–T185）；RBMK 新增 T180–T185
 
 ## 客户端版本实测
 | 包名 | 引擎 |

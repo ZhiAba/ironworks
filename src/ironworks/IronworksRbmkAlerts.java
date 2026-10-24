@@ -48,6 +48,8 @@ public class IronworksRbmkAlerts{
 
         int hotZone = hottestZone(b);
         int coldZone = driestZone(b);
+        float heatThreshold = b.block instanceof RBMKReactor r && r.zoned
+            ? 1.55f : IronworksRbmkAlerts.heatThreshold;
 
         if(b.heat >= heatThreshold){
             if(raise(b, TEMP)){
@@ -55,7 +57,7 @@ public class IronworksRbmkAlerts{
                     + Core.bundle.format("ironworks.log.reactor.temp",
                         Mathf.round(heatThreshold * 100f), Mathf.round(b.heat * 100f), action(b)));
             }
-        }else if(lower(b, TEMP, b.heat < heatThreshold - 0.03f, dt)){
+        }else if(lower(b, TEMP, b.heat < heatThreshold - 0.05f, dt)){
             info(b, "ironworks.log.reactor.temp.ok");
         }
 
