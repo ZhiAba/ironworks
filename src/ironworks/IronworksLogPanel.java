@@ -17,6 +17,7 @@ import arc.scene.ui.layout.Table;
 import arc.util.Align;
 import mindustry.game.EventType.ResetEvent;
 import mindustry.game.EventType.ResizeEvent;
+import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.gen.Icon;
 import mindustry.graphics.Pal;
@@ -38,6 +39,7 @@ public class IronworksLogPanel{
     private static Table windowBack, panel, list;
     private static Label countLabel;
     private static float panelWidth, panelHeight;
+    private static int lastRevision;
 
     private IronworksLogPanel(){
     }
@@ -50,6 +52,15 @@ public class IronworksLogPanel{
         Events.on(ResizeEvent.class, e -> {
             if(open) layoutOverlay();
         });
+        Events.run(Trigger.update, IronworksLogPanel::tick);
+    }
+
+    /** 面板打开时跟随通知数据刷新；新 RBMK 告警进来会立即出现在列表顶部。 */
+    private static void tick(){
+        if(!open || list == null) return;
+        if(lastRevision == IronworksNotifications.revision()) return;
+        rebuildRows();
+        updateCount();
     }
 
     public static void toggle(){
@@ -200,6 +211,7 @@ public class IronworksLogPanel{
         if(list == null) return;
         list.clearChildren();
         list.top().left();
+        lastRevision = IronworksNotifications.revision();
 
         if(IronworksNotifications.entries().isEmpty()){
             list.add(Core.bundle.get("ironworks.log.empty"))

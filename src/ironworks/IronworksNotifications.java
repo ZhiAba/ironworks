@@ -23,6 +23,8 @@ public class IronworksNotifications{
     private static final Seq<Entry> entries = new Seq<>();
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd HH:mm:ss", Locale.US);
     private static boolean initialized;
+    /** 数据版本号；打开中的日志面板据此刷新，不需要每帧比较整张表。 */
+    private static int revision;
 
     private IronworksNotifications(){
     }
@@ -60,18 +62,26 @@ public class IronworksNotifications{
             entries.remove(0);
         }
         entries.add(new Entry(System.currentTimeMillis(), text, warning));
+        revision++;
     }
 
     public static Seq<Entry> entries(){
         return entries;
     }
 
+    public static int revision(){
+        return revision;
+    }
+
     public static void remove(Entry entry){
-        entries.remove(entry);
+        if(entries.remove(entry)) revision++;
     }
 
     public static void clear(){
-        entries.clear();
+        if(entries.size > 0){
+            entries.clear();
+            revision++;
+        }
     }
 
     public static String time(Entry entry){
