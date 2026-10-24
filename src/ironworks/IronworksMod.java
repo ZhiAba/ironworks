@@ -55,6 +55,7 @@ public class IronworksMod extends Mod{
         IronworksBlockSearch.init(); // 建造菜单里的方块搜索（含拼音）
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
+        IronworksSidebar.init();      // 左侧快捷工具栏
         IronworksHud.init();          // 辅助 HUD：电网总览 + 物流监视
         IronworksSettings.init();    // 设置 → 铁流工业
         IronworksDamageUI.init();    // 详情页弹药属性着色

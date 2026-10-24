@@ -33,6 +33,8 @@ public class IronworksAuxSettings{
             t.add(Core.bundle.get("ironworks.aux.hint"))
                 .color(Color.lightGray).wrap().width(width - 32f).left().pad(8f).row();
 
+            feature(t, IronworksSidebar.key, true, descWidth,
+                "setting.ironworks.sidebar.name", "setting.ironworks.sidebar.description");
             feature(t, IronworksHud.powerKey, false, descWidth,
                 "setting.ironworks.hud.power.name", "setting.ironworks.hud.power.description");
             feature(t, IronworksHud.flowKey, false, descWidth,

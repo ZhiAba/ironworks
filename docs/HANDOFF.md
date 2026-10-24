@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.1.0）
+# 铁流工业 交接文档（2026-10-24，v2.1.2.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,8 +10,17 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`dc2fd12da3742e1922f644bfbb96ce7a`（2.1.1.0，已部署双客户端）
+- 当前 jar md5：`c96b402b2e754d0f03e47f5f88811544`（2.1.2.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
+
+## 本次（2.1.2.0）：左侧快捷工具栏
+- 研究 DeepSpace 的 `singularity.ui.fragments.ToolBarFrag`：它把 50px 的 `Table + ScrollPane` 插进 `PlacementFragment.blockCatTable`，用 `Tex.clear + Styles.clearNoneTogglei` 做 50×50 图标按钮，`Tooltip` 提示，`Boolp` 勾选态
+- 独立实现 `IronworksSidebar`：没有改 DeepSpace 代码；没有塞 `blockCatTable`（我们的 `IronworksBlockSearch` 已经在重排那张表），改为挂在 `ui.hudGroup` 左侧中部，54px 窄条、44px 按钮、30px 图标、分组线
+- 按钮：辅助界面设置、电网总览、物流监视、伤害数字、隐藏侧边栏；开关读 `Core.settings`，勾选态实时同步
+- 设置：`ironworks.sidebar.enabled` 默认开；「设置 → 铁流工业 → 辅助界面…」可关；隐藏后从同一界面重新打开
+- 边界：客户端 only、无头跳过、不拦截地图点击、不改任何游戏数值
+- 测试：T30 + T154 + T155 子集 **3/3**，20 秒；工具栏实际位置/宽度需实机确认
+- 当前 jar md5：`c96b402b2e754d0f03e47f5f88811544`（2.1.2.0，已部署双客户端）
 
 ## 本次（2.1.1.0）：内嵌辅助 HUD（电网 / 物流）
 - 新增 `IronworksHud`：客户端右侧 HUD；`IronworksSettings` 加「辅助 HUD…」按钮，`IronworksAuxSettings` 是独立二级设置界面
@@ -150,9 +159,9 @@
 - 游戏内改 mod 必须**完全重启游戏进程**才加载新 jar
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
-## 重启后从这里继续（2026-10-24 01:25）
-状态：v2.1.1.0 已构建并部署双客户端，md5 `dc2fd12da3742e1922f644bfbb96ce7a`。
-全量回归 **93/93**（700 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 20 秒通过。最终 jar 仅 HUD 客户端细节变化。
+## 重启后从这里继续（2026-10-24 08:25）
+状态：v2.1.2.0 已构建并部署双客户端，md5 `c96b402b2e754d0f03e47f5f88811544`。
+全量回归 **93/93**（700 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 20 秒通过。最终 jar 仅客户端 HUD/侧栏变化，无服务端行为改动。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归
    （`bash tools/chain-test.sh`，约 9 分钟，一次只能开一个实例）。
@@ -163,4 +172,4 @@
 3. 待办优先级：① 整轮回归 ② 律令炮塔移植 ③ 特效升级（磁轨充能环/震动/命中粒子）
    ④ 芯片分档建材 ⑤ 铝/合金进入更多配方。
 4. 仓库有 git（元数据在 `/root/git/ironworks`），重启前工作区是干净的。
-5. 实机验证辅助 HUD：设置 → 铁流工业 →「辅助 HUD…」，分别开电网/物流；如果右侧面板挡住原版 UI，调 `IronworksHud` 的 `padRight` 或标签宽度。
+5. 实机验证辅助界面：设置 → 铁流工业 →「辅助界面…」；左侧工具栏看位置/宽度，右侧 HUD 看是否挡原版 UI，必要时调 `IronworksSidebar` 的 `padLeft` 或 `IronworksHud` 的 `padRight`。
