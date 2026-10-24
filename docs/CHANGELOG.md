@@ -15,7 +15,7 @@
 
 ## 目录
 
-- [2.1.x 伤害数字、辅助 HUD、左侧快捷栏与彩蛋开关](#21x)
+- [2.1.x 伤害数字、辅助 HUD、左侧长条与彩蛋开关](#21x)
 - [2.0.x 属性伤害](#20x)
 - [1.7.x 自动雷达](#17x)
 - [1.6.x RBMK 水汽闭环](#16x)
@@ -37,15 +37,14 @@
 
 ## 2.1.x
 
-### 2.1.2.0 — 左侧快捷工具栏
+### 2.1.3.0 — 左侧长条 + 日志
 
-- **仿 DeepSpace 的 ToolBarFrag**：研究其 `ToolBarFrag` 后独立实现 `IronworksSidebar`。窄条挂在 `ui.hudGroup` 左侧中部，不挂 `PlacementFragment.blockCatTable`——我们的方块搜索已经在重排那张表，再塞一列会互相拆台。
-- **布局**：`Styles.black6` 背景、54px 宽、按钮 44×44、图标 30px、分组分隔线；按钮用 `ImageButtonStyle(Styles.clearNoneTogglei)` 的独立拷贝，避免改全局样式。
-- **按钮**：辅助界面设置、电网总览、物流监视、伤害数字、隐藏侧边栏；开关按钮实时读取 `Core.settings` 并显示勾选态。
-- **交互**：`Tooltip` 允许手机点击；每个按钮都有中文提示；隐藏后从「设置 → 铁流工业 → 辅助界面… → 显示左侧工具栏」重新打开。
-- **设置**：`ironworks.sidebar.enabled` 默认开；子设置界面新增「显示左侧工具栏」。
-- **边界**：客户端 only，无头跳过；不改变任何游戏数值；Root 挂在 `hudGroup` 的 fill 表上，不拦截地图点击。
-- **测试**：无头端 T30 + T154 + T155 子集 **3/3**，20 秒；工具栏实际像素位置需实机确认。
+- **仿 DeepSpace 的 NotificationFrag**：它的左侧长边是 `NotificationFrag` 里一个 26×520 的侧边按钮（`SglStyles.sideButtonRight`），点击展开 notificationHistory 面板；不是一排功能图标。
+- **左侧长条**：`IronworksSidebar` 在屏幕左缘居中放 26×520 的 `Styles.black6` 长条，中间一枚齿轮；点击打开 `IronworksLogDialog`。不挂 `PlacementFragment.blockCatTable`——我们的方块搜索已经在重排那张表。
+- **日志面板**：`IronworksNotifications` 保留最近 100 条：模组加载、进入地图、电网缺电/恢复、RBMK 熔毁、彩蛋熔毁、辅助开关变更；面板显示时间/警告图标，可清空或跳转辅助界面。
+- **设置**：`ironworks.sidebar.enabled` 默认开，子设置界面「显示左侧长条」可关。
+- **边界**：客户端 only，无头跳过；不改变任何游戏数值；长条不拦截地图点击（除自身 26px 区域）。
+- **测试**：无头端 T30 + T154 + T155 子集 **3/3**，20 秒；长条实际像素位置需实机确认。
 
 ### 2.1.1.0 — 内嵌辅助 HUD（电网 / 物流）
 

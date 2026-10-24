@@ -4,7 +4,6 @@ import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
 import arc.scene.event.Touchable;
-import arc.scene.style.Drawable;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
 import arc.scene.ui.Tooltip;
@@ -13,25 +12,23 @@ import mindustry.game.EventType.ResetEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.gen.Icon;
-import mindustry.graphics.Pal;
 import mindustry.ui.Styles;
 
 import static mindustry.Vars.*;
 
 /**
- * 左侧快捷工具栏（v2.1.2.0）。
+ * 左侧长条（v2.1.3.0）。
  *
- * 仿 DeepSpace 的 ToolBarFrag：窄条 + 50px 图标按钮 + 悬停提示 + 可勾选状态。
- * 没有挂进 PlacementFragment.blockCatTable：我们的方块搜索已经在重排那张表，
- * 再塞一列会互相拆台；这里独立挂在 hudGroup 左侧中部，位置稳定、不挡建造栏。
+ * 仿 DeepSpace NotificationFrag 的侧边历史按钮：26×520 的窄条贴在屏幕左缘，
+ * 中间一枚齿轮，点击打开铁流工业日志。没有塞进 PlacementFragment.blockCatTable，
+ * 因为我们的方块搜索已经在重排那张表。
  */
 public class IronworksSidebar{
     public static final String key = "ironworks.sidebar.enabled";
     public static final boolean defaultEnabled = true;
 
     private static boolean initialized;
-    private static Table root, panel;
-    private static ImageButton powerButton, flowButton, damageButton;
+    private static Table root, bar;
 
     private IronworksSidebar(){
     }
@@ -58,80 +55,45 @@ public class IronworksSidebar{
         }
 
         ensure();
-        panel.visible = true;
-        powerButton.setChecked(Core.settings.getBool(IronworksHud.powerKey, false));
-        flowButton.setChecked(Core.settings.getBool(IronworksHud.flowKey, false));
-        damageButton.setChecked(Core.settings.getBool(DamageNumbers.settingKey, true));
+        bar.visible = true;
     }
 
     private static void hide(){
-        if(panel != null) panel.visible = false;
+        if(bar != null) bar.visible = false;
     }
 
     private static void ensure(){
-        if(panel == null){
-            panel = new Table(Styles.black6);
-            panel.margin(3f);
-            panel.touchable = Touchable.enabled;
-            panel.top();
-            panel.visible = false;
+        if(bar == null){
+            bar = new Table(Styles.black6);
+            bar.margin(0f);
+            bar.touchable = Touchable.enabled;
+            bar.visible = false;
 
-            settingsButton(panel, Icon.settings, "ironworks.sidebar.settings", IronworksAuxSettings::show);
-            panel.image(mindustry.gen.Tex.whiteui).height(1f).growX().color(Pal.gray).pad(4f).row();
-            powerButton = toggleButton(panel, Icon.power, "ironworks.sidebar.power", IronworksHud.powerKey, false);
-            flowButton = toggleButton(panel, Icon.list, "ironworks.sidebar.flow", IronworksHud.flowKey, false);
-            damageButton = toggleButton(panel, Icon.eye, "ironworks.sidebar.damage", DamageNumbers.settingKey, true);
-            panel.image(mindustry.gen.Tex.whiteui).height(1f).growX().color(Pal.gray).pad(4f).row();
-            toggleButton(panel, Icon.left, "ironworks.sidebar.hide", key, defaultEnabled);
+            ImageButtonStyle style = new ImageButtonStyle(Styles.clearNonei);
+            style.imageUp = Icon.settings;
+            style.imageUpColor = Color.lightGray;
+            ImageButton button = new ImageButton(style);
+            button.resizeImage(20f);
+            button.clicked(IronworksLogDialog::show);
+
+            Tooltip tip = new Tooltip(t -> t.background(Styles.black6).margin(4f)
+                .add(Core.bundle.get("ironworks.sidebar.tooltip")).style(Styles.outlineLabel));
+            tip.allowMobile = true;
+            button.addListener(tip);
+
+            bar.add(button).size(26f, 520f);
         }
 
         if(root == null || root.parent == null){
-            if(panel.parent != null) panel.remove();
+            if(bar.parent != null) bar.remove();
             root = null;
             if(ui != null && ui.hudGroup != null){
                 ui.hudGroup.fill(t -> {
                     root = t;
                     t.touchable = Touchable.childrenOnly;
-                    t.left().add(panel).width(54f).padLeft(6f);
+                    t.left().add(bar).width(26f).height(520f);
                 });
             }
         }
-    }
-
-    private static void settingsButton(Table table, Drawable icon, String tooltipKey, Runnable action){
-        ImageButton button = new ImageButton(style(icon, false));
-        button.resizeImage(30f);
-        button.clicked(action);
-        addTooltip(button, tooltipKey);
-        table.add(button).size(44f).pad(2f).row();
-    }
-
-    private static ImageButton toggleButton(Table table, Drawable icon, String tooltipKey, String settingKey, boolean def){
-        ImageButton button = new ImageButton(style(icon, true));
-        button.resizeImage(30f);
-        button.setChecked(Core.settings.getBool(settingKey, def));
-        button.clicked(() -> {
-            boolean value = !Core.settings.getBool(settingKey, def);
-            Core.settings.put(settingKey, value);
-            button.setChecked(value);
-        });
-        button.update(() -> button.setChecked(Core.settings.getBool(settingKey, def)));
-        addTooltip(button, tooltipKey);
-        table.add(button).size(44f).pad(2f).row();
-        return button;
-    }
-
-    private static ImageButtonStyle style(Drawable icon, boolean toggle){
-        ImageButtonStyle style = new ImageButtonStyle(toggle ? Styles.clearNoneTogglei : Styles.clearNonei);
-        style.imageUp = icon;
-        style.imageUpColor = Color.white;
-        return style;
-    }
-
-    private static void addTooltip(ImageButton button, String tooltipKey){
-        Tooltip tip = new Tooltip(t -> t.background(Styles.black6).margin(4f)
-            .add(Core.bundle.get(tooltipKey)).style(Styles.outlineLabel));
-        tip.allowMobile = true;
-        button.addListener(tip);
     }
 }

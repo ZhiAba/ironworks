@@ -59,6 +59,9 @@ public class IronworksAuxSettings{
             card.left().margin(8f);
             card.add(Elems.check(Core.bundle.get(nameKey), Core.settings.getBool(key, def), value -> {
                 Core.settings.put(key, value);
+                IronworksNotifications.info(Core.bundle.format("ironworks.log.setting",
+                    Core.bundle.get(value ? "ironworks.log.on" : "ironworks.log.off"),
+                    Core.bundle.get(nameKey)));
             })).growX().left().row();
             card.add(Core.bundle.get(descriptionKey))
                 .color(Color.lightGray).left().wrap().width(descWidth).padTop(4f).row();

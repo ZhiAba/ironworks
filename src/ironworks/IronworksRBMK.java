@@ -618,6 +618,9 @@ public class IronworksRBMK{
                 // 这里如果因为 dead 提前 return，运行时被摧毁就永远不会炸了。
                 if(melted) return;
                 melted = true;
+                if(!headless){
+                    IronworksNotifications.warn(Core.bundle.format("ironworks.log.reactor.meltdown", tileX(), tileY()));
+                }
 
                 if(state.rules.reactorExplosions){
                     // 功率越高、堆芯越热，炸得越狠（冷停堆被拆只会小爆）

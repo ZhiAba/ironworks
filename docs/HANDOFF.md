@@ -1,4 +1,4 @@
-# 铁流工业 交接文档（2026-10-24，v2.1.2.0）
+# 铁流工业 交接文档（2026-10-24，v2.1.3.0）
 
 ## 仓库与产物
 - 源码：`/sdcard/dsh/mindustry-mod`
@@ -10,17 +10,17 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`c96b402b2e754d0f03e47f5f88811544`（2.1.2.0，已部署双客户端）
+- 当前 jar md5：`8d66775dbab305441a87d42c58b8a46c`（2.1.3.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 
-## 本次（2.1.2.0）：左侧快捷工具栏
-- 研究 DeepSpace 的 `singularity.ui.fragments.ToolBarFrag`：它把 50px 的 `Table + ScrollPane` 插进 `PlacementFragment.blockCatTable`，用 `Tex.clear + Styles.clearNoneTogglei` 做 50×50 图标按钮，`Tooltip` 提示，`Boolp` 勾选态
-- 独立实现 `IronworksSidebar`：没有改 DeepSpace 代码；没有塞 `blockCatTable`（我们的 `IronworksBlockSearch` 已经在重排那张表），改为挂在 `ui.hudGroup` 左侧中部，54px 窄条、44px 按钮、30px 图标、分组线
-- 按钮：辅助界面设置、电网总览、物流监视、伤害数字、隐藏侧边栏；开关读 `Core.settings`，勾选态实时同步
-- 设置：`ironworks.sidebar.enabled` 默认开；「设置 → 铁流工业 → 辅助界面…」可关；隐藏后从同一界面重新打开
+## 本次（2.1.3.0）：左侧长条 + 日志
+- 研究 DeepSpace 的 `singularity.ui.fragments.NotificationFrag`：左侧长边是一个 26×520 的侧边按钮（`SglStyles.sideButtonRight`），点击展开 notificationHistory；不是一排功能图标
+- 独立实现 `IronworksSidebar`：没有改 DeepSpace 代码；没有塞 `blockCatTable`（我们的 `IronworksBlockSearch` 已经在重排那张表），改为挂在 `ui.hudGroup` 左缘中央，26×520、黑色半透明、中间齿轮
+- 点击打开 `IronworksLogDialog`：`IronworksNotifications` 保留最近 100 条（加载/地图/电网缺电恢复/RBMK 熔毁/彩蛋/辅助开关），可清空、可跳辅助界面
+- 设置：`ironworks.sidebar.enabled` 默认开；「设置 → 铁流工业 → 辅助界面…」可关
 - 边界：客户端 only、无头跳过、不拦截地图点击、不改任何游戏数值
-- 测试：T30 + T154 + T155 子集 **3/3**，20 秒；工具栏实际位置/宽度需实机确认
-- 当前 jar md5：`c96b402b2e754d0f03e47f5f88811544`（2.1.2.0，已部署双客户端）
+- 测试：T30 + T154 + T155 子集 **3/3**，20 秒；长条实际位置需实机确认
+- 当前 jar md5：`8d66775dbab305441a87d42c58b8a46c`（2.1.3.0，已部署双客户端）
 
 ## 本次（2.1.1.0）：内嵌辅助 HUD（电网 / 物流）
 - 新增 `IronworksHud`：客户端右侧 HUD；`IronworksSettings` 加「辅助 HUD…」按钮，`IronworksAuxSettings` 是独立二级设置界面
@@ -160,7 +160,7 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-24 08:25）
-状态：v2.1.2.0 已构建并部署双客户端，md5 `c96b402b2e754d0f03e47f5f88811544`。
+状态：v2.1.3.0 已构建并部署双客户端，md5 `8d66775dbab305441a87d42c58b8a46c`。
 全量回归 **93/93**（700 秒）；最终 jar 上 T30（溅射）+ T154 + T155 子集复跑 20 秒通过。最终 jar 仅客户端 HUD/侧栏变化，无服务端行为改动。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归

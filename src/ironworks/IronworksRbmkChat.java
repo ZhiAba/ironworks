@@ -104,6 +104,9 @@ public class IronworksRbmkChat{
     static int detonateAll(){
         if(!enabled()) return 0;
         int n = IronworksRBMK.detonateAllWorking();
+        if(n > 0){
+            IronworksNotifications.warn(Core.bundle.format("ironworks.log.meme", n));
+        }
         Log.info("[IRONWORKS] meme detonation: " + n + " reactor(s)");
         IronworksLog.event("[MEME] detonated " + n + " reactor(s)");
         if(!Vars.headless && Vars.ui != null && Vars.ui.chatfrag != null){

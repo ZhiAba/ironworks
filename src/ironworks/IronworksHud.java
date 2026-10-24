@@ -50,6 +50,7 @@ public class IronworksHud{
     private static final Seq<Flow> flows = new Seq<>();
 
     private static Building flowTarget;
+    private static int lastLow;
     private static float flowLastSample;
     private static float[] itemPrev = new float[0], liquidPrev = new float[0];
 
@@ -73,6 +74,7 @@ public class IronworksHud{
         flowTarget = null;
         flows.clear();
         refreshTimer = 0f;
+        lastLow = 0;
         if(powerLabel != null) powerLabel.setText("");
         if(flowLabel != null){
             flowLabel.setText("");
@@ -148,6 +150,7 @@ public class IronworksHud{
     }
 
     private static void clearPower(){
+        lastLow = 0;
         if(powerLabel == null) return;
         powerLabel.setText("");
     }
@@ -187,6 +190,13 @@ public class IronworksHud{
             capacity += g.getTotalBatteryCapacity();
             if(g.getLastPowerNeeded() > 0.01f && g.getSatisfaction() < 0.995f) low++;
         }
+
+        if(low > 0 && lastLow == 0){
+            IronworksNotifications.warn(Core.bundle.format("ironworks.log.power.low", low));
+        }else if(low == 0 && lastLow > 0){
+            IronworksNotifications.info(Core.bundle.get("ironworks.log.power.ok"));
+        }
+        lastLow = low;
 
         int percent = capacity > 0.01f ? Math.max(0, Math.min(100, Math.round(stored / capacity * 100f))) : 0;
         String text = Core.bundle.format("ironworks.hud.power", graphs.size, rate(produced), rate(needed), signed(balance), percent);
