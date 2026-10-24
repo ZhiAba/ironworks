@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 9×9 RBMK 占位贴图生成器：把 5×5 底图放大到 288×288，并画出 3×3 分区网格。
+// 12×12 RBMK 占位贴图生成器：把底图放大到 384×384，并画出 3×3 分区网格。
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -117,17 +117,17 @@ function png(img){
 }
 
 const src = readPng(srcPath);
-const img = resize(src, 288, 288);
-const cell = 96;
+const img = resize(src, 384, 384);
+const cell = 128;
 for(let z = 0; z < 9; z++){
     const cx = z % 3, cy = Math.floor(z / 3);
     fill(img, cx * cell + 3, cy * cell + 3, cell - 6, cell - 6, 255, 120, 60, 0.055);
 }
 for(let k = 1; k < 3; k++){
-    fill(img, k * cell - 3, 0, 6, 288, 8, 10, 14, 0.72);
-    fill(img, 0, k * cell - 3, 288, 6, 8, 10, 14, 0.72);
-    fill(img, k * cell - 2, 0, 2, 288, 120, 140, 160, 0.18);
-    fill(img, 0, k * cell - 2, 288, 2, 120, 140, 160, 0.18);
+    fill(img, k * cell - 3, 0, 6, 384, 8, 10, 14, 0.72);
+    fill(img, 0, k * cell - 3, 384, 6, 8, 10, 14, 0.72);
+    fill(img, k * cell - 2, 0, 2, 384, 120, 140, 160, 0.18);
+    fill(img, 0, k * cell - 2, 384, 2, 120, 140, 160, 0.18);
 }
 for(let z = 0; z < 9; z++){
     const cx = z % 3, cy = Math.floor(z / 3);
@@ -136,5 +136,5 @@ for(let z = 0; z < 9; z++){
     fill(img, x + 2, y + 2, 5, 5, 255, 196, 84, 0.95);
 }
 fs.writeFileSync(outPath, png(img));
-fs.writeFileSync(uiPath, png(resize(img, 256, 256)));
-console.log('wrote', outPath, '288x288;', uiPath, '256x256');
+fs.writeFileSync(uiPath, png(resize(img, 320, 320)));
+console.log('wrote', outPath, '384x384;', uiPath, '320x320');

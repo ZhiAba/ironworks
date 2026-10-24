@@ -183,14 +183,19 @@ public class IronworksTech{
         TechNode rbmk = node(clusterNode, IronworksRBMK.reactor,
             with(IronworksMaterials.siliconCarbide, 120, IronworksItems.steelPlate, 400,
                  IronworksSilicon.quantumCore, 4, Items.silicon, 500));
-        // 9×9 分区堆芯（2.2.0.0）：3×3 个独立 3×3 区块，共用给水/蒸汽集管
+        // 12×12 分区堆芯（2.3.0.0）：3×3 个独立 4×4 区块，共用给水/蒸汽集管
         node(rbmk, IronworksRBMK.zonedReactor,
-            with(IronworksMaterials.siliconCarbide, 360, IronworksItems.steelPlate, 1200,
-                 IronworksSilicon.quantumCore, 12, IronworksAluminum.aviationAluminum, 240,
-                 Items.silicon, 1500, Items.metaglass, 600));
+            with(IronworksMaterials.siliconCarbide, 600, IronworksItems.steelPlate, 2000,
+                 IronworksSilicon.quantumCore, 20, IronworksAluminum.aviationAluminum, 400,
+                 Items.silicon, 2500, Items.metaglass, 1000));
         TechNode turbineNode = node(rbmk, IronworksRBMK.turbine,
             with(IronworksItems.steelPlate, 150, IronworksSilicon.quantumCore, 1,
                  Items.silicon, 200, Items.metaglass, 120));
+        // 4×4 大型汽轮机：360 蒸汽/秒 → 72000 电/秒，一台配一个 4×4 分区
+        node(turbineNode, IronworksRBMK.largeTurbine,
+            with(IronworksItems.steelPlate, 800, IronworksMaterials.siliconCarbide, 200,
+                 IronworksSilicon.quantumCore, 16, IronworksAluminum.aviationAluminum, 400,
+                 Items.silicon, 1200, Items.metaglass, 600));
         // 冷却塔：汽轮机回水的闭环
         node(turbineNode, IronworksNuclear.coolingTower,
             with(IronworksItems.steelPlate, 60, Items.metaglass, 60, Items.titanium, 30));

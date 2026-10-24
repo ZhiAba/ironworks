@@ -105,7 +105,7 @@
 165	T165 line=5 water=500 source=[0-9]+
 166	T166 startHeat=[0-9]+ startWater=[0-9]+ melted=false maxHeat=[0-9]+ protect=[0-9]+ rods=[0-9]+ water=[0-9]+
 167	T167 manual=true auto=false semi=false
-168	T168 size=9 zones=9 sel=-1
+168	T168 size=12 zones=9 sel=-1
 169	T169 r0=0\.00 r1=0\.80 r2=0\.20 f0=[0-9]+ f1=[0-9]+ indep=true melted=false
 170	T170 all35=true sel=-1
 171	T171 th=0\.50 flow0=[0-9.]+ flow1=[0-9.]+ less=true
@@ -113,3 +113,5 @@
 173	T173 same=true sel=6
 174	T174 flow=[0-9.]+ high=true
 175	T175 flash=true prompts=9 targets=9
+176	T176 power=72000 warm=[0-9]+ used=[0-9]+ ratio=1(\.0[0-9])? flow=100
+177	T177 rate=[0-9]+ perZone=[0-9]+ near=true
