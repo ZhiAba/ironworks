@@ -12,6 +12,7 @@ import arc.scene.event.Touchable;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.util.Align;
 import mindustry.game.EventType.ResetEvent;
@@ -184,9 +185,11 @@ public class IronworksLogPanel{
     private static void layoutOverlay(){
         if(windowBack == null || panel == null) return;
         float w = Core.graphics.getWidth(), h = Core.graphics.getHeight();
+        float scl = Scl.scl(1f);
         windowBack.setSize(w, h);
-        panelWidth = Math.min(920f, w * 0.78f);
-        panelHeight = Math.min(720f, h * 0.72f);
+        // Cell 尺寸会被 Scl 放大；panel 本身是原始像素，所以这里把宽高换算成实际像素。
+        panelWidth = Math.min(820f, w / scl * 0.82f) * scl;
+        panelHeight = Math.min(720f, h / scl * 0.72f) * scl;
         panel.setSize(panelWidth, panelHeight);
         if(open){
             panel.setPosition((w - panelWidth) / 2f, (h - panelHeight) / 2f);
@@ -204,7 +207,7 @@ public class IronworksLogPanel{
             return;
         }
 
-        float textWidth = Math.max(220f, panelWidth - 150f);
+        float textWidth = Math.max(120f, panelWidth / Scl.scl(1f) - 150f);
         for(int i = IronworksNotifications.entries().size - 1; i >= 0; i--){
             IronworksNotifications.Entry entry = IronworksNotifications.entries().get(i);
             Table row = new Table(Styles.grayPanel);
