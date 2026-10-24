@@ -2,6 +2,7 @@ package ironworks;
 
 import arc.Core;
 import arc.Events;
+import arc.func.Cons;
 import arc.struct.Seq;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.mod.Mods;
@@ -25,6 +26,8 @@ public class IronworksNotifications{
     private static boolean initialized;
     /** 数据版本号；打开中的日志面板据此刷新，不需要每帧比较整张表。 */
     private static int revision;
+    /** 新通知监听器；弹出通知条只挂客户端，headless 下不会注册。 */
+    private static final Seq<Cons<Entry>> listeners = new Seq<>();
 
     private IronworksNotifications(){
     }
@@ -61,8 +64,12 @@ public class IronworksNotifications{
         if(entries.size >= maxEntries){
             entries.remove(0);
         }
-        entries.add(new Entry(System.currentTimeMillis(), text, warning));
+        Entry entry = new Entry(System.currentTimeMillis(), text, warning);
+        entries.add(entry);
         revision++;
+        for(int i = 0; i < listeners.size; i++){
+            listeners.get(i).get(entry);
+        }
     }
 
     public static Seq<Entry> entries(){
@@ -71,6 +78,10 @@ public class IronworksNotifications{
 
     public static int revision(){
         return revision;
+    }
+
+    public static void addListener(Cons<Entry> listener){
+        if(listener != null) listeners.add(listener);
     }
 
     public static void remove(Entry entry){

@@ -57,6 +57,7 @@ public class IronworksMod extends Mod{
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
         IronworksNotifications.init(); // 左侧日志数据源
         IronworksLogPanel.init();      // 动画日志面板
+        IronworksNotificationPopups.init(); // 新警告弹出条
         IronworksSidebar.init();      // 左侧长条：点击打开日志
         IronworksHud.init();          // 辅助 HUD：电网总览 + 物流监视
         IronworksSettings.init();    // 设置 → 铁流工业

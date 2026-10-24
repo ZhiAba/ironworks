@@ -71,6 +71,10 @@ public class IronworksLogPanel{
         }
     }
 
+    public static boolean isOpen(){
+        return open;
+    }
+
     public static void show(){
         if(headless || ui == null || ui.hudGroup == null) return;
         ensure();
