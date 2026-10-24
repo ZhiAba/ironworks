@@ -93,3 +93,8 @@
 154	T154 tsun=water liquid=water lancer=thunder malign=energy napalm=fire corr=corrosive tianfa=thunder armor=true bonus=true wet=true
 155a	T155a disabledAlive=true
 155b	T155b enabledMelted=true
+156	T156 high=50 low=20 acceptHigh=false acceptLow=true acceptAtLow=true
+157	T157 semi=[0-9]+ auto=[0-9]+ manual=[0-9]+ cap=true
+158	T158 filled=5000 hold=3000 low=20 high=50
+159	T159 high=[0-9]+ low=[0-9]+ cap=true band=true
+160	T160 melted=false boom=0

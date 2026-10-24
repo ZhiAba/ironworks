@@ -291,10 +291,16 @@ public class IronworksRBMK{
             public float xenon = 0f, iodine = 0f;
             /** 实际冷却液满足率 0..1（给水量 / 需水量）。 */
             public float flow = 1f;
-            /** 强制手动模式下的水位上限 0..1（占 10000 L 水罐的比例）。 */
+            /** 强制手动模式下的最高水位线（水罐硬上限）0..1。 */
             public float waterTarget = 1f;
-            /** 当前生效的水位上限 0..1：手动=滑条，半自动/全自动=后台算法。 */
+            /** 当前生效的最高水位线 0..1：手动=滑条，半自动/全自动=后台算法（≤90%）。 */
             public float waterLevel = 1f;
+            /** 强制手动模式下的最低水位线 0..1；低于它才启动给水泵。 */
+            public float waterLowTarget = 0.55f;
+            /** 当前生效的最低水位线 0..1：手动=滑条，半自动/全自动=后台算法。 */
+            public float waterLowLevel = 0.55f;
+            /** 给水泵锁存：低于低线启动，补到高线才停（不写入存档）。 */
+            public boolean feedwaterActive = false;
             /** 平滑后的水→汽流量（L/s），面板显示用。 */
             public float steamRate = 0f;
             /** 汽路憋压 + 插棒到底的引爆倒计时（秒）。 */
@@ -351,9 +357,15 @@ public class IronworksRBMK{
                     boronArmed = true;
                     return;
                 }
+                if(v >= 2000){
+                    // 2000 + 百分比：强制手动的最低水位线（低于它才启动给水泵）
+                    waterLowTarget = Mathf.clamp((v - 2000) / 100f, 0f, waterTarget);
+                    return;
+                }
                 if(v >= 1000){
-                    // 1000 + 百分比：强制手动的水位上限（最大可接受液体容量）
+                    // 1000 + 百分比：强制手动的最高水位线（水罐硬上限）
                     waterTarget = Mathf.clamp((v - 1000) / 100f, 0f, 1f);
+                    waterLowTarget = Math.min(waterLowTarget, waterTarget);
                     return;
                 }
                 if(v < 0) return;
@@ -401,13 +413,17 @@ public class IronworksRBMK{
                     rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedScram : rodSpeedNormal);
                 }
 
-                // —— 1. 水位上限：强制手动=滑条；半自动/全自动=后台算法 ——
+                // —— 1. 双水位线：最高线是硬上限，最低线是给水泵启动线 ——
                 if(controlMode == MODE_MANUAL){
                     waterLevel = waterTarget;
+                    waterLowLevel = Math.min(waterLowTarget, waterLevel);
                 }else{
-                    // 高功率多留水（热惯性大），低功率少留水；55%~90% 之间自动找平衡
-                    float autoTarget = Mathf.clamp(0.55f + 0.35f * Math.min(flux, 1f), 0.55f, 0.9f);
-                    waterLevel = Mathf.lerpDelta(waterLevel, autoTarget, 0.02f);
+                    // 自动/半自动：高功率留更多水，但最高线始终 ≤90%；低线随高线上下浮动。
+                    float autoHigh = Mathf.clamp(0.55f + 0.35f * Math.min(flux, 1f), 0.55f, 0.9f);
+                    float autoLow = Mathf.clamp(autoHigh - 0.2f, 0.25f, autoHigh - 0.05f);
+                    waterLevel = Mathf.lerpDelta(waterLevel, autoHigh, 0.02f);
+                    waterLowLevel = Mathf.lerpDelta(waterLowLevel, autoLow, 0.02f);
+                    if(waterLowLevel > waterLevel - 0.02f) waterLowLevel = Math.max(0f, waterLevel - 0.02f);
                 }
 
                 // —— 2. 排汽：先把上一 tick 的蒸汽推给汽轮机/蒸汽管 ——
@@ -424,7 +440,10 @@ public class IronworksRBMK{
                 pullFeedwater(dt);
 
                 // —— 4. 水 → 汽 1:1（受水、汽包空间、总容量三重限制）——
-                float demand = Math.max(flux, 0f) * waterPerSecond * dt;
+                // 自动/半自动的水汽通量硬上限是额定 980 L/s；手动模式保留 >980 的超通量通道。
+                float processFlux = Math.max(flux, 0f);
+                if(controlMode != MODE_MANUAL) processFlux = Math.min(processFlux, 1f);
+                float demand = processFlux * waterPerSecond * dt;
                 float water = liquids.get(Liquids.water);
                 float steamRoom = steamCapacity - liquids.get(IronworksLiquids.steam);
                 float totalRoom = LiquidKit.totalSpace(this);
@@ -450,9 +469,10 @@ public class IronworksRBMK{
                 if(poisoned) poisonFactor = 0f;
 
                 float target = fluxMax * rodCeiling * poisonFactor;
-                // 空泡正反应性：没水/没汽路时上限被顶到 2.2 倍，可越过棒位限制（RBMK 的致命点）
+                // 空泡正反应性：没水/没汽路时上限被顶高，可越过棒位限制（RBMK 的致命点）。
+                // 但自动/半自动只允许额定 100%（980 L/s）；手动模式才允许 125% 超通量。
                 target *= 1f + (1f - flow) * 1.2f;
-                target = Mathf.clamp(target, 0f, fluxMax);
+                target = Mathf.clamp(target, 0f, controlMode == MODE_MANUAL ? fluxMax : 1f);
 
                 // 一阶滞后（中子动力学）：插棒/提棒后通量慢慢追上限
                 flux = Mathf.lerpDelta(flux, target, 0.008f);
@@ -552,15 +572,15 @@ public class IronworksRBMK{
              * 汽路堵死 + 水罐满 + 控制棒插到底：AZ-5 式的正反应性尖峰，2 秒后炸堆。
              *
              * <p>「水罐满」按**实际水罐 98%（9800 L）**算，不按滑条上限：
-             * 自动水位最高 90%，天然不会触发 AZ-5；手动把水位上限拉到 100%
-             * 才可能把罐灌到 9800 以上 —— 这是操作员自己选的危险工况。
+             * 自动/半自动最高线 ≤90%、水汽通量 ≤980 L/s，天然不会走到爆堆工况；
+             * 手动把最高线拉到 100%（水罐 ≥9800 L）才可能触发，压力爆炸只属于手动模式。
              */
             void checkPressureBoom(float dt, boolean hasFuel){
                 boolean waterFull = liquids.get(Liquids.water) >= waterCapacity * 0.98f;
                 boolean steamStuck = liquids.get(IronworksLiquids.steam) >= steamCapacity - 2f;
                 boolean rodsBottom = targetRods >= 0.995f && rods >= 0.995f;
                 boolean live = hasFuel && (heat > 0.1f || flux > 0.02f);
-                if(waterFull && steamStuck && rodsBottom && live && !melted){
+                if(controlMode == MODE_MANUAL && waterFull && steamStuck && rodsBottom && live && !melted){
                     coreBoom += dt;
                     if(coreBoom >= pressureFuse) detonate();
                 }else{
@@ -568,11 +588,19 @@ public class IronworksRBMK{
                 }
             }
 
-            /** 从相邻管路/水罐主动抽水到水位上限（反应堆自带给水泵，不靠导管慢慢渗）。 */
+            /** 从相邻管路/水罐主动抽水：低于最低线才启泵，补到最高线停止。 */
             void pullFeedwater(float dt){
-                float target = waterLevel * waterCapacity;
-                float need = target - liquids.get(Liquids.water);
-                if(need <= 0.5f) return;
+                float high = waterLevel * waterCapacity;
+                float low = waterLowLevel * waterCapacity;
+                float water = liquids.get(Liquids.water);
+                if(water >= high - 0.5f){
+                    feedwaterActive = false;
+                    return;
+                }
+                // 低于低线才启泵；启泵后锁存到最高线，避免刚补过低线就停。
+                if(water <= low + 0.5f) feedwaterActive = true;
+                if(!feedwaterActive) return;
+                float need = high - water;
                 float budget = Math.min(need, feedwaterRate * dt);
                 if(budget <= 0.001f) return;
 
@@ -668,7 +696,7 @@ public class IronworksRBMK{
              */
             @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
-                // 水：只接到「水位上限」为止（手动=滑条，自动=算法），超过就不再收
+                // 水：只接到「最高水位线」为止（手动=滑条，自动=算法 ≤90%），超过就不再收
                 if(liquid == Liquids.water){
                     if(source != null){
                         int side = relativeTo(source);
@@ -741,7 +769,7 @@ public class IronworksRBMK{
                     Label rodLabel = new Label("");
                     rodLabel.update(() -> rodLabel.setText(controlMode == MODE_AUTO
                         ? Core.bundle.format("ironworks.rbmk.power.now",
-                            Mathf.round(autoPower * 100f), Mathf.round(flux / fluxMax * 100f))
+                            Mathf.round(autoPower * 100f), Mathf.round(Math.min(flux, 1f) * 100f))
                         : Core.bundle.format("ironworks.rbmk.rods.now",
                             Mathf.round(targetRods * 100f), Mathf.round(rods * 100f))));
                     c.add(rodLabel).left().growX().row();
@@ -759,32 +787,52 @@ public class IronworksRBMK{
                         .width(230f).color(Color.lightGray).left().row();
                 }).width(w).row();
 
-                // —— 水位上限（最大可接受液体容量）：仅强制手动可拖，半自动/全自动后台算 ——
+                // —— 双水位线：最低线启动给水泵，最高线是水罐硬上限 ——
                 table.table(Styles.grayPanel, c -> {
                     c.defaults().pad(5f);
                     Label waterLabel = new Label("");
                     waterLabel.update(() -> {
                         int cur = Mathf.round(liquids.get(Liquids.water));
-                        waterLabel.setText(controlMode == MODE_MANUAL
-                            ? Core.bundle.format("ironworks.rbmk.water.now",
-                                Mathf.round(waterTarget * 100f), cur, (int)waterCapacity)
-                            : Core.bundle.format("ironworks.rbmk.water.auto",
-                                Mathf.round(waterLevel * 100f), cur, (int)waterCapacity));
+                        float low = controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel;
+                        float high = controlMode == MODE_MANUAL ? waterTarget : waterLevel;
+                        waterLabel.setText(Core.bundle.format("ironworks.rbmk.water.line",
+                            cur, (int)waterCapacity, Mathf.round(low * 100f), Mathf.round(high * 100f)));
                     });
                     c.add(waterLabel).left().growX().row();
 
-                    Slider waterSlider = new Slider(0f, 100f, 1f, false);
-                    waterSlider.moved(v -> {
-                        // 半自动/全自动「不接这条」：后台算法说了算
+                    Label lowLabel = new Label("");
+                    lowLabel.update(() -> lowLabel.setText(Core.bundle.format("ironworks.rbmk.water.low",
+                        Mathf.round((controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel) * 100f))));
+                    c.add(lowLabel).left().row();
+
+                    Slider lowSlider = new Slider(0f, 100f, 1f, false);
+                    lowSlider.moved(v -> {
+                        if(controlMode == MODE_MANUAL) configure(2000 + (int)v);
+                    });
+                    lowSlider.update(() -> {
+                        lowSlider.touchable = controlMode == MODE_MANUAL
+                            ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
+                        float shown = controlMode == MODE_MANUAL ? waterLowTarget : waterLowLevel;
+                        if(!lowSlider.isDragging()) lowSlider.setValue(shown * 100f);
+                    });
+                    c.add(lowSlider).width(230f).row();
+
+                    Label highLabel = new Label("");
+                    highLabel.update(() -> highLabel.setText(Core.bundle.format("ironworks.rbmk.water.high",
+                        Mathf.round((controlMode == MODE_MANUAL ? waterTarget : waterLevel) * 100f))));
+                    c.add(highLabel).left().row();
+
+                    Slider highSlider = new Slider(0f, 100f, 1f, false);
+                    highSlider.moved(v -> {
                         if(controlMode == MODE_MANUAL) configure(1000 + (int)v);
                     });
-                    waterSlider.update(() -> {
-                        waterSlider.touchable = controlMode == MODE_MANUAL
+                    highSlider.update(() -> {
+                        highSlider.touchable = controlMode == MODE_MANUAL
                             ? arc.scene.event.Touchable.enabled : arc.scene.event.Touchable.disabled;
                         float shown = controlMode == MODE_MANUAL ? waterTarget : waterLevel;
-                        if(!waterSlider.isDragging()) waterSlider.setValue(shown * 100f);
+                        if(!highSlider.isDragging()) highSlider.setValue(shown * 100f);
                     });
-                    c.add(waterSlider).width(230f).row();
+                    c.add(highSlider).width(230f).row();
 
                     Label waterHint = new Label("");
                     waterHint.update(() -> waterHint.setText(Core.bundle.get(
@@ -898,7 +946,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return 6;
+                return 7;
             }
 
             @Override
@@ -919,6 +967,7 @@ public class IronworksRBMK{
                 write.i(controlMode);
                 write.f(autoPower);
                 write.f(waterTarget);
+                write.f(waterLowTarget);
                 write.b(waterSide);
             }
 
@@ -941,8 +990,10 @@ public class IronworksRBMK{
                     controlMode = read.i();
                     autoPower = read.f();
                     if(revision >= 5) waterTarget = read.f();
+                    if(revision >= 7) waterLowTarget = read.f();
                     if(revision >= 6) waterSide = read.b();
                 }
+                waterLowTarget = Math.min(waterLowTarget, waterTarget);
             }
         }
     }
