@@ -176,6 +176,7 @@ public class IronworksNotificationPopups{
                 Actions.moveBy(-popupWidth, 0f, 0.28f, Interp.pow3Out)),
             Actions.delay(staySeconds),
             Actions.run(() -> dismiss(popup, false))));
+        if(root != null) root.addChild(bar);
         return popup;
     }
 

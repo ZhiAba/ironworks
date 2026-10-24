@@ -10,7 +10,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`9912057144001eab597153ec67d8d135`（2.1.6.0，已部署双客户端）
+- 当前 jar md5：`d104b5e61924ab64a31add6ec5dc2c1b`（2.1.6.0，已部署双客户端）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 
 ## 本次（2.1.6.0）：通知弹出条
@@ -19,7 +19,7 @@
 - 弹出条宽度/高度/间距按 `Scl.scl(1f)` 换算，限制在屏幕内；带红色警示边、警告图标、自动换行文本
 - 客户端 only；headless 不初始化；没有新存档字段
 - 测试：RBMK 116/135/136/142/149 + T30/T154/T155 合并 **18/18**，38 秒；弹窗位置/动画/自动收起需实机确认
-- 当前 jar md5：`9912057144001eab597153ec67d8d135`（2.1.6.0，已部署双客户端）
+- 当前 jar md5：`d104b5e61924ab64a31add6ec5dc2c1b`（2.1.6.0，已部署双客户端）
 
 ## 本次（2.1.5.0）：RBMK 异常广播
 - 新增 `IronworksRbmkAlerts`：在 `RBMKReactorBuild.updateTile` 末尾调用，客户端按条件边沿写 `IronworksNotifications.warn`；异常消失并稳定 3 秒后重新武装，避免抖动刷屏
@@ -185,7 +185,7 @@
 - 用户当前使用游戏刻加速模组（日志 `dt` 可看倍率）
 
 ## 重启后从这里继续（2026-10-24 08:25）
-状态：v2.1.6.0 已构建并部署双客户端，md5 `9912057144001eab597153ec67d8d135`。
+状态：v2.1.6.0 已构建并部署双客户端，md5 `d104b5e61924ab64a31add6ec5dc2c1b`。
 最近子集：RBMK 116/135/136/142/149 + T30/T154/T155 合并复跑 **18/18**（38 秒）。通知弹出条和 RBMK 广播属客户端 UI/通知，位置、动画和文案需实机确认；反应堆数值逻辑未改。
 
 1. 若主人在会话里说“继续”：先看这份文档，然后确认是否需要把 T76/T77 纳入整轮回归

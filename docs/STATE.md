@@ -15,7 +15,7 @@ Mindustry 模组「铁流工业」v2.1.6.0，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v2.1.6.0 / md5 `9912057144001eab597153ec67d8d135`，双端已部署（2026-10-24）
+- 当前：v2.1.6.0 / md5 `d104b5e61924ab64a31add6ec5dc2c1b`，双端已部署（2026-10-24）
 
 ## 客户端版本实测
 | 包名 | 引擎 |
