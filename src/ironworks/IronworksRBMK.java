@@ -321,8 +321,15 @@ public class IronworksRBMK{
             public boolean boronArmed = false;
             /** 堆芯永久中毒：注硼吸够了，反应堆再也起不来，只能拆。 */
             public boolean poisoned = false;
-            /** SCRAM 引爆倒计时（AZ-5 效应：高功率瞬间插棒 → 正反应性尖峰）。 */
+            /**
+             * SCRAM 闪蒸瞬态剩余秒数（AZ-5 效应：高功率瞬间插棒 → 正反应性尖峰）。
+             * 它**不再直接引爆**，只用于蒸汽特效和警报去重；真正的熔毁仍然走堆温积分。
+             */
             public float scramBoom = 0f;
+            /** 闪蒸后额外的堆芯发热率（每秒）：正反应性尖峰的热冲击，会随时间衰减。 */
+            public float promptHeat = 0f;
+            /** 最近一次 AZ-5 闪蒸掉的水量（仅调试/测试观测，不写存档）。 */
+            public float lastFlash = 0f;
             /** 当前棒位对应的功率上限（%），面板显示用。 */
             public float rodCeilingPct = 0f;
             /** 是否已熔毁（防止重复爆炸）。 */
@@ -347,8 +354,9 @@ public class IronworksRBMK{
                 if(v == -11){ controlMode = MODE_AUTO; return; }
                 if(v == -12){ controlMode = MODE_MANUAL; return; }
                 if(v == -1){
-                    // SCRAM：棒全部插进去。高功率时插棒会触发 AZ-5 正反应性尖峰 → 可能直接炸
-                    if(heat > 0.75f && flux > 0.9f && !melted) scramBoom = 30f;
+                    // SCRAM：棒全部插进去。高功率时 AZ-5 会先闪蒸冷却水、抬高堆温，
+                    // 是否熔毁由后续的堆温积分决定，不再在倒计时结束时直接 detonate()。
+                    if(heat > 0.75f && flux > 0.9f && !melted) startScramFlash();
                     targetRods = 1f;
                     return;
                 }
@@ -375,6 +383,52 @@ public class IronworksRBMK{
                 }else{
                     targetRods = Mathf.clamp(v / 100f, 0f, 1f);
                 }
+            }
+
+            /**
+             * AZ-5 正反应性尖峰的真实后果：插棒瞬间把堆芯里的过冷水闪蒸成蒸汽。
+             *
+             * <p>闪蒸不是「倒计时引爆」：它会
+             * <ol>
+             *   <li>把相当一部分冷却水转成蒸汽（汽包可能超过 2000 L 的软上限）；</li>
+             *   <li>让有效给水/排汽暴跌，空泡正反应性把通量顶高；</li>
+             *   <li>给堆芯一个额外的热冲击（{@link #promptHeat}），随后由温度积分自然升温；</li>
+             * </ol>
+             * 如果给水泵还能补水、汽路还能排汽，反应堆有机会挺过去；否则堆温越过
+             * {@link #meltTemp} 后，仍由原有的 1 秒熔毁确认逻辑爆炸。
+             */
+            void startScramFlash(){
+                if(melted || scramBoom > 0f) return;
+                float water = liquids.get(Liquids.water);
+                if(water < 100f) return;
+
+                float waterFrac = water / waterCapacity;
+                // 水越满、通量越高、堆越热，闪蒸越剧烈；上限 75%，避免一次把水全蒸干
+                float severity = Mathf.clamp(0.30f + flux * 0.25f + heat * 0.12f + waterFrac * 0.18f,
+                    0.30f, 0.75f);
+                float flash = water * severity;
+                float steamBefore = liquids.get(IronworksLiquids.steam);
+
+                // 1:1 水→汽。蒸汽可以短暂超过汽包容积，这正是「憋压」的来源；
+                // 多出来的蒸汽会由 dumpLiquid 往相邻汽路排，排不掉就留在堆里。
+                liquids.remove(Liquids.water, flash);
+                liquids.add(IronworksLiquids.steam, flash);
+                float flashed = liquids.get(IronworksLiquids.steam) - steamBefore;
+
+                // 正反应性尖峰的热冲击：不是直接加 40% 堆温，而是一段持续数秒的额外发热率，
+                // 让温度曲线看起来像「瞬跳 + 快速爬升」，也给操作员留出补救窗口。
+                promptHeat = Math.max(promptHeat, 0.16f + severity * 0.18f);
+                heat = Math.min(2f, heat + 0.02f + severity * 0.06f);
+                scramBoom = 4f;
+
+                if(!headless){
+                    for(int i = 0; i < 8; i++){
+                        Fx.steam.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
+                    }
+                    Fx.reactorsmoke.at(x, y);
+                }
+                // 仅用于调试/测试观测：闪蒸掉的水量（运行时状态，不写存档）
+                lastFlash = flashed;
             }
 
             @Override
@@ -447,12 +501,12 @@ public class IronworksRBMK{
                 float water = liquids.get(Liquids.water);
                 float steamRoom = steamCapacity - liquids.get(IronworksLiquids.steam);
                 float totalRoom = LiquidKit.totalSpace(this);
-                float converted = Math.min(demand, Math.min(water, Math.min(steamRoom, totalRoom)));
+                float converted = Math.max(0f, Math.min(demand, Math.min(water, Math.min(steamRoom, totalRoom))));
                 if(converted > 0.0001f){
                     liquids.remove(Liquids.water, converted);
                     liquids.add(IronworksLiquids.steam, converted);
                 }
-                float flowRaw = demand <= 0.0001f ? 1f : converted / demand;
+                float flowRaw = demand <= 0.0001f ? 1f : Mathf.clamp(converted / demand, 0f, 1f);
                 flow = Mathf.lerpDelta(flow, flowRaw, 0.08f);
                 // 流量读数（L/s）：1:1，给水多少就产汽多少
                 float instRate = dt <= 0.00001f ? 0f : converted / dt;
@@ -506,12 +560,15 @@ public class IronworksRBMK{
                 // 燃耗进度 = 当前这根烧到哪儿了（0..1）
                 if(hasFuel && flux > 0.01f) rodBurn = Mathf.clamp(fuelUse);
 
-                // —— 7. 热：发热 ∝ 通量；冷却 ∝ 给水流量 × 堆温（含少量本底散热）——
+                // —— 7. 热：发热 ∝ 通量（+ AZ-5 闪蒸后的正反应性热冲击）；冷却 ∝ 给水流量 × 堆温 ——
                 // 满通量 + 满给水：平衡温度 ≈ 79%；给水掉一半 → 平衡温度 >100%（会烧）；
                 // 完全断水：约 9 秒从 0 升到 125% → 再加 1 秒熔毁确认。
-                float heatGen = flux * 0.14f;
+                // promptHeat 是 SCRAM 闪蒸带来的额外发热率，几秒内衰减；它不会直接引爆，
+                // 只是把「水没了 → 温度极速上升」这一段补上。
+                float heatGen = flux * 0.14f + promptHeat;
                 float cooling = flow * (0.06f + 0.09f * heat) + 0.01f;
                 heat = Mathf.clamp(heat + (heatGen - cooling) * dt, 0f, 2f);
+                promptHeat = Math.max(0f, promptHeat - dt * 0.22f);
 
                 // —— 8. 氙毒（碘 → 氙，氙被通量烧掉）——
                 // 碘半衰期 ~90 秒（游戏内压缩），氙被通量强烈烧掉、停堆后衰变很慢
@@ -539,14 +596,20 @@ public class IronworksRBMK{
                 checkPressureBoom(dt, hasFuel);
                 if(melted) return;
 
-                // SCRAM 引爆倒计时
+                // SCRAM 闪蒸瞬态：只负责特效计时，绝不在这里 detonate()。
+                // 水已经变成蒸汽、流量已经崩掉，接下来由第 7 步的温度积分决定生死。
                 if(scramBoom > 0f){
-                    scramBoom -= dt * 60f;
-                    if(scramBoom <= 0f) detonate();
+                    scramBoom = Math.max(0f, scramBoom - dt);
+                    if(!headless && Mathf.chanceDelta(0.25f)){
+                        Fx.steam.at(x + Mathf.range(size * 4f), y + Mathf.range(size * 4f));
+                    }
                 }
 
                 // —— 10. 自动 SCRAM：半自动/全自动才有；强制手动模式没有任何自动保护 ——
+                // 自动保护同样会触发 AZ-5 闪蒸（高功率插棒一样有正反应性尖峰），
+                // 但不会直接引爆；如果冷却已经救不回来，仍然走堆温熔毁。
                 if(controlMode != MODE_MANUAL && heat > 1.05f && targetRods < 0.999f){
+                    startScramFlash();
                     targetRods = 1f;
                 }
 

@@ -98,3 +98,4 @@
 158	T158 filled=5000 hold=3000 low=20 high=50
 159	T159 high=[0-9]+ low=[0-9]+ cap=true band=true
 160	T160 melted=false boom=0
+161	T161 water=2500 steam=7500 flash=7500 immediate=false spike=true melted=true ticks=[0-9]+
