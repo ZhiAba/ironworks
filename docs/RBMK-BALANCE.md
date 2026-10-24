@@ -1,8 +1,8 @@
 # RBMK-9 平衡数据、逻辑与公式（v2.4.0.1）
 
 > 以当前代码为准：`src/ironworks/IronworksRBMK.java`、`IronworksNuclear.java`、`IronworksRbmkAlerts.java`。
-> `dt = delta()/60`（秒），`second = delta()`（秒）。所有“/s”都是按 60 tick=1 秒折算。
-> **重要更正：熔毁确认是连续 60 秒，不是 1 秒。** 旧版说明和部分注释里的“1 秒”是错的，代码 `meltTimer >= 60f` 才是实际值。
+> `dt = delta()/60`（秒）；`second = delta()` 是 **tick 增量**（正常 60 tick=1 秒），不是秒。所有“/s”都是按 60 tick=1 秒折算。
+> **熔毁确认：`meltTimer >= 60f`，而 `meltTimer` 累加的是 `delta()`（tick），所以是 60 tick = 1 秒（正常 60 tps）。** 之前“60 秒”的说法是把变量名 `second` 误当成秒，已纠正。
 
 ## 0. 先给结论
 
@@ -10,7 +10,7 @@
 - 手动 125% 通量峰值：**4050 L/s**（9×450 L/s），沿用普通 RBMK 的 125% 规则。
 - **当前没有“温度越高，水蒸发越快”的耦合。** 水→汽速度只由各区的 `zoneFlux` 决定；`heat` 不进入 `nominal`/蒸发公式。
 - 每个分区有独立热、通量、棒位、流量；水罐/汽包/给水泵/燃料/氙/硼是全局共用。
-- 单区温度 `>= 1.25` 连续 **60 秒** → 整堆熔毁；低于阈值时熔毁计时按 2×速度回落。
+- 单区温度 `>= 1.25` 连续 **60 tick（正常 1 秒）** → 整堆熔毁；低于阈值时熔毁计时按 2×速度回落。
 - 分区堆水罐 **32400 L**、汽包 **6480 L**、给水泵 **4700 L/s**。
 - 4×4 大型汽轮机：**360 蒸汽/s → 72000 电/s + 360 温水/s**（1:1）。
 - 2×2 小型冷却塔 **120 L/s**；4×4 大型冷却塔 **600 L/s**；3240 L/s 回水需要 **6 台大型塔**。
@@ -120,7 +120,7 @@ zonePrompt_i = max(0, zonePrompt_i - 0.22 * dt)
 
 - `tempK = 280 + heat*500`，UI 标成 °C；这是显示标度，不是严格热力学温度。
 - 1.00 通量、1.00 流量平衡在 77.8%；1.25 通量、0.96 流量已经到 124.3%，离 125% 熔毁线非常近。这是手动 125% + 最低节流区最危险的组合。
-- `heat` 到 1.25 后还要连续 60 秒才爆；但 124.3% 的平衡点意味着一个很小的扰动就可能把它推过线。
+- `heat` 到 1.25 后还要连续 60 tick（正常 1 秒）才爆；但 124.3% 的平衡点意味着一个很小的扰动就可能把它推过线。
 
 ### 4.3 “温度越高蒸发越快”？
 
@@ -136,7 +136,7 @@ nominal_i = max(zoneFlux[i], 0) * 360 * dt
 
 1. 温度高 → 自动/半自动的 `heatFactor` 降低目标功率；
 2. 温度高 → `protectRods` 插棒；
-3. 到 125% 连续 60 秒 → 熔毁。
+3. 到 125% 连续 60 tick（正常 1 秒） → 熔毁。
 
 如果你要做“温度加速蒸发”，需要显式改 `nominal_i`（例如乘 `1 + k*max(0,heat-1)`），现在的平衡数据不包含这项。
 
@@ -221,7 +221,7 @@ cooling_i = zoneFlow_i * (0.06 + 0.09 * zoneHeat_i) + 0.01
 - 是 `flow × (常数 + 0.09×热)`，没有 `waterLevel/waterCapacity` 的非线性衰减。
 - 当水不够时，`zoneFlow` 下降；`zoneFlow=0` 时冷却固定 `0.01/s`。
 - 当温度升高时，同样的 `zoneFlow` 反而冷却略强（0.09×heat 项）；这是热方程的自限项，不是蒸发加速。
-- 温度到 1.25 连续 60 秒才熔毁；不是一到 125% 就爆。
+- 温度到 1.25 连续 60 tick（正常 1 秒）才熔毁；不是一到 125% 就爆。
 
 ### 7.2 蒸汽满 / 水满 / 憋压
 
@@ -248,8 +248,8 @@ else:
 ```
 
 - 全局 `heat=max(zoneHeat)`；任意一区热到 1.25 都累计同一个 `meltTimer`。
-- **阈值 1.25（125%）**；**连续 60 秒**；低于阈值后计时以 2×速度回落。
-- 不是“1 秒”，旧说明是错的；平衡时别按 1 秒算。
+- **阈值 1.25（125%）**；**连续 60 tick（正常 1 秒）**；低于阈值后计时以 2×速度回落。
+- `meltTimer` 的注释就是 tick；`second=delta()` 名字有误导性，它实际是 tick 增量。
 - 熔毁后：
   - `meltRadius=26` 格
   - `meltDamage=12000`
@@ -302,6 +302,83 @@ common      = max(common, protectRods)
 - 取 `max(waterRisk, heatRisk, flowRisk*0.9, steamRisk*0.85)`
 - 风险上升用0.10/tick、下降0.02/tick平滑
 - 热≥1.0时强制 `protectRods≥0.98`；自动/半自动最后防线也会在heat>1.0时拉满。
+
+### 9.5 自动/半自动逐 tick 顺序
+
+控制算法不是等物理跑完再修正，而是在每个 tick 的开头按**上一 tick 的堆芯状态**决策：
+
+1. 自动/半自动更新水位线：
+   ```
+   autoHigh = clamp(0.55 + 0.35*min(flux,1), 0.55, 0.90)
+   autoLow  = clamp(autoHigh - 0.20, 0.25, autoHigh - 0.05)
+   waterLevel    = lerpDelta(waterLevel, autoHigh, 0.02)
+   waterLowLevel = lerpDelta(waterLowLevel, autoLow, 0.02)
+   if(waterLowLevel > waterLevel - 0.02)
+       waterLowLevel = max(0, waterLevel - 0.02)
+   ```
+2. 汇总 `heat=max(zoneHeat)`、`flux=avg(zoneFlux)`、`flow=avg(zoneFlow)`。
+3. `updateProtection()` 算 `protectRods`（见9.4）。
+4. 按模式算公共棒位目标，更新 `zoneTarget/zoneRods`。
+5. 之后才更新分区通量、水→汽、`zoneFlow`、热积分。
+6. 所以自动控制对通量/温度有一 tick 延迟；对水罐/汽包读数是当前值。
+
+### 9.6 全自动反算棒位
+
+```
+steamFrac = clamp(steam / steamCap, 0, 1)
+waterFrac = clamp(water / waterCap, 0, 1)
+steamFactor = clamp(1 - (steamFrac - 0.5)/0.4, 0, 1)
+waterFactor = clamp((waterFrac - 0.1)/0.2, 0, 1)
+heatFactor  = clamp((1.15 - heat)/0.2, 0, 1)
+effective   = autoPower * min(steamFactor, waterFactor, heatFactor)
+poison      = clamp(1 - 0.65*xenon - 1.2*boron, 0.05, 1)
+voidFactor  = 1 + (1 - flow)*1.2
+needCeil    = effective / (1.25 * poison * voidFactor)
+common      = clamp(1 - needCeil, 0, 1)
+common      = max(common, protectRods)
+
+for(i=0..8):
+    zoneTarget[i] = common
+    zoneRods[i] = approachDelta(zoneRods[i], common,
+        common > zoneRods[i] ? 1/90 : 1/2000)
+targetRods = common
+```
+
+- `autoPower` 是“期望的有效通量比例”，不是电功率；70% 是目标平均通量 70%。
+- 三个 Factor 是连续的，不是开关；`min` 取最紧的一项。
+- `effective` 是经过水/汽/热限制后的目标；`needCeil` 再用 `1.25 × 毒物 × 空泡` 反算棒位。
+- `autoPower=0.7`、其余因子=1、flow=1 时：`needCeil=0.56`、`common=0.44`，稳态通量 0.70。
+- 自动最大只能到 **100% 通量**；`autoPower=1` 时 `common=0.2`，目标 1.00，不是 1.25。
+- 毒物分母最低 0.05；实际通量公式的毒物最低是0，极端中毒时自动的反算只是近似。
+- `common` 再与 `protectRods` 取大；保护量只会让棒插得更深，不会让棒拔得更高。
+
+### 9.7 半自动
+
+```
+common = max(targetRods, protectRods)
+
+for(i=0..8):
+    zoneTarget[i] = common
+    zoneRods[i] = approachDelta(zoneRods[i], common,
+        common > zoneRods[i] ? 1/90 : 1/2000)
+```
+
+- `targetRods` 是操作员设定的**插入比例**：0=全提（满功率方向），1=全插（停堆）。
+- `protectRods` 只做下限；风险解除后 `common` 回到 `targetRods`，不会把操作员目标永久抬高。
+- 9 区共用同一个目标棒位；半自动没有 `autoPower`，也没有单区自动配平。
+- 12×12 半自动插棒统一用 `1/90`（90 tick≈1.5秒），拔棒 `1/2000`（2000 tick≈33.3秒）。
+- 旧5×5半自动略有不同：操作员插棒用 `1/180`（≈3秒），保护量超过目标时才用 `1/90`；拔棒同样是 `1/2000`。
+
+### 9.8 自动/半自动的重要实现特性
+
+1. **不是 PID**：全自动是一次代数反算 + 有限速度执行器；温度没有独立闭环，靠 `heatFactor` 和保护量兜底。
+2. **一套公共棒位**：9 区不能单独调棒；`zoneBias` 造成的固定流量差无法被自动配平。自动用 `heat=max` 保守降功率，但 `flow/flux` 用平均值，可能掩盖某一个缺水/低流量区。
+3. **自动 SCRAM 不锁存**：`applyConfig(-1)` 只把目标设为1；下一 tick 全自动会用 `autoPower` 重新算 `common`，如果工况正常，会把棒重新拔向目标功率。需要锁死停堆时，应把 `autoPower` 设0，或切半自动/手动。半自动的 `targetRods=1` 和手动的 `zoneTarget=1` 会保持。
+4. **默认半自动是停堆的**：`targetRods` 初始=1；不把目标拉低，反应堆不会自己启动。全自动也从不大于100%的目标开始，实际棒位还要以 `1/2000` 慢慢拔出。
+5. **自动忽略手动节流**：`zoneThrottle` 只在强制手动生效；自动/半自动固定按1.0。
+6. **自动不修单区偏差**：半自动/全自动选中的“1号堆…9号堆”只是显示，不改变公共目标。
+7. **保护有延迟**：`protectRods` 用0.10/0.02的 `lerpDelta` 平滑，水位/温度趋势也平滑；它是提前保护，不是瞬时联锁。
+8. **手动高水位线才是硬上限**：自动/半自动的水位线是给水泵目标，不会像手动那样把超出的水排掉。
 
 ## 10. SCRAM / AZ-5 数据
 
@@ -377,7 +454,7 @@ xenon  += (iodine*0.012 - xenon*(0.0012 + flux*0.06)) * dt
 
 1. **改 360 L/s 不会改热平衡。** 只要水够、`zoneFlow≈1`，热平衡由 `0.14`、`0.06`、`0.09` 决定；360 只改变蒸汽/水量和涡轮机数量。
 2. **没有温度→蒸发加速。** 想要这个效果，必须显式在 `nominal_i` 里乘温度因子；当前没有。
-3. **熔毁是 60 秒，不是 1 秒。** 旧注释/文档会误导。
+3. **熔毁是 60 tick（正常 1 秒），不是 60 秒。** `meltTimer` 累加的是 tick；变量名 `second` 有误导。
 4. **1.25 通量 + 0.96 最低流量区已经到 1.243**，离熔毁线只有 0.007；手动满通量非常敏感。
 5. **分区不是均分水**：按 `nominal × zoneBias × throttle` 加权；`zoneBias` 固定表见 6.1。
 6. **自动/半自动忽略单区节流**；单区节流只在强制手动生效。
