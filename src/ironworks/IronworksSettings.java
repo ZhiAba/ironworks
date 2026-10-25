@@ -18,31 +18,16 @@ import mindustry.ui.dialogs.SettingsMenuDialog;
 import static mindustry.Vars.*;
 
 /**
- * 设置里新增「铁流工业」分类（方块搜索 + 多人暂停 + 辅助 HUD 入口）。
- * 内嵌自 utility-pack 的设置注册方式：用 Setting 子类插入分隔线/按钮，
- * 这样「恢复默认设置 / 切换分类」重建设置表时它们不会被删掉。
+ * 设置里新增「铁流工业」分类：多人暂停、界面显示与彩蛋开关。
+ *
+ * <p>分隔线/按钮用匿名 {@link SettingsMenuDialog.SettingsTable.Setting} 注册，
+ * 这样「恢复默认设置 / 切换分类」重建设置表时不会被删掉。
  */
 public class IronworksSettings{
 
     private static boolean added;
 
     private IronworksSettings(){
-    }
-
-    /** 在设置表里插入任意内容（分隔线、按钮）。name 传 null：恢复默认设置时不会被移除。 */
-    public static class CustomSetting extends SettingsMenuDialog.SettingsTable.Setting{
-        private final Cons<SettingsMenuDialog.SettingsTable> cons;
-
-        public CustomSetting(Cons<SettingsMenuDialog.SettingsTable> cons){
-            super(null);
-            this.cons = cons;
-        }
-
-        @Override
-        public void add(SettingsMenuDialog.SettingsTable table){
-            cons.get(table);
-            table.row();
-        }
     }
 
     public static void init(){
@@ -60,40 +45,39 @@ public class IronworksSettings{
                 ? new TextureRegionDrawable(new TextureRegion(mod.iconTexture)) : Styles.black6;
 
             ui.settings.addCategory("@settings.ironworks.category.name", icon, st -> {
-                // —— 方块搜索 ——
-                st.checkPref("ironworks.search.showHistory", true);
-                st.checkPref("ironworks.search.clearOnSelect", true);
-                st.pref(new CustomSetting(t -> t.image(Tex.whiteui).growX().height(2f)
-                    .color(Pal.gray).padTop(8f).padBottom(8f)));
-
                 // —— 多人暂停 ——
                 st.sliderPref("ironworks.pause.mode", 0, 0, 2, 1,
                     i -> Core.bundle.get("setting.ironworks.pause.mode.value." + i, String.valueOf(i)),
                     i -> {
                         IronworksPause.mode = i;
-                        if(net.client()) Call.serverPacketReliable("ironworks-pause-mode", String.valueOf(i));
+                        if(net.client()) Call.serverPacketReliable("ironworks-pause-policy", String.valueOf(i));
                     });
                 st.checkPref("ironworks.pause.request", true);
-                st.pref(new CustomSetting(t -> t.button(
+                custom(st, t -> t.button(
                     Core.bundle.get("setting.ironworks.pause.whitelist.name"), Styles.defaultt,
-                    IronworksPause::showWhitelistDialog).width(200f).padTop(6f)));
+                    IronworksPause::showWhitelistDialog).width(200f).padTop(6f));
 
-                st.pref(new CustomSetting(t -> t.image(Tex.whiteui).growX().height(2f)
-                    .color(Pal.gray).padTop(8f).padBottom(8f)));
+                custom(st, t -> t.image(Tex.whiteui).growX().height(2f)
+                    .color(Pal.gray).padTop(8f).padBottom(8f));
 
-                // —— 显示 / 彩蛋 ——
+                // —— 界面显示 / 彩蛋 ——
+                st.checkPref(IronworksSidebar.key, true);
                 st.checkPref("ironworks.damage.numbers", true, v -> DamageNumbers.enabled = v);
                 st.checkPref("ironworks.rbmk.meme", true);
-
-                st.pref(new CustomSetting(t -> t.image(Tex.whiteui).growX().height(2f)
-                    .color(Pal.gray).padTop(8f).padBottom(8f)));
-                // 独立子设置：辅助 HUD 开关不塞进主分类，点按钮进二级界面。
-                st.pref(new CustomSetting(t -> t.button(
-                    Core.bundle.get("setting.ironworks.aux.open"), Styles.defaultt,
-                    IronworksAuxSettings::show).width(260f).padTop(6f)));
             });
         }catch(Throwable t){
             Log.err("IronworksSettings: 注册设置分类失败", t);
         }
+    }
+
+    /** 插入一个不参与“恢复默认”的自定义设置行。 */
+    private static void custom(SettingsMenuDialog.SettingsTable table, Cons<SettingsMenuDialog.SettingsTable> content){
+        table.pref(new SettingsMenuDialog.SettingsTable.Setting(null){
+            @Override
+            public void add(SettingsMenuDialog.SettingsTable target){
+                content.get(target);
+                target.row();
+            }
+        });
     }
 }

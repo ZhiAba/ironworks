@@ -185,10 +185,6 @@ public class IronworksLogPanel{
 
         Table footer = new Table();
         footer.right();
-        footer.button(Core.bundle.get("ironworks.log.aux"), Styles.defaultt, () -> {
-            hide();
-            IronworksAuxSettings.show();
-        }).size(170f, 52f).padRight(6f);
         footer.button(Core.bundle.get("ironworks.log.clear"), Styles.defaultt, () -> {
             IronworksNotifications.clear();
             rebuildRows();

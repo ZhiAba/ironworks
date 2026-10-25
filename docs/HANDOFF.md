@@ -1,4 +1,11 @@
-# 铁流工业 交接文档（2026-10-24，v2.5.0.0）
+# 铁流工业 交接文档（2026-10-25，v2.5.1.0）
+
+## 本次（2.5.1.0）：UI 清理与文案修复
+- 删除电网总览、物流监视两项 HUD，以及 `IronworksAuxSettings` 二级设置；左侧日志长条改为设置里的直接开关。
+- `IronworksBlockSearch` / `IronworksPause` 独立重写：移除 utility-pack 的拼音表、搜索历史和相关设置；暂停改用新网络包。
+- RBMK 控制台修复裸 key（`win.autoHint` 等）并补上冷却节流百分比；重写 RBMK 详情页、风险说明和操作提示。
+- 版本号 2.5.1.0；全量 123/123（708 秒），最终 jar 冒烟 9/9（T30/T154/T155/T180–T185）。
+- 部署：`phone_sh` 当前不可用（Shizuku 未启动），jar 已构建但**尚未复制到两个客户端**；启动 Shizuku 后按上方命令部署。
 
 ## RBMK 数据与公式
 - 当前：`docs/RBMK-BALANCE.md`（v2.5）
@@ -14,7 +21,7 @@
   phone_sh: cp out/ironworks.jar /sdcard/Android/data/io.anuke.mindustry/files/mods/ironworks.jar
             cp out/ironworks.jar /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/ironworks.jar
   ```
-- 当前 jar md5：`19679174bd39e8f203cb1ff31ecf92a5`（2.5.0.0，已部署双客户端）
+- 当前 jar md5：`c4791492e640f7ec74864aa4bc252162`（2.5.1.0，**待部署**；Shizuku 未启动）
 - 测试（分级）：`bash tools/run-tests.sh 95 96` 冒烟 / `group liquid` 集成 / 无参全量；单实例锁 + 脚本快照
 
 ## 本次（2.5.0.0）：双节点热工 + 棒尖/多普勒/衰变热 + 逐区熔毁 + 弹出控制台
@@ -132,21 +139,21 @@
 - `IronworksLogDialog` 已删除，换成 `IronworksLogPanel`：不再用 `BaseDialog`，直接挂 `hudGroup` 的 `windowBack + panel`
 - 打开：背景 `fadeIn`，面板从左侧 `moveToAligned` 居中，`0.42s`、`Interp.pow3Out`；关闭：反向 `0.30s`、`pow3In`，点面板外/右上 × 均可关
 - 逐条消除：每条右侧 `<` 先 `fadeOut(0.25s)` + 向左 `moveBy`，动画结束后才 `IronworksNotifications.remove(entry)` 并重建列表；避免行先消失导致动画看不到
-- 左侧长条点击改为 toggle；`ironworks.sidebar.enabled` 与「辅助界面…」入口保持不变
+- 左侧长条点击改为 toggle；2.5.1.0 起改为设置里的直接开关（`ironworks.sidebar.enabled`）
 - 测试：T30/T154/T155 子集 **3/3**，19 秒；动画/尺寸/位置需实机确认
 - 当前 jar md5：`14876dcf8a4859efd56768b7cd35b8ff`（2.1.4.0，已部署双客户端）
 
 ## 本次（2.1.3.0）：左侧长条 + 日志
 - 研究 DeepSpace 的 `singularity.ui.fragments.NotificationFrag`：左侧长边是一个 26×520 的侧边按钮（`SglStyles.sideButtonRight`），点击展开 notificationHistory；不是一排功能图标
 - 独立实现 `IronworksSidebar`：没有改 DeepSpace 代码；没有塞 `blockCatTable`（我们的 `IronworksBlockSearch` 已经在重排那张表），改为挂在 `ui.hudGroup` 左缘中央，26×520、黑色半透明、中间齿轮
-- 点击打开 `IronworksLogDialog`：`IronworksNotifications` 保留最近 100 条（加载/地图/电网缺电恢复/RBMK 熔毁/彩蛋/辅助开关），可清空、可跳辅助界面
-- 设置：`ironworks.sidebar.enabled` 默认开；「设置 → 铁流工业 → 辅助界面…」可关
+- 点击打开 `IronworksLogPanel`：`IronworksNotifications` 保留最近 100 条（加载/地图/电网缺电恢复/RBMK 熔毁/彩蛋/辅助开关），可清空；2.5.1.0 起去掉「辅助界面」跳转
+- 设置：`ironworks.sidebar.enabled` 默认开；2.5.1.0 起在「设置 → 铁流工业」里直接切换
 - 边界：客户端 only、无头跳过、不拦截地图点击、不改任何游戏数值
 - 测试：T30 + T154 + T155 子集 **3/3**，20 秒；长条实际位置需实机确认
 - 当前 jar md5：`8d66775dbab305441a87d42c58b8a46c`（2.1.3.0，已部署双客户端）
 
-## 本次（2.1.1.0）：内嵌辅助 HUD（电网 / 物流）
-- 新增 `IronworksHud`：客户端右侧 HUD；`IronworksSettings` 加「辅助 HUD…」按钮，`IronworksAuxSettings` 是独立二级设置界面
+## 本次（2.1.1.0，2.5.1.0 已删除）：内嵌辅助 HUD（电网 / 物流）
+- 已删除：`IronworksHud`、`IronworksAuxSettings` 与设置入口不再包含在当前版本；以下仅保留历史记录。
 - 电网总览：扫描 `Groups.build` 的 `PowerGraph`，汇总 `getLastPowerProduced/getLastPowerNeeded/getPowerBalance`（×60 换每秒）与电池储量；缺电电网标红；0.5 秒刷新
 - 物流监视：鼠标/手指指向建筑，1 秒窗口统计物品/液体库存净变化，最多 3 项；只读，不碰传输；自研 MultiCrafter 也能按库存变化统计
 - 两个开关默认关闭；二级界面可一键全部关闭；无头跳过、`hudGroup` 不可用时跳过、不拦截点击
@@ -295,4 +302,4 @@
 3. 待办优先级：① 整轮回归 ② 律令炮塔移植 ③ 特效升级（磁轨充能环/震动/命中粒子）
    ④ 芯片分档建材 ⑤ 铝/合金进入更多配方。
 4. 仓库有 git（元数据在 `/root/git/ironworks`），重启前工作区是干净的。
-5. 实机验证辅助界面：设置 → 铁流工业 →「辅助界面…」；左侧工具栏看位置/宽度，右侧 HUD 看是否挡原版 UI，必要时调 `IronworksSidebar` 的 `padLeft` 或 `IronworksHud` 的 `padRight`。
+5. 实机验证：设置 → 铁流工业里的暂停/日志长条开关；RBMK 控制台四个页签与冷却节流百分比。

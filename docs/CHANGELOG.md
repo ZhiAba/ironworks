@@ -40,6 +40,17 @@
 
 ## 2.5.x
 
+### 2.5.1.0 — 去掉内嵌 HUD、独立重写搜索/暂停、RBMK 文案与控制台修复
+
+- **删除**：电网总览、物流监视两项客户端 HUD，以及 `IronworksHud`、`IronworksAuxSettings`、设置里的「辅助界面」入口和相关 bundle 文案。左侧日志长条保留，改为设置里的直接开关。
+- **独立重写**：`IronworksBlockSearch` 不再使用 utility-pack 的拼音表、搜索历史、历史按钮和两个搜索设置项；只保留「内部名/显示名过滤 + 原版菜单重建」的最小功能。`pinyin.txt` 从仓库和 jar 中移除。
+- **独立重写**：`IronworksPause` 改用新的网络包（`ironworks-pause-request/policy/allow/deny/reply`）、`Time.millis()` 超时和独立的白名单对话框；`!pause` 子命令保留。
+- **RBMK 控制台**：修复 `stateHint` 使用不存在的 key 导致界面显示 `ironworks.rbmk.win.autoHint` 等裸提示词；补齐 `throttleValue/throttleAuto/throttleMaster/throttleZone/throttleShort`。
+- **冷却节流**：「控制」页在滑条上方实时显示当前节流百分比（总控平均 / X 号堆 / 自动模式）；「分区」卡片新增每区节流百分比。
+- **文案**：重写 RBMK 5×5 与 RBMK-9 的详情页、风险说明、运行模式说明、水位/超压提示与维护页；统一「功率、燃料温度、冷却剂温度、冷却流量」等术语，去掉 Markdown `**` 和过时的 125% 分区描述。
+- **其他详情页**：铀矿脉补描述；MCT 节点、算力集群、冷却液描述改为玩家可读的短句；中英文同步。
+- **测试**：新增/保留 RBMK T180–T185；本轮改动后跑对应回归。
+
 ### 2.5.0.0 — RBMK-9 双节点热工、棒尖/多普勒/衰变热、逐区熔毁与弹出控制台
 
 - **双节点热工**：燃料温度 `zoneHeat` 与冷却剂温度 `zoneCoolant` 分开积分；燃料→冷却剂传热 `2.0*waterFrac*(fuel-coolant)`，冷却损失 `flow*waterFrac*(0.06+0.09*coolant)+0.01`。

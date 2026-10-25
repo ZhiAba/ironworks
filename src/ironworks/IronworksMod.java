@@ -56,12 +56,12 @@ public class IronworksMod extends Mod{
     }
 
     /**
-     * 客户端功能（内嵌自 utility-pack：方块搜索 + 多人暂停 + 设置分类）。
+     * 客户端功能：方块搜索 + 多人暂停 + 设置分类（功能灵感来自 utility-pack，代码已独立重写）。
      * 无头服务端上各自内部会 early-return，不会碰 UI。
      */
     @Override
     public void init(){
-        IronworksBlockSearch.init(); // 建造菜单里的方块搜索（含拼音）
+        IronworksBlockSearch.init(); // 建造菜单里的方块搜索（名称匹配，不带拼音表）
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
         IronworksNotifications.init(); // 左侧日志数据源
@@ -69,7 +69,6 @@ public class IronworksMod extends Mod{
         IronworksNotificationPopups.init(); // 新警告弹出条
         IronworksRbmkWindow.init();     // RBMK 黑色半透明弹出控制台
         IronworksSidebar.init();      // 左侧长条：点击打开日志
-        IronworksHud.init();          // 辅助 HUD：电网总览 + 物流监视
         IronworksSettings.init();    // 设置 → 铁流工业
         IronworksDamageUI.init();    // 详情页弹药属性着色
     }

@@ -376,6 +376,19 @@ public class IronworksRbmkWindow{
         water.add(highSlider).width(contentWidth - 30f).row();
 
         water.add(Core.bundle.get("ironworks.rbmk.win.throttle")).left().color(Color.lightGray).row();
+        Label throttleValue = new Label("");
+        throttleValue.update(() -> {
+            if(current == null) return;
+            String where = current.controlMode != IronworksRBMK.MODE_MANUAL
+                ? Core.bundle.get("ironworks.rbmk.win.throttleAuto")
+                : current.selectedZone >= 0
+                    ? Core.bundle.format("ironworks.rbmk.win.throttleZone", current.selectedZone + 1)
+                    : Core.bundle.get("ironworks.rbmk.win.throttleMaster");
+            throttleValue.setText(Core.bundle.format("ironworks.rbmk.win.throttleValue",
+                where, Mathf.round(throttleOf(current) * 100f)));
+        });
+        throttleValue.setColor(Color.valueOf("8fd4ff"));
+        water.add(throttleValue).left().row();
         Slider throttle = throttleSlider();
         water.add(throttle).width(contentWidth - 30f).row();
         Label waterHint = new Label("");
@@ -470,18 +483,19 @@ public class IronworksRbmkWindow{
         s.update(() -> {
             if(current == null) return;
             s.touchable = current.controlMode == IronworksRBMK.MODE_MANUAL ? Touchable.enabled : Touchable.disabled;
-            float shown = 1f;
-            if(current.controlMode == IronworksRBMK.MODE_MANUAL){
-                if(current.selectedZone >= 0) shown = current.zoneThrottle[current.selectedZone];
-                else{
-                    shown = 0f;
-                    for(int i = 0; i < 9; i++) shown += current.zoneThrottle[i];
-                    shown /= 9f;
-                }
-            }
+            float shown = throttleOf(current);
             if(!s.isDragging()) s.setValue(shown * 100f);
         });
         return s;
+    }
+
+    /** 显示用节流值：手动模式取选中区/全堆平均；自动模式恒为 1。 */
+    private static float throttleOf(RBMKReactorBuild b){
+        if(b.controlMode != IronworksRBMK.MODE_MANUAL) return 1f;
+        if(b.selectedZone >= 0) return b.zoneThrottle[b.selectedZone];
+        float sum = 0f;
+        for(int i = 0; i < 9; i++) sum += b.zoneThrottle[i];
+        return sum / 9f;
     }
 
     // ------------------------------------------------------------------
@@ -523,11 +537,12 @@ public class IronworksRbmkWindow{
             card.add(zoneLine(z, "ironworks.rbmk.win.fuelShort", b -> Mathf.round(b.zoneHeat[z] * 100f) + "%")).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.win.coolantShort", b -> Mathf.round(b.zoneCoolant[z] * 100f) + "%")).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.row.coolant", b -> Mathf.round(b.zoneFlow[z] * 100f) + "%")).left().row();
+            card.add(zoneLine(z, "ironworks.rbmk.win.throttleShort", b -> Mathf.round(b.zoneThrottle[z] * 100f) + "%")).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.win.waterShort", b -> Mathf.round(b.zoneWater[z]) + "/" + (int)b.zoneWaterCap[z])).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.win.steamShort", b -> Mathf.round(b.zoneSteam[z]) + "/" + (int)b.zoneSteamCap[z])).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.win.rodsShort", b -> Mathf.round(b.zoneRods[z] * 100f) + "%")).left().row();
             card.add(zoneLine(z, "ironworks.rbmk.win.meltShort", b -> Mathf.round(b.zoneMeltDamage[z] * 100f) + "%")).left().row();
-            grid.add(card).width(cardWidth).height(190f).top().left();
+            grid.add(card).width(cardWidth).height(220f).top().left();
             if((i + 1) % 3 == 0) grid.row();
         }
         body.add(grid).width(contentWidth).row();
@@ -622,11 +637,11 @@ public class IronworksRbmkWindow{
             return Core.bundle.format("ironworks.rbmk.win.decayHint", Mathf.round(b.decayHeat * 100f));
         }
         if(b.controlMode == IronworksRBMK.MODE_AUTO){
-            return Core.bundle.get("ironworks.rbmk.win.autoHint");
+            return Core.bundle.get("ironworks.rbmk.win.mode.autoHint");
         }
         if(b.controlMode == IronworksRBMK.MODE_SEMI){
-            return Core.bundle.get("ironworks.rbmk.win.semiHint");
+            return Core.bundle.get("ironworks.rbmk.win.mode.semiHint");
         }
-        return Core.bundle.get("ironworks.rbmk.win.manualHint");
+        return Core.bundle.get("ironworks.rbmk.win.mode.manualHint");
     }
 }
