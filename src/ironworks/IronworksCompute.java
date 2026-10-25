@@ -25,6 +25,7 @@ import mindustry.type.Liquid;
 import mindustry.ui.Bar;
 import mindustry.world.Block;
 import mindustry.world.Tile;
+import mindustry.world.blocks.ConstructBlock;
 import mindustry.world.blocks.defense.Wall;
 import mindustry.world.consumers.ConsumeLiquid;
 import mindustry.world.consumers.ConsumePowerDynamic;
@@ -45,6 +46,7 @@ import static mindustry.type.ItemStack.with;
  * </ul>
  * 链接块是隐藏方块：不能建造、不能拆除、会把液体转发给核心；核心被拆/被毁时一起清掉，
  * 读档后按相对坐标重新绑定核心（相对坐标可随蓝图一起平移）。
+ * 施工期间由 {@link LinkPlaceholder} 占住链接区，完成后换成正式链接块。
  *
  * 挂载规则：
  * - 模块必须有**至少一条完整的边**贴合主集群（含链接块）的包围盒；
@@ -56,6 +58,7 @@ public class IronworksCompute{
     public static Block cluster;
     public static ComputeModule micro, basic, advanced, quantum;
     public static LinkBlock clusterLink, moduleLink;
+    public static LinkPlaceholder clusterPlaceholder, modulePlaceholder;
 
     public static final float basePower = 32460f;
     public static final float moduleCap = 2.0f;
@@ -72,6 +75,8 @@ public class IronworksCompute{
     public static final int[][] ADVANCED_LAYOUT = {{0, -1, 1}, {1, -1, 1}};
 
     public static void load(){
+        clusterPlaceholder = new LinkPlaceholder("compute-placeholder-2", 2);
+        modulePlaceholder = new LinkPlaceholder("compute-placeholder-1", 1);
         clusterLink = new LinkBlock("compute-cluster-link", 2);
         moduleLink = new LinkBlock("compute-advanced-link", 1);
 
@@ -226,12 +231,32 @@ public class IronworksCompute{
                 for(int y = ay; y < ay + ls; y++){
                     Tile t = Vars.world.tile(x, y);
                     if(t == null) return false;
+                    if(t.build instanceof ConstructBlock.ConstructBuild) return false;
                     Block b = t.block();
                     if(!b.isAir() && !b.alwaysReplace) return false;
                 }
             }
         }
         return true;
+    }
+
+    /** 放置开始时用占位块占住链接区，避免施工期间别人把链接格建掉。 */
+    public static void placePlaceholders(Tile tile, int[][] layout, Block placeholder, Block host){
+        if(layout == null || placeholder == null || tile == null || tile.build == null || Vars.net.client()) return;
+
+        for(int[] l : layout){
+            int ax = tile.x + l[0], ay = tile.y + l[1];
+            Tile t = Vars.world.tile(ax, ay);
+            if(t == null) continue;
+            if(!t.block().isAir() && !t.block().alwaysReplace) continue;
+
+            t.setBlock(placeholder, tile.team(), 0);
+            if(t.build instanceof LinkPlaceholder.PlaceholderBuild p){
+                p.hostX = tile.x;
+                p.hostY = tile.y;
+                p.hostBlock = host;
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -264,6 +289,18 @@ public class IronworksCompute{
                     Tile st = Vars.world.tile(ax + sx, ay + sy);
                     if(st == null){ blocked = true; blocker = "out-of-map"; break; }
                     if(st.block() == linkBlock) continue;
+                    //同一台机器的施工占位块：换成正式链接块
+                    if(st.build instanceof LinkPlaceholder.PlaceholderBuild p
+                        && p.hostX == host.tileX() && p.hostY == host.tileY()){
+                        st.remove();
+                        continue;
+                    }
+                    //别人的施工脚手架不能被我们顶掉，宁可这次不生成链接块
+                    if(st.build instanceof ConstructBlock.ConstructBuild){
+                        blocked = true;
+                        blocker = "construct";
+                        break;
+                    }
                     //alwaysReplace 的方块（正在施工的脚手架等）本来就可以被替换，和 fitsExtra 的判定保持一致
                     if(!st.block().isAir() && !st.block().alwaysReplace){
                         blocked = true;
@@ -322,6 +359,82 @@ public class IronworksCompute{
         if(b.block instanceof ComputeModule) return b;
         if(b.block == moduleLink && b instanceof LinkBlock.LinkBuild link) return link.host;
         return null;
+    }
+
+    // ------------------------------------------------------------------
+    // 施工占位块
+    // ------------------------------------------------------------------
+
+    /**
+     * 施工期间占住链接格，防止别人在链接区里建东西。
+     * 主块施工完成后由 {@link #ensureLinks} 换成正式链接块；主块取消/被拆就自毁。
+     */
+    public static class LinkPlaceholder extends Block{
+        public LinkPlaceholder(String name, int size){
+            super(name);
+            this.size = size;
+            update = true;
+            solid = false;
+            hasItems = false;
+            hasLiquids = false;
+            hasPower = false;
+            health = 1;
+            destructible = false;
+            breakable = false;
+            rebuildable = false;
+            canOverdrive = false;
+            drawCracks = false;
+            drawTeamOverlay = false;
+            group = BlockGroup.none;
+            replaceable = false;
+            alwaysReplace = false;
+            buildVisibility = BuildVisibility.hidden;
+            inEditor = false;
+            buildType = PlaceholderBuild::new;
+        }
+
+        @Override
+        public boolean isHidden(){
+            return true;
+        }
+
+        @Override
+        public boolean canBreak(Tile tile){
+            return false;
+        }
+
+        @Override
+        public boolean unlockedNow(){
+            return false;
+        }
+
+        public class PlaceholderBuild extends Building{
+            public int hostX, hostY;
+            public Block hostBlock;
+
+            @Override
+            public void updateTile(){
+                Tile host = Vars.world.tile(hostX, hostY);
+                if(host == null || host.build == null){
+                    tile.remove();
+                    return;
+                }
+
+                boolean constructing = host.build instanceof ConstructBlock.ConstructBuild c
+                    && (hostBlock == null || c.block == hostBlock);
+                boolean done = hostBlock != null && host.block() == hostBlock;
+                if(!constructing && !done) tile.remove();
+            }
+
+            @Override
+            public void draw(){
+            }
+
+            @Override
+            public float handleDamage(float amount){
+                return 0f;
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -571,6 +684,12 @@ public class IronworksCompute{
             return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
         }
 
+        @Override
+        public void placeBegan(Tile tile, Block previous){
+            super.placeBegan(tile, previous);
+            placePlaceholders(tile, linkLayout, modulePlaceholder, this);
+        }
+
         public class ComputeModuleBuild extends WallBuild{
             public boolean attached;
             /** 主集群相对本模块的方向：0=上 1=右 2=下 3=左，-1=未贴合 */
@@ -697,6 +816,12 @@ public class IronworksCompute{
         @Override
         public boolean canPlaceOn(Tile tile, Team team, int rotation){
             return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
+        }
+
+        @Override
+        public void placeBegan(Tile tile, Block previous){
+            super.placeBegan(tile, previous);
+            placePlaceholders(tile, linkLayout, clusterPlaceholder, this);
         }
 
         @Override

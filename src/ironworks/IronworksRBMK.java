@@ -497,6 +497,11 @@ public class IronworksRBMK{
                 return 0f;   // 反应堆不出电
             }
 
+            /** 查询控制棒曲线（测试/UI 用，不改变棒位）。 */
+            public float rodCurve(float r){
+                return IronworksRBMK.rodEffect(r);
+            }
+
             @Override
             public float warmup(){
                 return Mathf.clamp(heat);
@@ -963,7 +968,7 @@ public class IronworksRBMK{
                     common = Math.max(common, protectRods);
                     for(int i = 0; i < 9; i++){
                         zoneTarget[i] = common;
-                        zoneRods[i] = Mathf.approachDelta(zoneRods[i], common,
+                        zoneRods[i] = Mathf.approach(zoneRods[i], common,
                             common > zoneRods[i] ? rodSpeedAuto : rodSpeedNormal);
                     }
                     // 半自动的 targetRods 是操作员目标，不能被保护量棘轮式抬高；只有全自动才写回计算值
@@ -1133,7 +1138,7 @@ public class IronworksRBMK{
                 if(poisoned){
                     for(int i = 0; i < 9; i++){
                         zoneTarget[i] = 1f;
-                        zoneRods[i] = Mathf.approachDelta(zoneRods[i], 1f, rodSpeedScram);
+                        zoneRods[i] = Mathf.approach(zoneRods[i], 1f, rodSpeedScram);
                         zoneFlux[i] = Mathf.approachDelta(zoneFlux[i], 0f, 0.02f);
                     }
                     targetRods = 1f;
@@ -1219,15 +1224,15 @@ public class IronworksRBMK{
                     // 实时保护量是杆位下限，不允许自动目标把棒留在危险位置
                     targetRods = Math.max(idealRods, protectRods);
                     if(scramLatch) targetRods = 1f;
-                    rods = Mathf.approachDelta(rods, targetRods, targetRods > rods ? rodSpeedAuto : rodSpeedNormal);
+                    rods = Mathf.approach(rods, targetRods, targetRods > rods ? rodSpeedAuto : rodSpeedNormal);
                 }else{
-                    // 半自动：用户目标 + 实时保护下限；普通插棒仍走 3 秒行程，
+                    // 半自动：用户目标 + 实时保护下限；普通插棒约 33 秒行程（2000 tick），
                     // 保护量超过用户目标时才用 1.5 秒的快速插入。
                     float demand = scramLatch ? 1f : Math.max(targetRods, protectRods);
                     float speed = demand > rods
                         ? (protectRods > targetRods ? rodSpeedAuto : rodSpeedScram)
                         : rodSpeedNormal;
-                    rods = Mathf.approachDelta(rods, demand, speed);
+                    rods = Mathf.approach(rods, demand, speed);
                 }
 
                 // —— 1. 双水位线：最高线是硬上限，最低线是给水泵启动线 ——
@@ -1348,7 +1353,7 @@ public class IronworksRBMK{
                 // 永久中毒：堆芯封死，再也不起反应（拆了重建是唯一出路）
                 if(poisoned){
                     targetRods = 1f;
-                    rods = Mathf.approachDelta(rods, 1f, rodSpeedScram);
+                    rods = Mathf.approach(rods, 1f, rodSpeedScram);
                     flux = Mathf.approachDelta(flux, 0f, 0.02f);
                 }
 
