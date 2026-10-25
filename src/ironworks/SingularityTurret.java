@@ -20,7 +20,8 @@ import mindustry.world.blocks.defense.turrets.PowerTurret;
 public class SingularityTurret extends PowerTurret{
 
     /** 引力/坍缩属于能量属性。 */
-    public DamageType damageType = DamageType.energy;
+    public DamageType damageType = DamageType.physical;
+    public DamageForm form = DamageForm.ENERGY;
     public float fieldSeconds = 14f;
     public float pullRadius = 15f * 8f;
     public float pullDps = 360f;
@@ -68,7 +69,7 @@ public class SingularityTurret extends PowerTurret{
             if(active){
                 fieldTimer -= Time.delta;
 
-                Dmg.area(team, fx, fy, pullRadius * 0.7f, pullDps * Time.delta / 60f, damageType, true);
+                Dmg.area(team, fx, fy, pullRadius * 0.7f, pullDps * Time.delta / 60f, damageType, true, form);
 
                 Units.nearbyEnemies(team, fx, fy, pullRadius, u -> {
                     if(u.dead()) return;
@@ -76,7 +77,7 @@ public class SingularityTurret extends PowerTurret{
                     float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
                     float force = Mathf.clamp(1f - len / pullRadius) * 2.4f;
                     u.vel.add(dx / len * force, dy / len * force);
-                    Dmg.hitSilent(u, pullDps * Time.delta / 60f, damageType);
+                    Dmg.hitSilent(u, pullDps * Time.delta / 60f, damageType, form);
                     u.apply(StatusEffects.slow, 20f);
                 });
 
@@ -95,7 +96,7 @@ public class SingularityTurret extends PowerTurret{
         }
 
         void collapse(){
-            Dmg.area(team, fx, fy, collapseRadius, collapseDamage, damageType, true);
+            Dmg.area(team, fx, fy, collapseRadius, collapseDamage, damageType, true, form);
             Fx.shockwave.at(fx, fy);
             Fx.explosion.at(fx, fy);
             IronworksFx.muzzle.at(fx, fy, 0f);
@@ -115,7 +116,7 @@ public class SingularityTurret extends PowerTurret{
                 sh.size = Mathf.random(5f, 11f);
                 shards.add(sh);
 
-                Dmg.area(team, sh.x, sh.y, 16f, 230f, damageType, true);
+                Dmg.area(team, sh.x, sh.y, 16f, 230f, damageType, true, form);
                 Fx.explosion.at(sh.x, sh.y);
             }
         }

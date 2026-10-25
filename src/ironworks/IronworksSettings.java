@@ -63,6 +63,8 @@ public class IronworksSettings{
                 // —— 界面显示 / 彩蛋 ——
                 st.checkPref(IronworksSidebar.key, true);
                 st.checkPref("ironworks.damage.numbers", true, v -> DamageNumbers.enabled = v);
+                custom(st, t -> t.button(Core.bundle.get("ironworks.combat.settings"), Styles.defaultt,
+                    IronworksCombatDialog::show).width(240f).padTop(4f));
                 st.checkPref("ironworks.rbmk.meme", true);
             });
         }catch(Throwable t){

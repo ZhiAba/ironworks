@@ -5,54 +5,50 @@ import arc.graphics.Color;
 import mindustry.type.StatusEffect;
 
 /**
- * 属性伤害定义（v2.0.0.0）。
+ * 属性伤害定义（v2.6 战斗体系）。
  *
- * 一个属性 = 一套统一的结算规则：
- *  - armorMult：护甲倍率。1 = 正常护甲，0 = 完全无视护甲，0.5 = 只吃一半护甲。
- *  - status：命中附加的状态（必中，statusChance 目前都是 1）。
- *  - bonusStatus / bonusMult：目标身上有某种状态时，伤害倍率。
+ * <p>一个属性 = 元素归属 + 默认穿甲曲线 + 命中附着状态。具体弹种可以在
+ * {@link Dmg} 里覆盖穿甲曲线；Combo 倍率由 {@link ElementCombo} 统一管理。</p>
  *
- * 以后加新属性只在这里加一行，再在 Dmg.load() 里注册归属即可。
- * 颜色是详情页文字用的专属色号，不要在这里做任何绘制。
+ * <p>颜色只用于详情页/飘字，不在枚举里做绘制。</p>
  */
 public enum DamageType{
-    //      id         中文  色号      元素?  护甲倍率 状态        持续    概率  克制状态   倍率
-    physical("physical", "物理", "c8c8c8", false, 1.00f, null,       0f,   1f,  null,      1.00f),
-    thunder ("thunder",  "雷霆", "b6a8ff", true,  0.50f, "shocked",  90f,  1f,  "wet",     1.50f),
-    water   ("water",    "水",   "5aa9ff", true,  0.90f, "wet",      240f, 1f,  null,      1.00f),
-    ice     ("ice",      "冰",   "9fe8ff", true,  0.70f, "freezing", 120f, 1f,  "wet",     1.25f),
-    energy  ("energy",   "能量", "d370d3", true,  0.35f, "electrified", 60f, 1f, "shocked", 1.25f),
-    fire    ("fire",     "火",   "ff8a3c", true,  0.80f, "burning",  240f, 1f,  null,      1.00f),
-    corrosive("corrosive","腐蚀","8fbf5a", true,  0.60f, "corrosion",300f, 1f,  null,      1.00f);
+    //      id         中文  色号      元素?  形态          额定穿甲 阈值  每点衰减 状态        持续   概率
+    physical("physical", "物理", "c8c8c8", false, DamageForm.KINETIC,   0.65f, 18f, 0.020f, null,       0f,   1f),
+    thunder ("thunder",  "雷霆", "b6a8ff", true,  DamageForm.KINETIC,   0.50f, 15f, 0.025f, "shocked",  90f,  1f),
+    water   ("water",    "水",   "5aa9ff", true,  DamageForm.ENERGY,    0.30f, 12f, 0.025f, "wet",      240f, 1f),
+    ice     ("ice",      "冰",   "9fe8ff", true,  DamageForm.ENERGY,    0.40f, 15f, 0.025f, "freezing", 120f, 1f),
+    fire    ("fire",     "火",   "ff8a3c", true,  DamageForm.EXPLOSIVE, 0.25f, 10f, 0.025f, "burning",  240f, 1f),
+    corrosive("corrosive","腐蚀","8fbf5a", true,  DamageForm.KINETIC,   0.80f, 25f, 0.012f, "corrosion",300f, 1f);
 
     public final String id;
     /** 中文名，作为 bundle 缺失时的兜底。 */
     public final String cn;
     public final String hex;
     public final boolean elemental;
-    public final float armorMult;
+    /** 默认形态；具体弹种可覆盖。 */
+    public final DamageForm defaultForm;
+    /** 默认穿甲曲线；具体弹种可覆盖。 */
+    public final ArmorPen pen;
     public final String statusName;
     public final float statusDuration;
     public final float statusChance;
-    public final String bonusStatusName;
-    public final float bonusMult;
 
     /** 由 Dmg.load() 在内容加载完成后解析，避免枚举初始化时碰 StatusEffects。 */
-    public StatusEffect status, bonusStatus;
+    public StatusEffect status;
 
-    DamageType(String id, String cn, String hex, boolean elemental, float armorMult,
-               String statusName, float statusDuration, float statusChance,
-               String bonusStatusName, float bonusMult){
+    DamageType(String id, String cn, String hex, boolean elemental, DamageForm defaultForm,
+               float rated, float threshold, float decay,
+               String statusName, float statusDuration, float statusChance){
         this.id = id;
         this.cn = cn;
         this.hex = hex;
         this.elemental = elemental;
-        this.armorMult = armorMult;
+        this.defaultForm = defaultForm;
+        this.pen = new ArmorPen(rated, threshold, decay);
         this.statusName = statusName;
         this.statusDuration = statusDuration;
         this.statusChance = statusChance;
-        this.bonusStatusName = bonusStatusName;
-        this.bonusMult = bonusMult;
     }
 
     public Color color(){
@@ -86,6 +82,11 @@ public enum DamageType{
     public String areaSuffix(){
         return bundle(elemental ? "damage-type.element-area" : "damage-type.physical-area",
             elemental ? "元素范围伤害" : "范围伤害");
+    }
+
+    /** 详情页：该属性可触发的 Combo。 */
+    public String comboSummary(){
+        return ElementCombo.summary(this);
     }
 
     public static DamageType byId(String id){

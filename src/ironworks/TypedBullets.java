@@ -22,7 +22,7 @@ class TypedBasicBulletType extends BasicBulletType implements TypedBullet{
     TypedBasicBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
@@ -36,7 +36,7 @@ class TypedArtilleryBulletType extends ArtilleryBulletType implements TypedBulle
     TypedArtilleryBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
@@ -50,7 +50,7 @@ class TypedFlakBulletType extends FlakBulletType implements TypedBullet{
     TypedFlakBulletType(DamageType dtype){
         super(1f, 1f);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
@@ -64,7 +64,7 @@ class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
     TypedLaserBulletType(DamageType dtype, float damage){
         super(damage);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
@@ -75,7 +75,7 @@ class TypedLiquidBulletType extends LiquidBulletType implements TypedBullet{
     TypedLiquidBulletType(DamageType dtype, Liquid liquid){
         super(liquid);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
@@ -86,7 +86,7 @@ class TypedBulletType extends BulletType implements TypedBullet{
     TypedBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
         this.dtype = dtype;
-        armorMultiplier = dtype.armorMult;
+        armorMultiplier = 1f;
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }

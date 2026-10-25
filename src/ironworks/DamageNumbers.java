@@ -13,7 +13,6 @@ import arc.util.Time;
 import arc.util.pooling.Pool;
 import arc.util.pooling.Pools;
 import mindustry.Vars;
-import mindustry.entities.Damage;
 import mindustry.entities.bullet.ContinuousBulletType;
 import mindustry.entities.bullet.LightningBulletType;
 import mindustry.game.EventType.ResetEvent;
@@ -27,14 +26,11 @@ import mindustry.graphics.Layer;
 import mindustry.ui.Fonts;
 
 /**
- * 世界坐标漂浮伤害数字（v2.1.0.0）。
+ * 世界坐标漂浮伤害数字（v2.6 战斗体系）。
  *
- * Dmg.hit 在结算前后取实际掉血，并按属性护甲倍率算出被护甲抵消的部分；
- * 原版未走 Dmg 的普通子弹由 UnitDamageEvent 兜底（溅射/持续激光/连锁闪电跳过，
- * 避免把直伤数值显示到溅射目标身上）。
- *
- * 渲染用 Fonts.outline，颜色取属性专属色；180 tick 生命周期，最后 60 tick 渐隐并上浮。
- * 仅客户端初始化；无头端 show() 直接返回。
+ * <p>直伤由 {@link Dmg} 传入「实际伤害 / 护甲抵消 / 有效穿甲率 / Combo 倍率」；
+ * 显示格式例：{@code 5（5-50%）}，Combo 时变成金色 {@code ×1.5 5（5-50%）}。
+ * 高护甲硬挡时数字转灰。原版未走 Dmg 的普通子弹由 UnitDamageEvent 兜底。</p>
  */
 public class DamageNumbers{
     public static final String settingKey = "ironworks.damage.numbers";
@@ -66,37 +62,52 @@ public class DamageNumbers{
         active.clear();
     }
 
-    /** 被护甲抵消的数值（按属性护甲倍率计算）。 */
+    /** 旧版兼容：按给定属性默认曲线计算护甲抵消。 */
     public static float blocked(Healthc target, float amount, DamageType type){
-        if(target == null || amount <= 0f) return 0f;
         DamageType t = type == null ? DamageType.physical : type;
-        if(t.armorMult <= 0f) return 0f;
-
-        float armor = 0f;
-        if(target instanceof Unit unit){
-            armor = unit.armorOverride() >= 0f ? unit.armorOverride() : unit.armor();
-        }else if(target instanceof Building build && build.block != null){
-            armor = build.block.armor;
-        }
-        if(armor <= 0f) return 0f;
-
-        float applied = Damage.applyArmor(amount, armor * t.armorMult);
-        return Math.max(0f, amount - applied);
+        return blocked(target, amount, t.pen);
     }
 
-    /** Dmg.hit 结算后调用：amount 是实际掉血（含护盾吸收），blocked 是护甲抵消。 */
-    public static void show(Healthc target, float amount, float blocked, DamageType type){
+    public static float blocked(Healthc target, float amount, ArmorPen pen){
+        if(target == null || amount <= 0f) return 0f;
+        ArmorPen p = pen == null ? DamageType.physical.pen : pen;
+        return p.blocked(amount, Dmg.armorOf(target));
+    }
+
+    /** Dmg.hit 结算后调用。actual 是实际掉血（含护盾吸收），absorbed 是护甲抵消。 */
+    public static void show(Healthc target, float actual, float absorbed, float effectivePierce, float combo, DamageType type, boolean overpen){
         if(Vars.headless || !enabled || target == null) return;
 
-        int dealt = Math.max(0, Math.round(amount));
-        int armor = Math.max(0, Math.round(blocked));
+        int dealt = Math.max(0, Math.round(actual));
+        int armor = Math.max(0, Math.round(absorbed));
+        int pierce = Math.max(0, Math.min(100, Math.round(effectivePierce * 100f)));
         if(dealt <= 0 && armor <= 0) return;
 
         DamageType t = type == null ? DamageType.physical : type;
-        Color color = t.color();
+        boolean armorText = armor > 0;
+        boolean isCombo = combo > 1.001f;
 
-        String format = Core.bundle.get("ironworks.damage-number", "{0}（-{1}）");
-        String text = format.replace("{0}", String.valueOf(dealt)).replace("{1}", String.valueOf(armor));
+        String text;
+        if(overpen){
+            text = Core.bundle.get("ironworks.damage-number-overpen", "过穿 {0}")
+                .replace("{0}", String.valueOf(dealt));
+        }else if(armorText){
+            String format = Core.bundle.get("ironworks.damage-number-armor", "{0}（{1}-{2}%）");
+            text = format.replace("{0}", String.valueOf(dealt))
+                .replace("{1}", String.valueOf(armor))
+                .replace("{2}", String.valueOf(pierce));
+        }else{
+            String format = Core.bundle.get("ironworks.damage-number", "{0}");
+            text = format.replace("{0}", String.valueOf(dealt));
+        }
+        if(isCombo && !overpen){
+            String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0} ");
+            text = prefix.replace("{0}", trim(combo)) + " " + text;
+        }
+
+        Color color = overpen ? Color.valueOf("c9a86a")
+            : isCombo ? Color.valueOf("ffd166")
+            : (armor > 0 && dealt <= armor) ? Color.valueOf("9aa0a6") : t.color();
 
         float x = target.x() + Mathf.range(3f);
         float y = target.y();
@@ -120,8 +131,13 @@ public class DamageNumbers{
         f.r = color.r;
         f.g = color.g;
         f.b = color.b;
+        f.scale = overpen ? 1.1f : isCombo ? 1.35f : 1f;
         f.text = text;
         active.add(f);
+    }
+
+    private static String trim(float value){
+        return value == (int)value ? String.valueOf((int)value) : String.format(java.util.Locale.US, "%.2f", value);
     }
 
     private static void update(){
@@ -149,12 +165,12 @@ public class DamageNumbers{
         Font font = Fonts.outline;
         boolean ints = font.usesIntegerPositions();
         font.setUseIntegerPositions(false);
-        font.getData().setScale(0.25f * 1.6f / Scl.scl(1f));
 
         Draw.z(Layer.playerName + 1f);
         for(Floating f : active){
             float alpha = Mathf.clamp(f.life / 60f);
             float y = f.y + (1f - f.life / f.maxLife) * 18f;
+            font.getData().setScale(0.25f * 1.6f / Scl.scl(1f) * f.scale);
             font.setColor(f.r, f.g, f.b, alpha);
             font.draw(f.text, f.x, y, Align.center);
         }
@@ -170,23 +186,19 @@ public class DamageNumbers{
         if(Vars.headless || !enabled || e.unit == null || e.bullet == null) return;
         if(e.bullet.type instanceof TypedBullet) return;
         if(e.bullet.type instanceof ContinuousBulletType || e.bullet.type instanceof LightningBulletType) return;
-        // 溅射命中的事件无法区分直伤/溅射，跳过，宁可少显示不显示错
         if(e.bullet.type.splashDamageRadius > 0f) return;
 
         float amount = e.bullet.damage;
         if(amount <= 0f) return;
 
         DamageType type = Dmg.typeOf(e.bullet);
-        float armor = e.unit.armorOverride() >= 0f ? e.unit.armorOverride() : e.unit.armor();
-        float applied = e.bullet.type.pierceArmor
-            ? amount
-            : Damage.applyArmor(amount, armor * type.armorMult * e.bullet.type.armorMultiplier);
-
-        show(e.unit, applied, Math.max(0f, amount - applied), type);
+        ArmorPen pen = Dmg.penOf(e.bullet.type);
+        float dealt = pen.apply(amount, Dmg.armorOf(e.unit));
+        show(e.unit, dealt, amount - dealt, pen.effective(Dmg.armorOf(e.unit)), 1f, type, false);
     }
 
     static class Floating{
-        float x, y, life, maxLife, r, g, b;
+        float x, y, life, maxLife, r, g, b, scale = 1f;
         String text;
     }
 }

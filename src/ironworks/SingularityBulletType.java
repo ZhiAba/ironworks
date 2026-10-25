@@ -19,7 +19,8 @@ public class SingularityBulletType extends BulletType{
     public float pullDamage = 12f;      // 每秒真实伤害
     public float collapseDamage = 420f;
     public float collapseRadius = 12f * 8f;
-    public DamageType damageType = DamageType.energy;
+    public DamageType damageType = DamageType.physical;
+    public DamageForm form = DamageForm.ENERGY;
     public Color color = Color.valueOf("a06bff");
 
     public SingularityBulletType(){
@@ -38,7 +39,7 @@ public class SingularityBulletType extends BulletType{
         super.update(b);
 
         // 持续涡流伤害（单位 + 建筑）
-        Dmg.area(b.team, b.x, b.y, pullRadius * 0.6f, 10f * Time.delta / 60f, damageType, true);
+        Dmg.area(b.team, b.x, b.y, pullRadius * 0.6f, 10f * Time.delta / 60f, damageType, true, form);
 
         if(Mathf.chanceDelta(0.35f)){
             Fx.smoke.at(b.x + Mathf.range(18f), b.y + Mathf.range(18f));
@@ -51,7 +52,7 @@ public class SingularityBulletType extends BulletType{
             float len = Math.max((float)Math.sqrt(dx * dx + dy * dy), 1f);
             float force = Mathf.clamp(1f - len / pullRadius) * 2.2f;
             u.vel.add(dx / len * force, dy / len * force);
-            Dmg.hitSilent(u, pullDamage * Time.delta / 60f, damageType);
+            Dmg.hitSilent(u, pullDamage * Time.delta / 60f, damageType, form);
         });
     }
 
@@ -71,7 +72,7 @@ public class SingularityBulletType extends BulletType{
     public void despawned(Bullet b){
         super.despawned(b);
 
-        Dmg.area(b.team, b.x, b.y, collapseRadius, collapseDamage, damageType, true);
+        Dmg.area(b.team, b.x, b.y, collapseRadius, collapseDamage, damageType, true, form);
         Fx.shockwave.at(b.x, b.y);
         Fx.explosion.at(b.x, b.y);
         IronworksFx.muzzle.at(b.x, b.y, 0f);

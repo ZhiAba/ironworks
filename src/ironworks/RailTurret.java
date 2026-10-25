@@ -23,6 +23,8 @@ public class RailTurret extends PowerTurret{
     public float hitWidth = 14f;
     /** 电磁重炮默认雷霆；以后换属性只改这一处。 */
     public DamageType damageType = DamageType.thunder;
+    /** 磁轨炮是真实弹丸：雷霆 + 动能。 */
+    public DamageForm form = DamageForm.KINETIC;
 
     /** 开火时的屏幕震动强度；0 = 关闭 */
     public float shakePower = 4f, shakeTime = 6f;
@@ -49,7 +51,7 @@ public class RailTurret extends PowerTurret{
             float ang = Mathf.angle(tx - x, ty - y);
             float len = Mathf.dst(x, y, tx, ty);
 
-            if(target instanceof Healthc h) Dmg.hit(h, beamDamage, damageType);
+            if(target instanceof Healthc h) Dmg.hit(h, beamDamage, damageType, true, true, damageType.pen, true, form);
 
             int[] hits = {1};
             float midx = (x + tx) / 2f, midy = (y + ty) / 2f;
@@ -59,7 +61,7 @@ public class RailTurret extends PowerTurret{
                 if(Mathf.dst(u.x, u.y, x, y) > len) return;
                 if(pointLineDistance(u.x, u.y, x, y, tx, ty) > hitWidth) return;
                 hits[0]++;
-                Dmg.hit(u, beamDamage, damageType);
+                Dmg.hit(u, beamDamage, damageType, true, true, damageType.pen, true, form);
             });
 
             IronworksFx.beam(x, y, ang, len);

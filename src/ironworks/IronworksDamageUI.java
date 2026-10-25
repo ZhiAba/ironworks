@@ -1,6 +1,7 @@
 package ironworks;
 
 import arc.Core;
+import arc.math.Mathf;
 import arc.scene.Element;
 import arc.scene.Group;
 import arc.scene.ui.Label;
@@ -9,6 +10,7 @@ import arc.struct.Seq;
 import mindustry.Vars;
 import mindustry.ctype.UnlockableContent;
 import mindustry.entities.bullet.BulletType;
+import mindustry.type.UnitType;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.ContentInfoDialog;
 import mindustry.world.blocks.defense.turrets.Turret;
@@ -38,6 +40,8 @@ public class IronworksDamageUI extends ContentInfoDialog{
         super.show(content);
         if(content instanceof Turret turret){
             decorate(cont, turret);
+        }else if(content instanceof UnitType unit){
+            decorateUnit(cont, unit);
         }
     }
 
@@ -56,7 +60,7 @@ public class IronworksDamageUI extends ContentInfoDialog{
         for(Table panel : panels){
             if(index >= bullets.size) break;
             BulletType bullet = bullets.get(index++);
-            decoratePanel(panel, Dmg.typeOf(bullet, turret));
+            decoratePanel(panel, bullet, Dmg.typeOf(bullet, turret), turret);
         }
     }
 
@@ -78,7 +82,7 @@ public class IronworksDamageUI extends ContentInfoDialog{
         return null;
     }
 
-    private static void decoratePanel(Table panel, DamageType type){
+    private static void decoratePanel(Table panel, BulletType bullet, DamageType type, Turret turret){
         String areaWord = areaWord();
         String directSuffix = directSuffix();
         boolean changed = false;
@@ -100,6 +104,47 @@ public class IronworksDamageUI extends ContentInfoDialog{
             panel.row();
             panel.add("[lightgray]" + type.coloredName() + type.separator() + type.damageSuffix()).left();
         }
+
+        ArmorPen pen = Dmg.penOf(bullet, turret);
+        DamageForm form = Dmg.formOf(bullet, turret);
+        panel.row();
+        panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.form", "形态") + ":[] "
+            + form.localizedName()).left();
+        panel.row();
+        panel.add("[lightgray]" + Core.bundle.format("ironworks.combat.pierce",
+            Mathf.round(pen.rated * 100f), trim(pen.threshold), trim(pen.decay * 100f)))
+            .left().wrap();
+        panel.row();
+        panel.add("[lightgray]" + Core.bundle.format("ironworks.combat.combo", type.comboSummary()))
+            .left().wrap();
+        if(form.kinetic){
+            panel.row();
+            panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.overpen-short"))
+                .left().wrap();
+        }
+        if(form.bypassShields){
+            panel.row();
+            panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.shield-bypass"))
+                .left().wrap();
+        }
+    }
+
+    private static void decorateUnit(Table root, UnitType unit){
+        root.row();
+        root.table(Styles.grayPanel, t -> {
+            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.armor", "护甲") + ":[] "
+                + Mathf.round(unit.armor)).left();
+            t.row();
+            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.material", "材质") + ":[] "
+                + TargetMaterial.name(unit)).left();
+            t.row();
+            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.weakness", "弱点") + ":[] "
+                + ElementCombo.weaknessName(unit)).left().wrap();
+        }).growX().padTop(6f);
+    }
+
+    private static String trim(float value){
+        return value == (int)value ? String.valueOf((int)value) : String.format(java.util.Locale.US, "%.1f", value);
     }
 
     private static void collectPanels(Element element, Seq<Table> out){

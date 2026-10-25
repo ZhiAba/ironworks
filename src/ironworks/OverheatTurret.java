@@ -33,6 +33,8 @@ public class OverheatTurret extends PowerTurret{
 
     /** 直接结算的命中属性；电弧塔是雷霆。 */
     public DamageType damageType = DamageType.thunder;
+    /** 电弧/连锁类默认能量形态；子类可覆盖。 */
+    public DamageForm form = DamageForm.ENERGY;
     public float contactDamage = 35f;
     public float overheatTime = 300f;
     public float overheatCoolAmount = 1.6f;
@@ -330,14 +332,14 @@ public class OverheatTurret extends PowerTurret{
             if(!aimed) return;
 
             if(target instanceof mindustry.gen.Healthc h){
-                Dmg.hit(h, contactDamage, damageType);
+                Dmg.hit(h, contactDamage, damageType, true, true, damageType.pen, true, form);
             }
 
             int[] remain = {3};
             mindustry.entities.Units.nearbyEnemies(team, tx, ty, 20f, u -> {
                 if(remain[0] <= 0 || u.dead()) return;
                 remain[0]--;
-                Dmg.hit(u, contactDamage, damageType);
+                Dmg.hit(u, contactDamage, damageType, true, true, damageType.pen, true, form);
                 mindustry.entities.Lightning.create(team, arc.graphics.Color.valueOf("8a7bff"), tx, ty, u.x, u.y, 3);
             });
 

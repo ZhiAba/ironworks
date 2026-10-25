@@ -16,6 +16,7 @@ public class ChainLaserBulletType extends LaserBulletType implements TypedBullet
     public float chainDamage = 35f;
     public Color chainColor = Color.valueOf("8a7bff");
     public DamageType dtype = DamageType.thunder;
+    public DamageForm form = DamageForm.ENERGY;
 
     public ChainLaserBulletType(float damage){
         super(damage);
@@ -37,7 +38,7 @@ public class ChainLaserBulletType extends LaserBulletType implements TypedBullet
         Units.nearbyEnemies(b.team, x, y, chainRadius, u -> {
             if(remaining[0] <= 0 || u.dead()) return;
             remaining[0]--;
-            Dmg.hit(u, chainDamage, dtype);
+            Dmg.hit(u, chainDamage, dtype, true, true, dtype.pen, true, form);
             Lightning.create(b.team, chainColor, x, y, u.x, u.y, 2);
         });
     }

@@ -1500,7 +1500,7 @@ public class IronworksRBMK{
                     float scale = 0.45f + Math.min(flux, 1.4f) * 0.45f + Math.min(heat, 1.6f) * 0.35f;
                     Fx.reactorExplosion.at(x, y);
                     Fx.massiveExplosion.at(x, y);
-                    Dmg.area(null, x, y, meltRadius * 8f * Math.min(scale, 1.6f), meltDamage * Math.min(scale, 1.6f), DamageType.energy, false);
+                    Dmg.area(null, x, y, meltRadius * 8f * Math.min(scale, 1.6f), meltDamage * Math.min(scale, 1.6f), DamageType.physical, false, DamageForm.ENERGY);
 
                     // 堆芯熔融物：在中心铺 1~5 格 corium，持续辐射 + 熔穿周围
                     IronworksNuclear.spawnCorium(tile, team);

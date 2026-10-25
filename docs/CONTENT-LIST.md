@@ -48,8 +48,10 @@
 本清单由无头端（`server-release-160.3.jar` + 本模组）运行时查询 `Vars.content.*` 生成，
 物品/液体/方块/状态的数量与名称均以实际注册结果为准；版本升级后可用同样方式复核。
 
-## 属性伤害（7）
+## 属性伤害（6 元素 × 4 形态）
 
-`physical` 物理（灰） · `thunder` 雷霆（紫，半甲 + 潮湿克制） · `water` 水（蓝，挂潮湿） · `ice` 冰（青，冻结 + 潮湿克制） · `energy` 能量（品红，高破甲 + 电击克制） · `fire` 火（橙，燃烧） · `corrosive` 腐蚀（绿，腐蚀）
+`physical` 物理 · `thunder` 雷霆 · `water` 水 · `ice` 冰 · `fire` 火 · `corrosive` 腐蚀；
+形态 `kinetic` 动能 · `energy` 能量 · `explosive` 爆炸 · `slashing` 切割。
+元素决定 Combo/附着，形态决定过穿/护盾交互。`energy` 是形态，不再是元素。
 
-归属、色号、护甲倍率、克制关系见 `docs/DAMAGE-TYPES.md`。
+归属、穿甲曲线、Combo、过穿和护盾规则见 `docs/COMBAT-SYSTEM.md`；代码入口索引见 `docs/DAMAGE-TYPES.md`。

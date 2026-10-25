@@ -1152,6 +1152,9 @@ cd "$TESTDIR" || exit 1
   # ---- 177. 12×12 分区堆常态通量：9×360=3240 L/s，单区约 360 ----
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=184;y<=212;y++){for(var x=234;x<=270;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}} Vars.world.tile(250,196).setBlock(Vars.content.block("ironworks-rbmk-reactor-9"),T); var b=Vars.world.tile(250,196).build; var w=Vars.content.liquid("water"), st=Vars.content.liquid("ironworks-steam"); b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.applyConfig(-12); b.applyConfig(1100); b.liquids.set(w,32400); b.applyConfig(-30); b.applyConfig(0); for(var i=0;i<300;i++){ for(var z=0;z<9;z++) b.zoneFlux[z]=1.0; b.liquids.set(st,0); b.updateTile(); } var rate=Math.round(b.steamRate), per=Math.round(rate/9); Log.info("T177 rate=" + rate + " perZone=" + per + " near=" + (rate>3100 && rate<3350))'
   sleep 2
+  # T177 的分区堆在满水/满料下可能延迟触发熔毁；等爆炸/重置落定再在旧位置放冷却塔，
+  # 否则残留的延迟爆炸会在 3~6 秒后把 T178 的塔一起清掉（全量偶发 missing=true）。
+  sleep 6
   # ---- 178. 大型冷却塔：4×4，600 L/s 温水 → 水 ----
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=184;y<=212;y++){for(var x=234;x<=270;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}} Vars.world.tile(248,196).setBlock(Vars.content.block("power-source"),T); Vars.world.tile(250,196).setBlock(Vars.content.block("ironworks-cooling-tower-large"),T); var b=Vars.world.tile(250,196).build; b.liquids.add(Vars.content.liquid("ironworks-warm-water"),960); Log.info("T178 setup=" + (b!=null))'
   sleep 3
