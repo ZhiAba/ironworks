@@ -124,3 +124,4 @@
 184	T184 damage=0\.0[0-9]+ accumulated=true
 185	T185 held=1\.00 released=0\.[0-9]+ latch=true
 186	T186 placeholder=true links=true
+187	T187 sound=true

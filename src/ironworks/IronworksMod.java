@@ -67,6 +67,7 @@ public class IronworksMod extends Mod{
         IronworksNotifications.init(); // 左侧日志数据源
         IronworksLogPanel.init();      // 动画日志面板
         IronworksNotificationPopups.init(); // 新警告弹出条
+        IronworksRbmkAlerts.init();        // 预加载反应堆警告音
         IronworksRbmkWindow.init();     // RBMK 黑色半透明弹出控制台
         IronworksSidebar.init();      // 左侧长条：点击打开日志
         IronworksSettings.init();    // 设置 → 铁流工业

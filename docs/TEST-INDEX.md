@@ -1,4 +1,4 @@
-# 回归测试索引（T1–T186）
+# 回归测试索引（T1–T187）
 
 > 由 tools/chain-test.sh 的注释自动提取。改测试注释后请重新生成。
 >
@@ -9,6 +9,8 @@
 > 2.5.1.1 新增 T186：算力 4×6 施工占位块先占链接区，`ensureLinks` 后换成正式链接块（`placeholder=true links=true`）。
 >
 > 2.5.1.2 修复控制棒行程：T134a/T134b/T181/T182 改为确定性用例；全量 124/124（708 秒）。
+>
+> 2.5.2.0 新增 T187：RBMK 警告音 OGG 随 jar 打包且资源树可寻址；播放本身是客户端行为，无头不初始化音频设备。
 >
 > 2.4.0.1 修复液体建筑侧面导管贴图：所有模组液体方块补 `outputsLiquid=true`；新增 T179（导管侧贴汽轮机、不朝前，blendbits=1）。RBMK 分区堆手动告警区号是客户端文案，无头只验证底层 flag/容量。
 >
@@ -210,3 +212,5 @@
 | T183 | v2.5 衰变热：停堆且通量历史为 1 时，decayHeat 约 0.069（7%） |
 | T184 | v2.5 逐区熔毁：燃料 2.5、无水时 zoneMeltDamage 累积 >0.001 |
 | T185 | v2.5 SCRAM 锁存：自动模式 SCRAM 后保持全插，`-4` 复位后目标恢复 <0.9 |
+| T186 | 算力施工占位：先放 `LinkPlaceholder`，`ensureLinks` 后换成正式链接块（`placeholder=true links=true`） |
+| T187 | RBMK 警告音资源：`sounds/ironworks-reactor-alert.ogg` 随 jar 打包且资源树可寻址 |

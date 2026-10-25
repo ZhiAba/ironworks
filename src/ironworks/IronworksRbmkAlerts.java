@@ -1,10 +1,14 @@
 package ironworks;
 
 import arc.Core;
+import arc.audio.Sound;
 import arc.math.Mathf;
+import arc.util.Log;
+import arc.util.Time;
 import ironworks.IronworksRBMK.RBMKReactor;
 import ironworks.IronworksRBMK.RBMKReactor.RBMKReactorBuild;
 import mindustry.content.Liquids;
+import mindustry.gen.Sounds;
 
 import static mindustry.Vars.*;
 
@@ -26,6 +30,13 @@ public class IronworksRbmkAlerts{
     public static final float waterThreshold = 0.2f;
     /** 异常消失后持续 3 秒才重新武装，防止阈值附近抖动刷屏。 */
     private static final float quietSeconds = 3f;
+    /** 警告音最短间隔：同一 tick 多个条件同时触发时只响一次。 */
+    private static final long alertSoundCooldownMillis = 1200L;
+
+    /** 懒加载的自定义警告音；加载失败时退回原版 uiNotify。 */
+    private static Sound alertSound;
+    private static boolean alertSoundTried;
+    private static long lastAlertSoundAt = -alertSoundCooldownMillis;
 
     private static final int TEMP = 0, FLOW = 1, STEAM = 2, WATER = 3,
         BLOCKED = 4, PRESSURE = 5, SCRAM = 6, POISON = 7;
@@ -195,7 +206,49 @@ public class IronworksRbmkAlerts{
         return Core.bundle.format("ironworks.log.reactor.at", b.tileX(), b.tileY(), detail);
     }
 
+    /** 客户端启动时预加载，避免第一条警告处于异步加载窗口而静默。 */
+    public static void init(){
+        if(headless) return;
+        ensureAlertSound();
+        // 0 音量触发一次异步解码；真正警告时直接播放已加载的 handle。
+        if(alertSound != null && Core.audio != null){
+            alertSound.play(0f);
+        }
+    }
+
+    private static void ensureAlertSound(){
+        if(alertSoundTried) return;
+        alertSoundTried = true;
+        try{
+            if(tree != null && tree.get("sounds/ironworks-reactor-alert.ogg").exists()){
+                alertSound = tree.loadSound("ironworks-reactor-alert");
+            }
+        }catch(Throwable t){
+            Log.err("Failed to load reactor alert sound", t);
+        }
+    }
+
+    /**
+     * 反应堆警告边沿音效。自定义 OGG 在 assets/sounds/ 下；缺失或加载失败
+     * 时退回原版 uiNotify，保证不会静默。冷却 1.2 秒，避免多条件同时触发时叠音。
+     */
+    public static void playAlertSound(){
+        if(headless) return;
+        ensureAlertSound();
+
+        long now = Time.millis();
+        if(now - lastAlertSoundAt < alertSoundCooldownMillis) return;
+        lastAlertSoundAt = now;
+
+        if(alertSound != null){
+            alertSound.play(0.8f);
+        }else if(Sounds.uiNotify != null){
+            Sounds.uiNotify.play(0.55f);
+        }
+    }
+
     private static void warn(RBMKReactorBuild b, String detail){
+        playAlertSound();
         IronworksNotifications.warn(at(b, detail));
     }
 

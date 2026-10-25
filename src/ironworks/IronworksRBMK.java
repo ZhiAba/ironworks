@@ -1483,6 +1483,7 @@ public class IronworksRBMK{
                 if(melted) return;
                 melted = true;
                 if(!headless && !alertsMuted){
+                    IronworksRbmkAlerts.playAlertSound();
                     boolean zonedManual = ((RBMKReactor)block).zoned && controlMode == MODE_MANUAL;
                     if(zonedManual){
                         int hottest = 0;
