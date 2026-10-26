@@ -29,8 +29,7 @@ public final class ElementCombo{
         new Combo(DamageType.water, DamageType.fire, 1.50f, "蒸发", true),
         new Combo(DamageType.thunder, DamageType.ice, 1.35f, "超导", true),
         new Combo(DamageType.ice, DamageType.water, 1.25f, "冻结", true),
-        new Combo(DamageType.physical, DamageType.ice, 1.25f, "碎冰", true),
-        new Combo(DamageType.corrosive, DamageType.water, 1.25f, "腐蚀扩散", true)
+        new Combo(DamageType.physical, DamageType.ice, 1.25f, "碎冰", true)
     };
 
     /** 最近一次 evaluate 的结果，供伤害飘字读取；游戏逻辑单线程调用。 */
@@ -94,17 +93,26 @@ public final class ElementCombo{
         return baseMultiplier;
     }
 
-    /** 伤害结算后消耗旧附着；调用方随后再挂本属性的新状态。 */
+    /** 伤害结算后消耗旧附着及其原版可见状态；调用方随后再挂本属性的新状态。 */
     public static void consume(Unit unit){
         if(unit != null && lastConsume){
-            auras.remove(unit);
+            Aura old = auras.remove(unit);
+            if(old != null && old.type.status != null) unit.unapply(old.type.status);
             lastConsume = false;
         }
     }
 
-    /** 写入本次属性附着，并挂对应可见状态。物理不覆盖已有元素附着。 */
+    /**
+     * 写入本次属性附着，并挂对应可见状态。物理不覆盖已有元素附着。
+     * 换元素时先移除旧原版状态，避免原版 affinity（例如潮湿+电击额外伤害）
+     * 绕过我们自己的 Combo 倍率；腐蚀是个例外，保留潮湿以支持酸蚀判定。
+     */
     public static void apply(Unit unit, DamageType type){
         if(unit == null || type == null || type == DamageType.physical) return;
+        Aura old = auras.get(unit);
+        if(old != null && old.type.status != null && type != DamageType.corrosive){
+            unit.unapply(old.type.status);
+        }
         auras.put(unit, new Aura(type, Time.time + auraTicks));
         if(type.status != null){
             unit.apply(type.status, type.statusDuration);
@@ -140,6 +148,13 @@ public final class ElementCombo{
             return Core.bundle.get("ironworks.combat.heavy-weakness", "腐蚀（高护甲通用）");
         }
         return Core.bundle.get("ironworks.combat.no-weakness", "无明确弱点");
+    }
+
+    /** 目标是否持有指定元素 Aura（腐蚀酸蚀判定用）。 */
+    public static boolean hasAura(Unit unit, DamageType type){
+        if(unit == null || type == null) return false;
+        Aura aura = auras.get(unit);
+        return aura != null && aura.type == type && aura.expire > Time.time;
     }
 
     /** 调试/测试：当前附着元素名。 */

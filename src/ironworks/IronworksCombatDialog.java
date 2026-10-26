@@ -22,6 +22,10 @@ public class IronworksCombatDialog{
                 .left().wrap().width(520f).pad(8f).row();
             t.add(Core.bundle.get("ironworks.combat.form-note")).color(arc.graphics.Color.lightGray)
                 .left().wrap().width(520f).pad(8f).row();
+            t.add(Core.bundle.get("ironworks.combat.pipeline")).color(arc.graphics.Color.lightGray)
+                .left().wrap().width(520f).pad(8f).row();
+            t.add(Core.bundle.get("ironworks.combat.corrosion")).color(arc.graphics.Color.lightGray)
+                .left().wrap().width(520f).pad(8f).row();
 
             for(DamageType type : DamageType.values()){
                 t.table(row -> {
@@ -30,7 +34,7 @@ public class IronworksCombatDialog{
                     row.add(type.defaultForm.localizedName()).width(64f).color(arc.graphics.Color.lightGray).left();
                     ArmorPen pen = type.pen;
                     row.add(Core.bundle.format("ironworks.combat.pierce",
-                        Mathf.round(pen.rated * 100f), trim(pen.threshold), trim(pen.decay * 100f)))
+                        Mathf.round(pen.rate * 100f), trim(pen.flat), trim(pen.decay), trim(pen.ricochet)))
                         .color(arc.graphics.Color.lightGray).left().wrap().width(240f);
                     row.row();
                     row.add("");

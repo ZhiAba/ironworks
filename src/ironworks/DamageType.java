@@ -14,12 +14,12 @@ import mindustry.type.StatusEffect;
  */
 public enum DamageType{
     //      id         中文  色号      元素?  形态          额定穿甲 阈值  每点衰减 状态        持续   概率
-    physical("physical", "物理", "c8c8c8", false, DamageForm.KINETIC,   0.65f, 18f, 0.020f, null,       0f,   1f),
-    thunder ("thunder",  "雷霆", "b6a8ff", true,  DamageForm.KINETIC,   0.50f, 15f, 0.025f, "shocked",  90f,  1f),
-    water   ("water",    "水",   "5aa9ff", true,  DamageForm.ENERGY,    0.30f, 12f, 0.025f, "wet",      240f, 1f),
-    ice     ("ice",      "冰",   "9fe8ff", true,  DamageForm.ENERGY,    0.40f, 15f, 0.025f, "freezing", 120f, 1f),
-    fire    ("fire",     "火",   "ff8a3c", true,  DamageForm.EXPLOSIVE, 0.25f, 10f, 0.025f, "burning",  240f, 1f),
-    corrosive("corrosive","腐蚀","8fbf5a", true,  DamageForm.KINETIC,   0.80f, 25f, 0.012f, "corrosion",300f, 1f);
+    physical("physical", "物理", "c8c8c8", false, DamageForm.KINETIC,   0.65f, 18f, 0.30f, null,       0f,   1f),
+    thunder ("thunder",  "雷霆", "b6a8ff", true,  DamageForm.KINETIC,   0.50f, 15f, 0.30f, "shocked",  90f,  1f),
+    water   ("water",    "水",   "5aa9ff", true,  DamageForm.ENERGY,    0.30f, 12f, 0.35f, "wet",      240f, 1f),
+    ice     ("ice",      "冰",   "9fe8ff", true,  DamageForm.ENERGY,    0.40f, 15f, 0.35f, "freezing", 120f, 1f),
+    fire    ("fire",     "火",   "ff8a3c", true,  DamageForm.EXPLOSIVE, 0.25f, 10f, 0.45f, "burning",  240f, 1f),
+    corrosive("corrosive","腐蚀","8fbf5a", true,  DamageForm.KINETIC,   0.80f, 25f, 0.20f, "corrosion",300f, 1f);
 
     public final String id;
     /** 中文名，作为 bundle 缺失时的兜底。 */

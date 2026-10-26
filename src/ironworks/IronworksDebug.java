@@ -23,7 +23,7 @@ public class IronworksDebug{
         registerEvents();
     }
 
-    /** 属性伤害回归：归属 + 穿甲曲线 + 护甲保底 + Combo + 附着。 */
+    /** v3.0 战斗回归：平方衰减、跳弹、过穿、护盾、抗性、Combo、腐蚀与真伤。 */
     public static String damageTest(Building at){
         StringBuilder sb = new StringBuilder();
         sb.append("auraTicks=").append((int)ElementCombo.auraTicks);
@@ -41,100 +41,181 @@ public class IronworksDebug{
         sb.append(" heForm=").append(Dmg.formOf(IronworksShells.heBullet).id);
         sb.append(" napalmForm=").append(Dmg.formOf(IronworksTurrets.napalmBullet).id);
 
+        ArmorPen test = new ArmorPen(0.50f, 15f, 0.30f, 0.02f);
+        boolean rateFlat = Math.abs(test.effective(10f) - 0.50f) < 0.0001f;
+        boolean rateSquare = Math.abs(test.effective(30f) - 0.20f) < 0.002f;
+        boolean rateCut = test.effective(60f) < 0.0001f;
+        boolean armorDR = Math.abs(test.armorReduction(15f) - (7.5f / 107.5f)) < 0.002f;
+        boolean noTenPercent = new ArmorPen(0f, 0f, 0f, 0f).damageAfterArmor(100f, 1000f) < 10f;
+        boolean ricFormula = Math.abs(test.ricochetChance(30f) - 0.30f) < 0.001f
+            && test.ricochetChance(200f) >= 0.899f;
+        boolean overpenGate = test.canOverpen(7f) && !test.canOverpen(8f);
+
         float x = at.x, y = at.y;
         Unit a = UnitTypes.fortress.spawn(Team.crux, x + 40f, y);
-        Unit b = UnitTypes.fortress.spawn(Team.crux, x + 72f, y);
+        Unit b = UnitTypes.dagger.spawn(Team.crux, x + 72f, y);
         Unit c = UnitTypes.fortress.spawn(Team.crux, x + 104f, y);
         Unit d = UnitTypes.dagger.spawn(Team.crux, x + 136f, y);
         Unit e = UnitTypes.dagger.spawn(Team.crux, x + 168f, y);
-        Unit g = UnitTypes.dagger.spawn(Team.crux, x + 200f, y);
-        Unit f = UnitTypes.dagger.spawn(Team.crux, x + 232f, y);
+        Unit f = UnitTypes.dagger.spawn(Team.crux, x + 200f, y);
+        Unit g = UnitTypes.dagger.spawn(Team.crux, x + 232f, y);
         Unit h = UnitTypes.dagger.spawn(Team.crux, x + 264f, y);
-        Unit i = UnitTypes.fortress.spawn(Team.crux, x + 296f, y);
+        Unit i = UnitTypes.dagger.spawn(Team.crux, x + 296f, y);
         Unit j = UnitTypes.dagger.spawn(Team.crux, x + 328f, y);
-        g.shield(100f);
+        Unit k = UnitTypes.fortress.spawn(Team.crux, x + 360f, y);
+        Unit l = UnitTypes.fortress.spawn(Team.crux, x + 392f, y);
+        Unit m = UnitTypes.fortress.spawn(Team.crux, x + 424f, y);
+        Unit n = UnitTypes.dagger.spawn(Team.crux, x + 456f, y);
+        Unit o = UnitTypes.fortress.spawn(Team.crux, x + 488f, y);
+        Unit p = UnitTypes.dagger.spawn(Team.crux, x + 520f, y);
 
-        float ha = a.health;
-        Dmg.hit(a, 100f, DamageType.physical, false, false);
-        float phys = ha - a.health;
-
-        float hb = b.health;
-        Dmg.hit(b, 100f, DamageType.thunder, false, false);
-        float thunder = hb - b.health;
-
+        // 跳弹：护甲 9 > 白值 1，强制 roll=0；伤害归零且不消耗 Aura。
         ElementCombo.apply(c, DamageType.water);
         float hc = c.health;
-        Dmg.hit(c, 100f, DamageType.thunder, true, false);
-        float wetThunder = hc - c.health;
-        boolean consume = "thunder".equals(ElementCombo.auraName(c)) && wetThunder > thunder;
+        Dmg.ricochetRoll = 0f;
+        Dmg.hit(c, 100f, DamageType.physical, false, false, new ArmorPen(0.50f, 1f, 0.30f, 0.10f), true, DamageForm.KINETIC);
+        boolean ricochet = Dmg.lastRicochet && Math.abs(c.health - hc) < 0.01f
+            && "water".equals(ElementCombo.auraName(c));
+        Dmg.ricochetRoll = -1f;
 
-        ElementCombo.apply(e, DamageType.water);
+        // 过穿：动能白值 20 ≥ 匕首护甲 0×2；伤害 30%，跳过 Combo/Aura。
+        ElementCombo.apply(b, DamageType.water);
+        float hb = b.health;
+        Dmg.hit(b, 100f, DamageType.thunder, true, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), true, DamageForm.KINETIC);
+        boolean overpen = Dmg.lastOverpen
+            && Math.abs((hb - b.health) - 30f) < 0.5f
+            && "water".equals(ElementCombo.auraName(b));
+
+        // 能量形态：不触发过穿，且穿透护盾。
+        float hd = d.health;
+        Dmg.hit(d, 100f, DamageType.water, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.ENERGY);
+        boolean energyNoOverpen = !Dmg.lastOverpen && Math.abs(Dmg.lastDealt - 100f) < 0.5f;
+
+        // 非能量盾：先扣盾，溢出 50 打本体。
+        e.shield(100f);
         float he = e.health;
-        Dmg.hit(e, 1000f, DamageType.thunder, true, false);
-        boolean overpen = Dmg.lastOverpen && (he - e.health) <= e.maxHealth() * Dmg.overpenMaxFraction + 0.1f;
-        boolean overpenNoCombo = overpen && "water".equals(ElementCombo.auraName(e));
+        Dmg.hit(e, 150f, DamageType.fire, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.EXPLOSIVE);
+        boolean shieldOverflow = Math.abs(e.shield()) < 0.01f && Math.abs(Dmg.lastShieldAbsorbed - 100f) < 0.01f
+            && Math.abs((he - e.health) - 50f) < 0.5f;
+
+        // 盾完全吸收：本体不掉血、不挂 Aura。
+        f.shield(100f);
+        float hf = f.health;
+        Dmg.hit(f, 50f, DamageType.fire, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.EXPLOSIVE);
+        boolean shieldBlocked = Dmg.lastShieldBlocked && Math.abs(f.shield() - 50f) < 0.01f
+            && Math.abs(f.health - hf) < 0.01f;
+
+        // 能量形态无视盾：盾值不变，本体吃满。
+        g.shield(100f);
         float hg = g.health;
-        Dmg.hit(g, 20f, DamageType.water, true, false, DamageType.water.pen, true, DamageForm.ENERGY);
-        boolean energyShield = Math.abs(g.shield() - 100f) < 0.01f && g.health < hg;
-        Dmg.hit(f, 10f, DamageType.physical, false, false);
-        boolean kineticNoOverpen = !Dmg.lastOverpen;
-        Dmg.hit(h, 1000f, DamageType.water, true, false, DamageType.water.pen, true, DamageForm.ENERGY);
-        boolean energyNoOverpen = !Dmg.lastOverpen;
-        Dmg.hit(i, 1000f, DamageType.thunder, true, false, DamageType.thunder.pen, true, DamageForm.KINETIC);
-        boolean armoredNoOverpen = !Dmg.lastOverpen;
+        Dmg.hit(g, 100f, DamageType.water, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.ENERGY);
+        boolean energyShield = Math.abs(g.shield() - 100f) < 0.01f
+            && Math.abs((hg - g.health) - 100f) < 0.5f;
 
-        Bullet ap = Bullet.create();
-        ap.type = IronworksShells.apBullet;
-        ap.team = Team.crux;
-        ap.x = j.x; ap.y = j.y;
-        ap.damage = 260f;
-        Dmg.bulletHit(IronworksShells.apBullet, ap, j, j.health);
-        boolean apOverpen = Dmg.lastOverpen;
-        boolean[] splashRan = {false};
-        Dmg.splash(IronworksShells.apBullet, ap, j.x, j.y, DamageType.physical, () -> splashRan[0] = true);
-        boolean splashSkipped = apOverpen && !splashRan[0];
-        ap.remove();
+        // 抗性：火抗 50%，能量抗 50%；封顶 90%。
+        Resistance.clear();
+        Resistance.set("dagger", DamageType.fire, 0.50f);
+        Resistance.setEnergy("dagger", 0.50f);
+        float hh = h.health;
+        Dmg.hit(h, 100f, DamageType.fire, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.EXPLOSIVE);
+        boolean fireResist = Math.abs((hh - h.health) - 50f) < 0.5f
+            && Math.abs(Dmg.lastElementResistance - 0.50f) < 0.001f;
+        float hi = i.health;
+        Dmg.hit(i, 100f, DamageType.water, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.ENERGY);
+        boolean energyResist = Math.abs((hi - i.health) - 50f) < 0.5f
+            && Math.abs(Dmg.lastEnergyResistance - 0.50f) < 0.001f;
+        Resistance.set("dagger", DamageType.fire, 2f);
+        boolean resistCap = Math.abs(Resistance.element(UnitTypes.dagger, DamageType.fire) - 0.90f) < 0.001f;
+        Resistance.clear();
 
-        Dmg.hit(d, 10f, DamageType.water, true, false);
-        boolean wet = d.hasEffect(StatusEffects.wet);
+        // Combo 在抗性之后：50 伤害 × 1.5 = 75。
+        ElementCombo.apply(j, DamageType.water);
+        float hj = j.health;
+        Dmg.hit(j, 50f, DamageType.thunder, true, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.KINETIC);
+        boolean comboAfterResist = Math.abs((hj - j.health) - 75f) < 0.5f
+            && Math.abs(Dmg.lastComboMultiplier - 1.5f) < 0.001f
+            && "thunder".equals(ElementCombo.auraName(j));
 
-        ArmorPen test = new ArmorPen(0.5f, 15f, 0.025f);
-        boolean pierce = test.effective(10f) > test.effective(25f)
-            && test.effective(25f) > test.effective(35f)
-            && Math.abs(test.effective(35f)) < 0.001f;
+        // 旧 10% 保底已删除；未跳弹时只保留 1/5% 防浮点保底。
+        float ho = o.health;
+        Dmg.hit(o, 1f, DamageType.physical, false, false, ArmorPen.none, false, DamageForm.KINETIC);
+        boolean floorKept = Dmg.lastDealt >= 1f && Math.abs((ho - o.health) - 1f) < 0.2f;
 
-        float hFloor = a.health;
-        Dmg.hit(a, 10f, DamageType.fire, false, false, ArmorPen.none);
-        float floor = hFloor - a.health;
-        boolean floorKept = Math.abs(floor - 1f) < 0.01f;
+        // 永久腐蚀：普通 100 tick 有削减；潮湿酸蚀上限 8%。
+        Corrosion.clear();
+        float p0 = Dmg.armorOf(k);
+        Corrosion.apply(k);
+        for(int tick = 0; tick < 100; tick++) Corrosion.update();
+        float p1 = Dmg.armorOf(k);
+        boolean corrosion = p1 < p0 && Corrosion.reduction(k) > 0f;
+        Corrosion.apply(l);
+        l.apply(StatusEffects.wet, 240f);
+        for(int tick = 0; tick < 2500; tick++) Corrosion.update();
+        boolean acidCap = Corrosion.reduction(l) <= Dmg.baseArmorOf(l) * Corrosion.acidCap + 0.01f;
+        boolean noCorrCombo = !ElementCombo.summary(DamageType.corrosive).contains("×");
+        Corrosion.clear();
 
+        // 真伤：红色分类走 Dmg.pierce，不受护甲影响。
+        float hm = m.health;
+        Dmg.pierce(m, 50f, DamageType.corrosive);
+        boolean trueDamage = Math.abs((hm - m.health) - 50f) < 0.5f;
+
+        // 建筑：结构材质，不用过穿/跳弹。
         Tile wallTile = Vars.world.tile(at.tileX() + 10, at.tileY());
         boolean building = false;
         if(wallTile != null){
             wallTile.setBlock(Blocks.thoriumWall, Team.crux);
             Building wall = wallTile.build;
             float wallBefore = wall.health;
-            Dmg.hit(wall, 50f, DamageType.physical, false, false);
+            Dmg.hit(wall, 50f, DamageType.physical, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.KINETIC);
             building = wall.health < wallBefore;
             wallTile.setBlock(Blocks.air, Team.derelict);
         }
 
-        a.remove(); b.remove(); c.remove(); d.remove(); e.remove(); f.remove(); g.remove(); h.remove(); i.remove(); j.remove();
+        // AP 炮弹过穿时，Bullet.data 标记要挡住整次溅射。
+        Bullet ap = Bullet.create();
+        ap.type = IronworksShells.apBullet;
+        ap.team = Team.crux;
+        ap.x = n.x; ap.y = n.y;
+        ap.damage = 260f;
+        Dmg.bulletHit(IronworksShells.apBullet, ap, n, n.health);
+        boolean apOverpen = Dmg.lastOverpen;
+        boolean[] splashRan = {false};
+        Dmg.splash(IronworksShells.apBullet, ap, n.x, n.y, DamageType.physical, () -> splashRan[0] = true);
+        boolean splashSkipped = apOverpen && !splashRan[0];
+        ap.remove();
 
-        sb.append(" armor=").append(Dmg.armorOf(a) > 0f && phys < 100f);
-        sb.append(" bonus=").append(wetThunder > thunder);
-        sb.append(" pierce=").append(pierce);
-        sb.append(" floor=").append(floorKept);
-        sb.append(" consume=").append(consume);
+        Dmg.hit(p, 10f, DamageType.water, true, false, new ArmorPen(0.30f, 12f, 0.35f, 0f), false, DamageForm.ENERGY);
+        boolean wet = p.hasEffect(StatusEffects.wet);
+
+        a.remove(); b.remove(); c.remove(); d.remove(); e.remove(); f.remove(); g.remove(); h.remove(); i.remove();
+        j.remove(); k.remove(); l.remove(); m.remove(); n.remove(); o.remove(); p.remove();
+
+        sb.append(" rateFlat=").append(rateFlat);
+        sb.append(" rateSquare=").append(rateSquare);
+        sb.append(" rateCut=").append(rateCut);
+        sb.append(" armorDR=").append(armorDR);
+        sb.append(" noTenPercent=").append(noTenPercent);
+        sb.append(" ricFormula=").append(ricFormula);
+        sb.append(" overpenGate=").append(overpenGate);
+        sb.append(" ricochet=").append(ricochet);
         sb.append(" overpen=").append(overpen);
-        sb.append(" overpenNoCombo=").append(overpenNoCombo);
-        sb.append(" energyShield=").append(energyShield);
-        sb.append(" kineticNoOverpen=").append(kineticNoOverpen);
         sb.append(" energyNoOverpen=").append(energyNoOverpen);
-        sb.append(" armoredNoOverpen=").append(armoredNoOverpen);
+        sb.append(" shieldOverflow=").append(shieldOverflow);
+        sb.append(" shieldBlocked=").append(shieldBlocked);
+        sb.append(" energyShield=").append(energyShield);
+        sb.append(" fireResist=").append(fireResist);
+        sb.append(" energyResist=").append(energyResist);
+        sb.append(" resistCap=").append(resistCap);
+        sb.append(" comboAfterResist=").append(comboAfterResist);
+        sb.append(" floorKept=").append(floorKept);
+        sb.append(" corrosion=").append(corrosion);
+        sb.append(" acidCap=").append(acidCap);
+        sb.append(" noCorrCombo=").append(noCorrCombo);
+        sb.append(" trueDamage=").append(trueDamage);
+        sb.append(" building=").append(building);
         sb.append(" apOverpen=").append(apOverpen);
         sb.append(" splashSkipped=").append(splashSkipped);
-                sb.append(" building=").append(building);
         sb.append(" wet=").append(wet);
         return sb.toString();
     }

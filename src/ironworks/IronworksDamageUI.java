@@ -112,7 +112,7 @@ public class IronworksDamageUI extends ContentInfoDialog{
             + form.localizedName()).left();
         panel.row();
         panel.add("[lightgray]" + Core.bundle.format("ironworks.combat.pierce",
-            Mathf.round(pen.rated * 100f), trim(pen.threshold), trim(pen.decay * 100f)))
+            Mathf.round(pen.rate * 100f), trim(pen.flat), trim(pen.decay), trim(pen.ricochet)))
             .left().wrap();
         panel.row();
         panel.add("[lightgray]" + Core.bundle.format("ironworks.combat.combo", type.comboSummary()))
@@ -125,6 +125,10 @@ public class IronworksDamageUI extends ContentInfoDialog{
         if(form.bypassShields){
             panel.row();
             panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.shield-bypass"))
+                .left().wrap();
+        }else if(pen.ricochet > 0f){
+            panel.row();
+            panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.ricochet-short"))
                 .left().wrap();
         }
     }
@@ -140,6 +144,9 @@ public class IronworksDamageUI extends ContentInfoDialog{
             t.row();
             t.add("[lightgray]" + Core.bundle.get("ironworks.combat.weakness", "弱点") + ":[] "
                 + ElementCombo.weaknessName(unit)).left().wrap();
+            t.row();
+            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.resistance", "抗性") + ":[] "
+                + Resistance.summary(unit)).left().wrap();
         }).growX().padTop(6f);
     }
 

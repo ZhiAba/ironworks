@@ -3,55 +3,124 @@ package ironworks;
 import arc.math.Mathf;
 
 /**
- * 穿甲曲线（v2.6 战斗体系）。
+ * 穿透白值与平方衰减模型（v3.0 战斗体系）。
  *
- * <p>不是固定百分比：目标护甲低于阈值时享受额定穿甲率；超过阈值后每点护甲
- * 线性扣减穿甲率，直到 0%。有效护甲 = 护甲 × (1 - 有效穿甲率)，最终伤害
- * 仍保留至少 10%（Mindustry 的防刮痧底线）。</p>
+ * <p>字段含义：
+ * <ul>
+ *   <li>{@link #rate}：基础穿透率 P_rate，目标护甲不超过白值时保持。</li>
+ *   <li>{@link #flat}：穿透白值 P_flat，绝对破防门槛。</li>
+ *   <li>{@link #decay}：相对比例平方衰减常数 C_decay，建议 0.2~0.5。</li>
+ *   <li>{@link #ricochet}：跳弹增长系数 C_ricochet。</li>
+ * </ul>
+ *
+ * <p>公式：A &gt; P_flat 时
+ * {@code P_actual = max(0, rate - decay * ((A - flat) / flat)^2)}；
+ * 有效护甲 {@code A_eff = A * (1 - P_actual)}；
+ * 百分比减伤 {@code A_eff / (A_eff + K)}，K=100。
+ * 不再保留旧版的 10% 刮痧保底。</p>
  */
 public final class ArmorPen{
-    /** 无论护甲多高，至少保留的伤害比例。 */
-    public static final float minDamageFraction = 0.1f;
-    /** 完全无穿甲。 */
-    public static final ArmorPen none = new ArmorPen(0f, 0f, 0f);
+    /** 百分比减伤常数 K。 */
+    public static final float armorConstant = 100f;
+    /** 跳弹率硬上限。 */
+    public static final float maxRicochet = 0.90f;
+    /** 完全无穿透/无跳弹的兜底。 */
+    public static final ArmorPen none = new ArmorPen(0f, 0f, 0f, 0f);
 
-    /** 额定穿甲率 0..1（目标护甲 ≤ 阈值时生效）。 */
-    public final float rated;
-    /** 穿透阈值（护甲点）。 */
-    public final float threshold;
-    /** 超出阈值后每 1 点护甲扣减的穿甲率（0.025 = 每点 2.5 个百分点）。 */
+    /** 基础穿透率 0..1（P_rate）。 */
+    public final float rate;
+    /** 穿透白值（P_flat），单位是护甲点。 */
+    public final float flat;
+    /** 平方衰减常数（C_decay）。 */
     public final float decay;
+    /** 跳弹增长系数（C_ricochet）。 */
+    public final float ricochet;
 
-    public ArmorPen(float rated, float threshold, float decay){
-        this.rated = Mathf.clamp(rated, 0f, 1f);
-        this.threshold = Math.max(0f, threshold);
+    public ArmorPen(float rate, float flat, float decay, float ricochet){
+        this.rate = Mathf.clamp(rate, 0f, 1f);
+        this.flat = Math.max(0f, flat);
         this.decay = Math.max(0f, decay);
+        this.ricochet = Math.max(0f, ricochet);
     }
 
-    /** 对给定护甲的有效穿甲率 0..1。 */
+    /** 兼容旧三参数调用：跳弹系数使用保守默认值。 */
+    public ArmorPen(float rate, float flat, float decay){
+        this(rate, flat, decay, 0.02f);
+    }
+
+    /** 兼容旧字段名；新代码统一用 {@link #rate}。 */
+    public float rated(){
+        return rate;
+    }
+
+    /** 兼容旧字段名；新代码统一用 {@link #flat}。 */
+    public float threshold(){
+        return flat;
+    }
+
+    /** 对给定护甲的有效穿透率 0..1。 */
     public float effective(float armor){
-        if(armor <= 0f) return rated;
-        if(armor <= threshold) return rated;
-        return Mathf.clamp(rated - (armor - threshold) * decay, 0f, 1f);
+        float a = Math.max(0f, armor);
+        if(a <= flat) return rate;
+        if(flat <= 0.0001f) return 0f;
+        float over = (a - flat) / flat;
+        return Mathf.clamp(rate - decay * over * over, 0f, rate);
     }
 
-    /** 穿透后仍然生效的护甲值。 */
-    public float remainingArmor(float armor){
+    /** 穿透后仍然生效的护甲值 A_eff。 */
+    public float effectiveArmor(float armor){
         return Math.max(0f, armor) * (1f - effective(armor));
     }
 
-    /** 结算护甲后的伤害；保留至少 10%。 */
-    public float apply(float damage, float armor){
-        if(damage <= 0f) return 0f;
-        return Math.max(damage - remainingArmor(armor), damage * minDamageFraction);
+    /** 百分比减伤率 A_eff / (A_eff + K)。 */
+    public float armorReduction(float armor){
+        float eff = effectiveArmor(armor);
+        return eff / (eff + armorConstant);
     }
 
-    /** 被护甲抵消的伤害（不含 10% 保底产生的虚构成分）。 */
+    /** 护甲过滤后的伤害（不含抗性/Combo/保底）。 */
+    public float damageAfterArmor(float damage, float armor){
+        if(damage <= 0f) return 0f;
+        return damage * (1f - armorReduction(armor));
+    }
+
+    /** 旧调用兼容：没有 10% 保底。 */
+    public float apply(float damage, float armor){
+        return damageAfterArmor(damage, armor);
+    }
+
+    /** 被护甲过滤掉的伤害。 */
     public float blocked(float damage, float armor){
-        return Math.max(0f, damage - apply(damage, armor));
+        return Math.max(0f, damage - damageAfterArmor(damage, armor));
+    }
+
+    /** 跳弹率；护甲超过白值才增长，封顶 90%。 */
+    public float ricochetChance(float armor){
+        float a = Math.max(0f, armor);
+        if(a <= flat || ricochet <= 0f) return 0f;
+        return Math.min(maxRicochet, (a - flat) * ricochet);
+    }
+
+    /** 动能过穿条件：白值至少是当前护甲的 2 倍。 */
+    public boolean canOverpen(float armor){
+        return flat >= Math.max(0f, armor) * 2f;
+    }
+
+    /** 过穿伤害：基础伤害的 30%。 */
+    public float overpenDamage(float damage){
+        return Math.max(0f, damage) * 0.30f;
     }
 
     public String percent(){
-        return Mathf.round(rated * 100f) + "%";
+        return Mathf.round(rate * 100f) + "%";
+    }
+
+    public String summary(){
+        return "rate=" + Mathf.round(rate * 100f) + "% flat=" + trim(flat)
+            + " decay=" + trim(decay) + " ric=" + trim(ricochet);
+    }
+
+    private static String trim(float value){
+        return value == (int)value ? String.valueOf((int)value) : String.format(java.util.Locale.US, "%.2f", value);
     }
 }

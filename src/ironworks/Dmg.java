@@ -26,7 +26,7 @@ import java.lang.reflect.Modifier;
 /**
  * 属性伤害统一入口（v2.6 战斗体系）。
  *
- * <p>结算顺序：Combo 乘区 → 有效穿甲率 → 护甲减免 → 10% 保底 → 挂新状态。
+ * <p>v3.0 结算顺序：力场盾 → 跳弹 → 过穿 → 平方衰减穿透/护甲减伤 → 抗性 → Combo → 保底 → 扣血/附着。</p>
  * 穿甲曲线由 {@link ArmorPen} 管理，具体弹种可在 {@link #load()} 里覆盖。</p>
  *
  * <p>所有模组自己结算伤害的地方走这里。原版弹体只做一次反射拷贝，
@@ -43,13 +43,19 @@ public class Dmg{
 
     /** 最近一次 hit 的结算细节，供飘字/UI 读取；游戏逻辑单线程调用。 */
     public static float lastEffectivePierce, lastArmorAbsorbed, lastDealt, lastComboMultiplier = 1f;
+    public static float lastShieldAbsorbed, lastBodyDamage, lastArmorReduction;
+    public static float lastElementResistance, lastEnergyResistance, lastRicochetChance;
     public static String lastComboName;
-    /** 上一次命中是否触发过穿。 */
-    public static boolean lastOverpen;
-    /** 过穿后的伤害上限：目标最大生命的 30%。 */
-    public static final float overpenMaxFraction = 0.30f;
-    /** 标记在 Bullet.data 上，供 splash 判定“本次命中过穿，禁止溅射/状态”。 */
+    /** 上一次命中是否触发跳弹/过穿。 */
+    public static boolean lastRicochet, lastOverpen, lastShieldBlocked;
+    /** 过穿伤害倍率：基础伤害的 30%。 */
+    public static final float overpenFactor = 0.30f;
+    /** 测试钩子：>=0 时覆盖跳弹随机 roll，生产环境保持 -1。 */
+    public static float ricochetRoll = -1f;
+    /** 标记在 Bullet.data 上，供 splash 判定“本次命中禁止溅射/状态”。 */
     private static final Object overpenMarker = new Object();
+    private static final Object ricochetMarker = new Object();
+    private static final Object shieldMarker = new Object();
 
     private static final UnitDamageEvent damageEvent = new UnitDamageEvent();
     private static boolean loaded;
@@ -132,10 +138,14 @@ public class Dmg{
         return type instanceof TypedBullet tb ? tb.dtype().pen : typeOf(type).pen;
     }
 
-    /** 给某个弹种设置穿甲曲线；返回这个弹种，方便链式注册。 */
-    public static BulletType pen(BulletType type, float rated, float threshold, float decay){
-        if(type != null) bulletPens.put(type, new ArmorPen(rated, threshold, decay));
+    /** 给某个弹种设置穿透曲线；返回这个弹种，方便链式注册。 */
+    public static BulletType pen(BulletType type, float rate, float flat, float decay, float ricochet){
+        if(type != null) bulletPens.put(type, new ArmorPen(rate, flat, decay, ricochet));
         return type;
+    }
+
+    public static BulletType pen(BulletType type, float rate, float flat, float decay){
+        return pen(type, rate, flat, decay, 0.02f);
     }
 
     /** 按详情页真实显示顺序返回弹药列表（原版 StatValues.ammo 也按这个顺序排）。 */
@@ -171,7 +181,7 @@ public class Dmg{
         return hit(target, amount, type, applyStatus, showNumber, type == null ? DamageType.physical.pen : type.pen);
     }
 
-    /** 持续场/熔穿等高频伤害用 silent，避免每 tick 刷屏。 */
+    /** 持续场/熔穿等高频伤害用 silent，避免每 tick 刷屏；不触发跳弹/过穿。 */
     public static float hitSilent(Healthc target, float amount, DamageType type){
         return hit(target, amount, type, true, false, type == null ? DamageType.physical.pen : type.pen, false, type == null ? DamageType.physical.defaultForm : type.defaultForm);
     }
@@ -186,75 +196,148 @@ public class Dmg{
     }
 
     /**
-     * @param allowOverpen 允许过穿：真实单发弹体为 true；范围/溅射/持续伤害为 false。
+     * @param allowExtremes 是否允许真实弹体的跳弹/过穿；范围/溅射/持续伤害传 false。
      */
-    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowOverpen){
-        return hit(target, amount, type, applyStatus, showNumber, pen, allowOverpen, type == null ? DamageType.physical.defaultForm : type.defaultForm);
+    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowExtremes){
+        return hit(target, amount, type, applyStatus, showNumber, pen, allowExtremes, type == null ? DamageType.physical.defaultForm : type.defaultForm);
     }
 
-    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowOverpen, DamageForm form){
-        if(target == null || amount <= 0f || target.dead()) return 0f;
+    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowExtremes, DamageForm form){
+        if(target == null || amount <= 0f || target.dead()){
+            resetLast();
+            return 0f;
+        }
 
         DamageType t = type == null ? DamageType.physical : type;
         ArmorPen p = pen == null ? t.pen : pen;
         DamageForm f = form == null ? t.defaultForm : form;
-
-        // 0. 过穿：只有动能形态、软体目标、且这一发会打掉超过剩余生命时才触发。
-        //    不再用「伤害 >= 最大生命 × 3」这种生命上限比例当触发器；那会让
-        //    同一把枪对满血和残血软体的表现突然跳变。这里看的是当前这一发是否
-        //    已经“过量”，所以低伤机枪打满血软体不会误触发。
-        float armor = armorOf(target);
-        float uncomboed = p.apply(amount, armor);
-        boolean overpen = allowOverpen && f.kinetic
-            && TargetMaterial.of(target) == TargetMaterial.SOFT
-            && uncomboed > target.health();
-        lastOverpen = overpen;
-
-        // 1. Combo：先查旧附着，再决定这次伤害的乘区；过穿没有 Combo
-        float combo = overpen ? 1f : ElementCombo.evaluate(target, t);
-        float boosted = amount * combo;
-
-        // 2. 穿甲：有效穿甲率随目标护甲线性衰减
-        float effectivePierce = p.effective(armor);
-        float dealt = p.apply(boosted, armor);
-        if(overpen){
-            dealt = Math.min(dealt, target.maxHealth() * overpenMaxFraction);
-        }
-        lastEffectivePierce = effectivePierce;
-        lastArmorAbsorbed = Math.max(0f, boosted - dealt);
-        lastDealt = dealt;
-        lastComboMultiplier = combo;
-        lastComboName = overpen ? null : ElementCombo.lastName;
+        resetLast();
 
         boolean numbers = showNumber && !Vars.headless;
-        float healthBefore = target.health();
-        float shieldBefore = target instanceof Shieldc s ? s.shield() : 0f;
+        float shieldBefore = target instanceof Shieldc s ? Math.max(s.shield(), 0f) : 0f;
+        float incoming = amount;
 
-        // 3. 已经自己算过护甲，必须走 pierce 入口，避免引擎再扣一次。
-        // 能量形态额外绕过物理护盾：临时移除护盾，打完再放回去（护盾本身不消耗）。
-        if(f.bypassShields && target instanceof Shieldc shieldTarget && shieldTarget.shield() > 0f){
-            float shield = shieldTarget.shield();
-            shieldTarget.shield(0f);
-            target.damagePierce(dealt);
-            shieldTarget.shield(shield);
-        }else{
-            target.damagePierce(dealt);
-        }
-
-        if(numbers){
-            float shieldAfter = target instanceof Shieldc s ? s.shield() : 0f;
-            float actual = Math.max(0f, (healthBefore + shieldBefore) - (target.health() + shieldAfter));
-            DamageNumbers.show(target, actual, lastArmorAbsorbed, effectivePierce, combo, t, overpen);
-        }
-
-        // 4. 消耗旧附着，再挂本属性新状态；过穿不触发也不挂附着
-        if(applyStatus && !overpen){
-            if(target instanceof Unit unit){
-                ElementCombo.consume(unit);
-                ElementCombo.apply(unit, t);
+        // 1. 力场盾：非能量形态先扣盾，溢出部分才进入后续管线；能量形态直接穿盾。
+        if(shieldBefore > 0f && !f.bypassShields){
+            float absorbed = Math.min(shieldBefore, incoming);
+            setShield(target, shieldBefore - absorbed);
+            incoming -= absorbed;
+            lastShieldAbsorbed = absorbed;
+            if(numbers) DamageNumbers.showShield(target, absorbed);
+            if(incoming <= 0.0001f){
+                lastShieldBlocked = true;
+                return 0f;
             }
         }
-        return dealt;
+
+        float shieldRemaining = target instanceof Shieldc s ? Math.max(s.shield(), 0f) : 0f;
+        float armor = armorOf(target);
+
+        // 2. 跳弹：护甲超过白值才按概率触发；能量形态不吃跳弹。
+        if(allowExtremes && !f.bypassShields){
+            lastRicochetChance = p.ricochetChance(armor);
+            if(lastRicochetChance > 0f){
+                float roll = ricochetRoll >= 0f ? ricochetRoll : Mathf.random();
+                if(roll < lastRicochetChance){
+                    lastRicochet = true;
+                    if(numbers) DamageNumbers.showRicochet(target);
+                    return 0f;
+                }
+            }
+        }
+
+        // 3. 过穿：动能形态且白值 >= 当前护甲 × 2；直接 30%，跳过抗性/Combo/附着。
+        if(allowExtremes && f.kinetic && p.canOverpen(armor)){
+            lastOverpen = true;
+            float dealt = Math.max(1f, p.overpenDamage(incoming));
+            float actual = applyBody(target, dealt, shieldRemaining);
+            lastDealt = dealt;
+            lastBodyDamage = actual;
+            if(numbers) DamageNumbers.showOverpen(target, actual > 0f ? actual : dealt);
+            return dealt;
+        }
+
+        // 4. 穿透率/有效护甲/百分比减伤（不再使用旧版 10% 刮痧保底）。
+        float effectivePierce = p.effective(armor);
+        float afterArmor = p.damageAfterArmor(incoming, armor);
+        lastEffectivePierce = effectivePierce;
+        lastArmorAbsorbed = Math.max(0f, incoming - afterArmor);
+        lastArmorReduction = p.armorReduction(armor);
+
+        // 5. 抗性乘区：元素抗性；只有能量形态再乘能量抗性。
+        float elementRes = Resistance.element(target, t);
+        float energyRes = f.bypassShields ? Resistance.energy(target) : 0f;
+        float afterResist = afterArmor * (1f - elementRes) * (1f - energyRes);
+        lastElementResistance = elementRes;
+        lastEnergyResistance = energyRes;
+
+        // 6. Combo 在抗性之后结算；过穿/跳弹已经在上面提前结束。
+        float combo = 1f;
+        if(applyStatus){
+            combo = ElementCombo.evaluate(target, t);
+        }
+        float finalDamage = afterResist * combo;
+
+        // 防浮点归零：未跳弹的最终伤害至少 1 或基础伤害的 5%，不再是 10% 刮痧。
+        float floor = Math.max(1f, amount * 0.05f);
+        finalDamage = Math.max(finalDamage, floor);
+        lastComboMultiplier = combo;
+        lastComboName = ElementCombo.lastName;
+
+        float actual = applyBody(target, finalDamage, shieldRemaining);
+        lastDealt = finalDamage;
+        lastBodyDamage = actual;
+
+        if(numbers){
+            DamageNumbers.showHit(target, actual, lastArmorAbsorbed, effectivePierce, combo, t, false);
+        }
+
+        // 7. 扣血后再消耗旧 Aura、挂新状态；腐蚀另行登记永久减甲。
+        if(applyStatus && target instanceof Unit unit){
+            ElementCombo.consume(unit);
+            ElementCombo.apply(unit, t);
+        }
+        if(applyStatus && t == DamageType.corrosive){
+            Corrosion.apply(target);
+        }
+        return finalDamage;
+    }
+
+    /** 把最终伤害打到本体，绕开已经单独处理的力场盾；返回实际生命损失。 */
+    private static float applyBody(Healthc target, float amount, float shieldToRestore){
+        if(target == null || amount <= 0f) return 0f;
+        float before = target.health();
+
+        if(shieldToRestore > 0f && target instanceof Shieldc shieldTarget){
+            shieldTarget.shield(0f);
+            target.damagePierce(amount);
+            shieldTarget.shield(shieldToRestore);
+        }else{
+            target.damagePierce(amount);
+        }
+
+        return Math.max(0f, before - target.health());
+    }
+
+    private static void setShield(Healthc target, float value){
+        if(target instanceof Shieldc shield) shield.shield(Math.max(0f, value));
+    }
+
+    private static void resetLast(){
+        lastEffectivePierce = 0f;
+        lastArmorAbsorbed = 0f;
+        lastDealt = 0f;
+        lastBodyDamage = 0f;
+        lastArmorReduction = 0f;
+        lastShieldAbsorbed = 0f;
+        lastElementResistance = 0f;
+        lastEnergyResistance = 0f;
+        lastRicochetChance = 0f;
+        lastComboMultiplier = 1f;
+        lastComboName = null;
+        lastRicochet = false;
+        lastOverpen = false;
+        lastShieldBlocked = false;
     }
 
     /** UI 用：该属性默认形态是否动能。 */
@@ -262,14 +345,16 @@ public class Dmg{
         return type != null && type.defaultForm.kinetic;
     }
 
-    /** 真实伤害入口（持续伤害等），不触发护甲/Combo/状态。 */
+    /** 真实伤害入口（持续伤害等），不触发护甲/Combo/状态；飘字用红色真伤分类。 */
     public static float pierce(Healthc target, float amount, DamageType type){
         if(target == null || amount <= 0f || target.dead()) return 0f;
         target.damagePierce(amount);
+        if(!Vars.headless) DamageNumbers.showTrue(target, amount);
         return amount;
     }
 
-    public static float armorOf(Healthc target){
+    /** 基础护甲（不含永久腐蚀）。 */
+    public static float baseArmorOf(Healthc target){
         if(target instanceof Unit unit){
             return Math.max(0f, unit.armorOverride() >= 0f ? unit.armorOverride() : unit.armor());
         }
@@ -277,6 +362,11 @@ public class Dmg{
             return Math.max(0f, build.block.armor);
         }
         return 0f;
+    }
+
+    /** 当前有效护甲：基础护甲扣除永久腐蚀。 */
+    public static float armorOf(Healthc target){
+        return Math.max(0f, baseArmorOf(target) - Corrosion.reduction(target));
     }
 
     /** 范围属性伤害：逐目标结算护甲/Combo，而不是用原版统一 armorMult。 */
@@ -339,7 +429,7 @@ public class Dmg{
      */
     public static void splash(BulletType type, Bullet bullet, float x, float y, DamageType dtype, Runnable vanilla){
         // 过穿弹不炸：连原版 splash 附带的状态/点燃也不执行
-        if(bullet.data == overpenMarker){
+        if(bullet.data == overpenMarker || bullet.data == ricochetMarker || bullet.data == shieldMarker){
             return;
         }
         if(type.splashDamageRadius <= 0f || bullet.absorbed){
@@ -383,10 +473,14 @@ public class Dmg{
 
             DamageForm form = formOf(type);
             hit(target, amount, type instanceof TypedBullet tb ? tb.dtype() : typeOf(bullet), true, true,
-                penOf(type), form.kinetic, form);
+                penOf(type), true, form);
             if(lastOverpen){
                 bullet.data = overpenMarker;
-            }else if(bullet.data == overpenMarker){
+            }else if(lastRicochet){
+                bullet.data = ricochetMarker;
+            }else if(lastShieldBlocked){
+                bullet.data = shieldMarker;
+            }else if(bullet.data == overpenMarker || bullet.data == ricochetMarker || bullet.data == shieldMarker){
                 bullet.data = null;
             }
         }
@@ -504,6 +598,8 @@ public class Dmg{
             if(type.statusName != null) type.status = Vars.content.statusEffect(type.statusName);
         }
         ElementCombo.load();
+        Events.run(mindustry.game.EventType.Trigger.update, Corrosion::update);
+        Events.on(mindustry.game.EventType.ResetEvent.class, e -> Corrosion.clear());
 
         // 2. 模组炮塔归属
         register(IronworksTurrets.rapidCannon, DamageType.physical);
@@ -540,13 +636,13 @@ public class Dmg{
         retypePower((PowerTurret) Blocks.meltdown, DamageType.physical, DamageForm.ENERGY);
 
         // 6. 具体弹种的穿甲曲线：速度/弹重/用途不同，不能全用属性默认值
-        pen(IronworksTurrets.copperBullet, 0.55f, 15f, 0.025f);
-        pen(IronworksTurrets.heavyBullet, 0.70f, 20f, 0.020f);
-        pen(IronworksTurrets.leadCoreBullet, 0.75f, 18f, 0.020f);
-        pen(IronworksTurrets.tiPierceBullet, 0.90f, 25f, 0.015f);
-        pen(IronworksTurrets.tiOverpressureBullet, 0.60f, 20f, 0.020f);
-        pen(IronworksTurrets.napalmBullet, 0.25f, 10f, 0.025f);
-        pen(IronworksTurrets.corrosiveBullet, 0.80f, 20f, 0.015f);
+        pen(IronworksTurrets.copperBullet, 0.55f, 15f, 0.35f, 0.04f);
+        pen(IronworksTurrets.heavyBullet, 0.70f, 20f, 0.30f, 0.03f);
+        pen(IronworksTurrets.leadCoreBullet, 0.75f, 18f, 0.28f, 0.025f);
+        pen(IronworksTurrets.tiPierceBullet, 0.90f, 25f, 0.18f, 0.015f);
+        pen(IronworksTurrets.tiOverpressureBullet, 0.60f, 20f, 0.30f, 0.02f);
+        pen(IronworksTurrets.napalmBullet, 0.25f, 10f, 0.45f, 0.01f);
+        pen(IronworksTurrets.corrosiveBullet, 0.80f, 20f, 0.20f, 0.015f);
         form(IronworksTurrets.copperBullet, DamageForm.KINETIC);
         form(IronworksTurrets.heavyBullet, DamageForm.KINETIC);
         form(IronworksTurrets.leadCoreBullet, DamageForm.KINETIC);
@@ -554,10 +650,10 @@ public class Dmg{
         form(IronworksTurrets.tiOverpressureBullet, DamageForm.EXPLOSIVE);
         form(IronworksTurrets.napalmBullet, DamageForm.EXPLOSIVE);
         form(IronworksTurrets.corrosiveBullet, DamageForm.KINETIC);
-        pen(IronworksShells.heBullet, 0.55f, 18f, 0.025f);
-        pen(IronworksShells.apBullet, 0.90f, 25f, 0.015f);
-        pen(IronworksShells.incendiaryBullet, 0.20f, 8f, 0.030f);
-        pen(IronworksShells.fragBullet, 0.45f, 12f, 0.025f);
+        pen(IronworksShells.heBullet, 0.55f, 18f, 0.30f, 0.02f);
+        pen(IronworksShells.apBullet, 0.90f, 25f, 0.15f, 0.01f);
+        pen(IronworksShells.incendiaryBullet, 0.20f, 8f, 0.45f, 0.01f);
+        pen(IronworksShells.fragBullet, 0.45f, 12f, 0.35f, 0.02f);
         form(IronworksShells.heBullet, DamageForm.EXPLOSIVE);
         form(IronworksShells.apBullet, DamageForm.KINETIC);
         form(IronworksShells.incendiaryBullet, DamageForm.EXPLOSIVE);

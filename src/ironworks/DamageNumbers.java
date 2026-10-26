@@ -20,21 +20,20 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.UnitDamageEvent;
 import mindustry.gen.Building;
 import mindustry.gen.Healthc;
-import mindustry.gen.Shieldc;
 import mindustry.gen.Unit;
 import mindustry.graphics.Layer;
 import mindustry.ui.Fonts;
 
 /**
- * 世界坐标漂浮伤害数字（v2.6 战斗体系）。
+ * 世界坐标漂浮伤害数字（v3.0 战斗体系）。
  *
- * <p>直伤由 {@link Dmg} 传入「实际伤害 / 护甲抵消 / 有效穿甲率 / Combo 倍率」；
- * 显示格式例：{@code 5（5-50%）}，Combo 时变成金色 {@code ×1.5 5（5-50%）}。
- * 高护甲硬挡时数字转灰。原版未走 Dmg 的普通子弹由 UnitDamageEvent 兜底。</p>
+ * <p>类别严格区分：跳弹（灰）、过穿（白）、护盾抵挡（蓝）、真实伤害（红）、
+ * 普通/元素/Combo。使用对象池，同目标同类别在 1 秒内合并累加；同屏最多 64 条。</p>
  */
 public class DamageNumbers{
     public static final String settingKey = "ironworks.damage.numbers";
     public static final float lifetime = 180f;
+    public static final float mergeWindow = 60f;
     private static final int maxActive = 64;
 
     public static boolean enabled = true;
@@ -42,6 +41,10 @@ public class DamageNumbers{
     private static boolean initialized;
     private static final Seq<Floating> active = new Seq<>();
     private static final Pool<Floating> pool = Pools.get(Floating.class, Floating::new);
+
+    private enum Kind{
+        HIT, SHIELD, RICOCHET, OVERPEN, TRUE
+    }
 
     public static void init(){
         if(initialized || Vars.headless) return;
@@ -56,13 +59,14 @@ public class DamageNumbers{
 
     public static void clear(){
         for(Floating f : active){
+            f.target = null;
             f.text = null;
             pool.free(f);
         }
         active.clear();
     }
 
-    /** 旧版兼容：按给定属性默认曲线计算护甲抵消。 */
+    /** 旧版兼容：按给定属性默认曲线计算护甲过滤量。 */
     public static float blocked(Healthc target, float amount, DamageType type){
         DamageType t = type == null ? DamageType.physical : type;
         return blocked(target, amount, t.pen);
@@ -74,66 +78,146 @@ public class DamageNumbers{
         return p.blocked(amount, Dmg.armorOf(target));
     }
 
-    /** Dmg.hit 结算后调用。actual 是实际掉血（含护盾吸收），absorbed 是护甲抵消。 */
+    /** 旧接口：普通/过穿显示。 */
     public static void show(Healthc target, float actual, float absorbed, float effectivePierce, float combo, DamageType type, boolean overpen){
-        if(Vars.headless || !enabled || target == null) return;
+        if(overpen) showOverpen(target, actual);
+        else showHit(target, actual, absorbed, effectivePierce, combo, type, false);
+    }
 
-        int dealt = Math.max(0, Math.round(actual));
-        int armor = Math.max(0, Math.round(absorbed));
-        int pierce = Math.max(0, Math.min(100, Math.round(effectivePierce * 100f)));
-        if(dealt <= 0 && armor <= 0) return;
-
-        DamageType t = type == null ? DamageType.physical : type;
-        boolean armorText = armor > 0;
-        boolean isCombo = combo > 1.001f;
-
-        String text;
+    /** 普通伤害（未跳弹/未过穿）。 */
+    public static void showHit(Healthc target, float actual, float absorbed, float effectivePierce, float combo, DamageType type, boolean overpen){
         if(overpen){
-            text = Core.bundle.get("ironworks.damage-number-overpen", "过穿 {0}")
-                .replace("{0}", String.valueOf(dealt));
-        }else if(armorText){
-            String format = Core.bundle.get("ironworks.damage-number-armor", "{0}（{1}-{2}%）");
-            text = format.replace("{0}", String.valueOf(dealt))
-                .replace("{1}", String.valueOf(armor))
-                .replace("{2}", String.valueOf(pierce));
-        }else{
-            String format = Core.bundle.get("ironworks.damage-number", "{0}");
-            text = format.replace("{0}", String.valueOf(dealt));
+            showOverpen(target, actual);
+            return;
         }
-        if(isCombo && !overpen){
-            String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0} ");
-            text = prefix.replace("{0}", trim(combo)) + " " + text;
-        }
+        add(target, Kind.HIT, actual, absorbed, effectivePierce, combo, type);
+    }
 
-        Color color = overpen ? Color.valueOf("c9a86a")
-            : isCombo ? Color.valueOf("ffd166")
-            : (armor > 0 && dealt <= armor) ? Color.valueOf("9aa0a6") : t.color();
+    /** 力场盾吸收量。 */
+    public static void showShield(Healthc target, float absorbed){
+        add(target, Kind.SHIELD, absorbed, 0f, 0f, 1f, null);
+    }
 
-        float x = target.x() + Mathf.range(3f);
-        float y = target.y();
-        if(target instanceof Unit unit){
-            y += unit.hitSize / 2f + 7f;
-        }else if(target instanceof Building build && build.block != null){
-            y += build.block.size * 4f + 7f;
+    /** 跳弹：伤害归零。 */
+    public static void showRicochet(Healthc target){
+        add(target, Kind.RICOCHET, 0f, 0f, 0f, 1f, null);
+    }
+
+    /** 过穿：显示实际扣血量。 */
+    public static void showOverpen(Healthc target, float actual){
+        add(target, Kind.OVERPEN, actual, 0f, 0f, 1f, null);
+    }
+
+    /** 真实伤害：红色分类。 */
+    public static void showTrue(Healthc target, float amount){
+        add(target, Kind.TRUE, amount, 0f, 0f, 1f, null);
+    }
+
+    private static void add(Healthc target, Kind kind, float amount, float armor, float pierce, float combo, DamageType type){
+        if(Vars.headless || !enabled || target == null) return;
+        if(amount <= 0f && kind != Kind.RICOCHET) return;
+
+        Floating merge = findMerge(target, kind, type);
+        if(merge != null){
+            merge.amount += Math.max(0f, amount);
+            merge.armor += Math.max(0f, armor);
+            merge.pierce = Math.max(merge.pierce, pierce);
+            merge.combo = Math.max(merge.combo, combo);
+            merge.count++;
+            merge.lastHit = Time.time;
+            merge.life = lifetime;
+            merge.text = buildText(merge);
+            return;
         }
 
         if(active.size >= maxActive){
             Floating old = active.remove(0);
+            old.target = null;
             old.text = null;
             pool.free(old);
         }
 
         Floating f = pool.obtain();
-        f.x = x;
-        f.y = y;
+        f.target = target;
+        f.kind = kind;
+        f.amount = Math.max(0f, amount);
+        f.armor = Math.max(0f, armor);
+        f.pierce = pierce;
+        f.combo = combo;
+        f.type = type;
+        f.count = 1;
+        f.x = target.x() + Mathf.range(7f);
+        f.y = target.y() + targetHeight(target);
         f.maxLife = lifetime;
         f.life = lifetime;
+        f.lastHit = Time.time;
+        f.scale = kind == Kind.OVERPEN ? 1.15f : kind == Kind.RICOCHET ? 1.1f : combo > 1.001f ? 1.3f : 1f;
+        Color color = colorFor(f);
         f.r = color.r;
         f.g = color.g;
         f.b = color.b;
-        f.scale = overpen ? 1.1f : isCombo ? 1.35f : 1f;
-        f.text = text;
+        f.text = buildText(f);
         active.add(f);
+    }
+
+    private static Floating findMerge(Healthc target, Kind kind, DamageType type){
+        for(Floating f : active){
+            if(f.target != target || f.kind != kind) continue;
+            if(kind == Kind.HIT && f.type != type) continue;
+            if(Time.time - f.lastHit > mergeWindow) continue;
+            return f;
+        }
+        return null;
+    }
+
+    private static String buildText(Floating f){
+        int actual = Math.max(0, Math.round(f.amount));
+        int armor = Math.max(0, Math.round(f.armor));
+        int pierce = Math.max(0, Math.min(100, Math.round(f.pierce * 100f)));
+
+        if(f.kind == Kind.RICOCHET){
+            return f.count > 1
+                ? Core.bundle.format("ironworks.damage-number-ricochet-count", "跳弹×{0}", f.count)
+                : Core.bundle.get("ironworks.damage-number-ricochet", "跳弹");
+        }
+        if(f.kind == Kind.SHIELD){
+            return Core.bundle.format("ironworks.damage-number-shield", "护盾 -{0}", actual);
+        }
+        if(f.kind == Kind.OVERPEN){
+            return Core.bundle.format("ironworks.damage-number-overpen", "过穿 {0}", actual);
+        }
+        if(f.kind == Kind.TRUE){
+            return Core.bundle.format("ironworks.damage-number-true", "真伤 {0}", actual);
+        }
+
+        boolean combo = f.combo > 1.001f;
+        String text;
+        if(armor > 0){
+            text = Core.bundle.format("ironworks.damage-number-armor", "{0}（{1}-{2}%）", actual, armor, pierce);
+        }else{
+            text = Core.bundle.format("ironworks.damage-number", "{0}", actual);
+        }
+        if(combo){
+            String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0}");
+            text = prefix.replace("{0}", trim(f.combo)) + " " + text;
+        }
+        return text;
+    }
+
+    private static Color colorFor(Floating f){
+        if(f.kind == Kind.RICOCHET) return Color.valueOf("9aa0a6");
+        if(f.kind == Kind.SHIELD) return Color.valueOf("5aa9ff");
+        if(f.kind == Kind.OVERPEN) return Color.valueOf("f2f2f2");
+        if(f.kind == Kind.TRUE) return Color.valueOf("ff4d4d");
+        if(f.combo > 1.001f) return Color.valueOf("ffd166");
+        if(f.armor > 0f && f.amount <= f.armor) return Color.valueOf("9aa0a6");
+        return f.type == null ? DamageType.physical.color() : f.type.color();
+    }
+
+    private static float targetHeight(Healthc target){
+        if(target instanceof Unit unit) return unit.hitSize / 2f + 7f;
+        if(target instanceof Building build && build.block != null) return build.block.size * 4f + 7f;
+        return 7f;
     }
 
     private static String trim(float value){
@@ -153,6 +237,7 @@ public class DamageNumbers{
             f.life -= Time.delta;
             if(f.life <= 0f){
                 active.remove(i);
+                f.target = null;
                 f.text = null;
                 pool.free(f);
             }
@@ -193,12 +278,18 @@ public class DamageNumbers{
 
         DamageType type = Dmg.typeOf(e.bullet);
         ArmorPen pen = Dmg.penOf(e.bullet.type);
-        float dealt = pen.apply(amount, Dmg.armorOf(e.unit));
-        show(e.unit, dealt, amount - dealt, pen.effective(Dmg.armorOf(e.unit)), 1f, type, false);
+        float armor = Dmg.armorOf(e.unit);
+        float dealt = pen.damageAfterArmor(amount, armor);
+        showHit(e.unit, dealt, amount - dealt, pen.effective(armor), 1f, type, false);
     }
 
     static class Floating{
-        float x, y, life, maxLife, r, g, b, scale = 1f;
+        Healthc target;
+        Kind kind;
+        DamageType type;
+        float x, y, life, maxLife, amount, armor, pierce, combo = 1f, lastHit;
+        float r, g, b, scale = 1f;
+        int count;
         String text;
     }
 }
