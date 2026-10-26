@@ -1,6 +1,6 @@
-# RBMK-9 v3.1 平衡数据、公式与实现边界
+# RBMK-9 v3.2 平衡数据、公式与实现边界
 
-> 适用版本：**3.1.0.0**。旧 5×5 的参数保留在本文末尾，RBMK-9 的分区物理以本文为准。
+> 适用版本：**3.2.0.0**。旧 5×5 的参数保留在本文末尾，RBMK-9 的分区物理以本文为准。
 > 代码：`src/ironworks/IronworksRBMK.java`、`IronworksRbmkWindow.java`、`IronworksRbmkAlerts.java`。
 > 时间单位：`dt = delta()/60` 秒；正常 60 tps。测试里 `b.updateTile()` 一次约等于 1 tick。
 
@@ -9,13 +9,16 @@
 - **三节点热工**：燃料芯块 `zoneHeat` → 包壳 `zoneClad` → 冷却剂 `zoneCoolant`，不再把燃料和冷却剂当成一个混合温度。
 - **燃料蓄热滞后**：停堆后燃料仍比包壳/冷却剂热，包壳再慢慢把热交给水；SCRAM 不会让温度瞬间归零。
 - **蒸汽干度与湿蒸汽**：低堆芯水位时干度下降，干度 <90% 的部分进入 `ironworks-wet-steam`。湿蒸汽可以进汽轮机，但不发电，并累积叶片水锤损伤。
-- **堆芯水 / 水罐水拆分**：公共水罐不再自动倒灌堆芯。首次灌水后必须用堆芯注水泵（开关 + 注水率）补水；注水也受泵惰转影响。
+- **堆芯水 / 水罐水拆分**：公共水罐不再自动倒灌堆芯。首次灌水后必须用堆芯注水泵（开关 + 注水率）补水；注水泵有**独立**的 `corePumpSpeed`，不再因公共给水泵在水罐满时停转而中断。
 - **主泵惰转**：失去水源后泵速按 `exp(-t/45s)` 衰减，不会瞬停；重新有水源才重新升速。
 - **一回路压力与水锤**：低堆芯水位/高热/高汽量会升压；冷水注入高温低水位堆芯会产生水锤和压力损伤，压力损伤到 1 会炸堆。
 - **控制棒高温卡死**：燃料温度超过卡死阈值并持续 2 秒后 `rodJammed=true`，SCRAM 也无法再插棒；只能先注水降温。
 - **执行器行程**：正常棒 20 秒、SCRAM 3 秒、自动保护 1.5 秒；节流阀 8 秒；水位设定值 10 秒。不再瞬动。
 - **自动功率不再有 100%/125% 硬上限**：目标功率可设到 999%，实际功率由传热、堆芯水、汽包和空泡自己限制。
-- **UI**：总览新增包壳温度、堆芯水量、干度、湿蒸汽、泵速、回路压力、水锤、卡棒；控制页新增堆芯注水开关和注水率滑条；自动目标滑条可超过 100%。
+- **自动保护跳闸**：越限后 `tripLatched` 保持全插，风险解除也不会自动回到目标功率；复位 `-4` 后自动回落到 60%，半自动回落到 50% 棒位。
+- **抗积分饱和 / 单区最坏值**：自动 PI 条件积分；给水取最干分区，保护取最高燃料温度、最低分区流量和最低分区水位。
+- **卡棒维护复位**：`-6` 仅在燃料温度 <1.10 时生效。
+- **UI**：总览新增包壳温度、堆芯水量、干度、湿蒸汽、泵速、回路压力、水锤、卡棒、保护跳闸和当前限制项；控制页新增堆芯注水开关/注水率滑条、卡棒维护复位；自动目标滑条可超过 100%。
 
 ## 1. 容量与额定值
 
@@ -110,18 +113,23 @@ syncZoneWater():
   corePrimed = true
   把公共水罐现有水按 zoneWaterCap 分进 zoneWater，并从罐里扣掉
 
+updateCorePump(dt):
+  运行条件 = 注水开关开 && 水罐有水 && 未熔毁
+  corePumpSpeed 以 2 秒升速、45 秒惰转追随运行条件
+
 injectCoreWater(dt):
   if !coreInjectEnabled: return
-  budget = min(水罐水, 4860 * coreInjectRate * pumpSpeed * dt)
+  budget = min(水罐水, 4860 * coreInjectRate * corePumpSpeed * dt)
   按各分区剩余容量分配；lastCoreInjection 记录本 tick 实际注入量
 ```
 
 - 堆芯水只通过注水泵补充；水罐水不会自动倒灌。
 - 注水开关默认开，注水率 0～100%（配置 `4000+v`）。
-- 给水泵从相邻水源抽水，泵速：
+- 给水泵从相邻水源抽水，泵速（`pumpSpeed`）：
   - 有水源且低于低线：`α = 1-exp(-dt/2)` 升速；
   - 失去水源/高于高线：`α = 1-exp(-dt/45)` 惰转下降。
 - 没有相邻水源时不会假装升速；这是 v3.1 修掉的“泵永远满速”问题。
+- **注水泵与给水泵分离**：公共水罐已满时给水泵会停转，但注水泵仍按自己的 `corePumpSpeed` 工作；这是 v3.2 修掉的注水缺陷。
 
 ## 6. 水→汽与真实冷却流量
 
@@ -228,8 +236,9 @@ if scramLatch: common = 1
 | `-1` | SCRAM（锁存，插棒） |
 | `-2` | 注硼武装 |
 | `-3` | 手动模式静音通知 |
-| `-4` | 复位 SCRAM 锁存 |
+| `-4` | 复位 SCRAM / 保护跳闸；自动回落到 60%，半自动回落到 50% 棒位 |
 | `-5` | 切换堆芯注水开关 |
+| `-6` | 维护复位卡棒（燃料温度 <1.10 时生效） |
 | `-10/-11/-12` | 半自动/全自动/强制手动 |
 | `-20..-28` | 选择 0..8 号分区 |
 | `-30` | 总控 |
@@ -241,15 +250,56 @@ if scramLatch: common = 1
 
 ## 11. 存档
 
-分区堆存档 revision **15**：
+分区堆存档 revision **16**：
 
-- revision 9：分区基础量；10：节流目标；11：冷却剂/熔毁；12：分区水/汽；13：实际阀位；14：包壳温度、干度、泵速、压力、水锤、注水开关/速率、卡棒；15：`corePrimed`。
+- revision 9：分区基础量；10：节流目标；11：冷却剂/熔毁；12：分区水/汽；13：实际阀位；14：包壳温度、干度、泵速、压力、水锤、注水开关/速率、卡棒；15：`corePrimed`；16：`corePumpSpeed`、`tripLatched`、`tripReason`。
 - 旧 revision 读入时给包壳/干度/泵速等合理默认值；没有 `corePrimed` 的旧档会在首次 `syncZoneWater()` 时补一次。
 - 旧 5×5 revision 8 不变。
 
-## 12. 测试与已知边界
+## 12. 自动保护跳闸状态机
 
-测试：`tools/chain-test.sh` 的 T139–T197，覆盖分区、自动高功率、手动、棒尖、SCRAM、闪蒸、节流、衰变热、熔毁、泵惰转、湿蒸汽、水锤、卡棒、堆芯注水、汽轮机湿蒸汽损伤。期望见 `tools/test-expect.txt`。
+```text
+每个物理 tick，自动/半自动先跑 updateProtection：
+  worstHeat  = max(zoneHeat)
+  worstWater = min(zoneWaterFrac[i])
+  worstFlow  = min(zoneFlow[i])
+  if heat >= hotLimit - 0.02      -> tripReason = HIGH_HEAT
+  else if worstWater <= 0.02      -> tripReason = LOW_CORE
+  else if pressure >= 1.4 || damage >= 0.45 -> tripReason = HIGH_PRESSURE
+  else if steamFrac >= 0.97       -> tripReason = HIGH_STEAM
+  else if heat > 0.8 && worstFlow < 0.05 -> tripReason = LOW_FLOW
+  else if risk >= 0.92            -> tripReason = LOW_CORE
+  if tripReason != NONE: tripLatched = true; protectRods = 1; autoIntegral = 0
+
+if tripLatched:
+  common = 1
+  targetRods = 1
+  autoIntegral = 0
+```
+
+- 跳闸后风险消失也不回目标功率；必须在 UI 点“复位 SCRAM / 保护跳闸”，即配置 `-4`。
+- 复位时自动 `autoPower = min(autoPower, 0.60)`；半自动 `targetRods = min(targetRods, 0.50)`。
+- 自动 PI 只在 `|error| < 0.25` 时积分，限幅 `±0.35`；大误差（例如目标 999%、实际 100%）不会积到饱和。
+- 单区最坏值参与保护，避免“3 号区先超温、平均值还没到线”。
+- 目标 999% 只表示控制器目标无硬上限；UI 的“当前限制项”显示实际被燃料温度、堆芯水位、汽包压力或冷却流量中的哪一项限制。
+
+## 13. 逐区熔毁损伤
+
+```text
+if zoneHeat[i] >= 2.0:
+    zoneMeltDamage[i] += (zoneHeat[i] - 2.0 + 0.10) * 0.04 * dt
+else:
+    zoneMeltDamage[i] -= 0.02 * dt
+zoneMeltDamage[i] = clamp(0, 1)
+任意一区 >= 1 -> detonate()
+```
+
+- 阈值是燃料温度 200%；高于阈值后约 23 秒达到满损伤（连续保持），低于阈值按 0.02/s 恢复。
+- 包壳温度不直接累积熔毁，但包壳温度过高会通过三节点传热拖高燃料温度。
+
+## 14. 测试与已知边界
+
+测试：`tools/chain-test.sh` 的 T139–T199，覆盖分区、自动高功率、手动、棒尖、SCRAM、闪蒸、节流、衰变热、熔毁、泵惰转、湿蒸汽、水锤、卡棒、堆芯注水、汽轮机湿蒸汽损伤、自动跳闸锁存和卡棒维护复位。期望见 `tools/test-expect.txt`。
 
 仍未实现/保留：
 

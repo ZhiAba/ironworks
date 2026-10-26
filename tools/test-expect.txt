@@ -138,3 +138,5 @@
 195	T195 off=0 on=[1-9][0-9]* inject=true
 196	T196 damage=[0-9.]+ hammer=[0-9.]+ wet=true
 197	T197 maxFlux=[1-9][0-9]+ flux=[0-9]+ rods=[0-9.]+ heat=[0-9.]+ cw=[0-9]+ ok=true
+198	T198 trip=true reason=2 held=true cleared=true auto=60 ok=true
+199	T199 hotHold=true coldReset=true ok=true

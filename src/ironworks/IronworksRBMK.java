@@ -109,6 +109,9 @@ public class IronworksRBMK{
     public static final float autoPowerMax = 9.99f;
     /** 控制模式：0 半自动（棒有行程 + 自动保护）、1 全自动（自动跟踪目标功率）、2 强制手动（无缓冲无保护）。 */
     public static final int MODE_SEMI = 0, MODE_AUTO = 1, MODE_MANUAL = 2;
+    /** 自动保护跳闸原因；用于 UI 与告警，不直接参与物理计算。 */
+    public static final int TRIP_NONE = 0, TRIP_HIGH_HEAT = 1, TRIP_LOW_CORE = 2, TRIP_LOW_FLOW = 3,
+        TRIP_HIGH_STEAM = 4, TRIP_HIGH_PRESSURE = 5, TRIP_ROD_JAM = 6;
     /** 额定通量/棒尖最大价值：只作为基准，不再作为硬上限。 */
     public static final float fluxMax = 1.25f;
     /** 旧 5×5 熔毁温度阈值（归一化）。 */
@@ -484,7 +487,7 @@ public class IronworksRBMK{
             /** 通知去重位掩码；运行时状态，不写入存档（重载后若工况仍在会重新提醒一次）。 */
             public int alertMask = 0;
             /** 每个通知条件恢复后的静默计时（秒），同样是运行时状态。 */
-            public float[] alertQuiet = new float[8];
+            public float[] alertQuiet = new float[12];
             /** 手动模式开关：关闭本反应堆的异常广播（含熔毁通知），不影响反应堆物理。 */
             public boolean alertsMuted = false;
             /** SCRAM 锁存：自动模式不会在下一 tick 用目标功率把棒重新拔出来；按复位解除。 */
@@ -507,6 +510,8 @@ public class IronworksRBMK{
             public final float[] zoneDryness = new float[9];
             /** 主泵惰转：实际泵速 0..1，断电后按指数衰减。 */
             public float pumpSpeed = 1f;
+            /** 堆芯注水泵自己的惰转转速：与给水泵分开，避免公共水罐满时给水泵停转而注水中断。 */
+            public float corePumpSpeed = 1f;
             /** 一回路压力（归一化）与水锤/超压损伤积分 0..1。 */
             public float loopPressure = 0.5f, pressureDamage = 0f, waterHammer = 0f;
             /** 堆芯注水开关与注水率 0..1（从水罐注入堆芯，不等于直接往罐里灌水）。 */
@@ -519,6 +524,9 @@ public class IronworksRBMK{
             /** 控制棒卡死：高温导致通道/包壳变形后，目标值还能动，实际棒位动不了。 */
             public boolean rodJammed = false;
             public float jamTimer = 0f;
+            /** 保护跳闸锁存：自动/半自动越限后保持全插，直到手动复位或安全重启。 */
+            public boolean tripLatched = false;
+            public int tripReason = TRIP_NONE;
             /** 分区水汽账面：总和始终与公共水罐/汽包同步；汽轮机仍吃公共汽包，保持管路兼容。 */
             public final float[] zoneWater = new float[9], zoneSteam = new float[9];
             public final float[] zoneWaterCap = new float[9], zoneSteamCap = new float[9];
@@ -553,6 +561,25 @@ public class IronworksRBMK{
 
             void resetAutoControl(){
                 autoIntegral = 0f;
+            }
+
+            /** 手动复位保护跳闸；自动模式回到保守目标，半自动回到较深棒位。 */
+            void resetTrip(){
+                if(!tripLatched) return;
+                tripLatched = false;
+                tripReason = TRIP_NONE;
+                protectRods = 0f;
+                autoIntegral = 0f;
+                if(controlMode == MODE_AUTO) autoPower = Math.min(autoPower, 0.60f);
+                if(controlMode == MODE_SEMI) targetRods = Math.min(targetRods, 0.50f);
+            }
+
+            /** 卡棒维护复位：只有燃料温度已经降到安全值才允许。 */
+            void resetRodJam(){
+                if(rodJammed && heat < 1.10f && !melted){
+                    rodJammed = false;
+                    jamTimer = 0f;
+                }
             }
 
             @Override
@@ -590,7 +617,8 @@ public class IronworksRBMK{
                     if(controlMode == MODE_MANUAL) alertsMuted = !alertsMuted;
                     return;
                 }
-                if(v == -4){ scramLatch = false; resetAutoControl(); return; }
+                if(v == -4){ scramLatch = false; resetTrip(); resetAutoControl(); return; }
+                if(v == -6){ resetRodJam(); return; }
                 if(v >= 2000){
                     // 2000 + 百分比：强制手动的最低水位线（低于它才启动给水泵）
                     waterLowTarget = Mathf.clamp((v - 2000) / 100f, 0f, waterTarget);
@@ -644,7 +672,8 @@ public class IronworksRBMK{
                 }
                 if(v == -2){ boronArmed = true; return; }
                 if(v == -3){ if(controlMode == MODE_MANUAL) alertsMuted = !alertsMuted; return; }
-                if(v == -4){ scramLatch = false; resetAutoControl(); return; }
+                if(v == -4){ scramLatch = false; resetTrip(); resetAutoControl(); return; }
+                if(v == -6){ resetRodJam(); return; }
                 if(v >= 3000){
                     // 3000 + 百分比：手动模式的单区冷却节流阀；总控时写入全部 9 区
                     if(controlMode == MODE_MANUAL){
@@ -806,13 +835,23 @@ public class IronworksRBMK{
                 }
             }
 
-            /** 从水罐向堆芯注水；注水率决定流量，泵惰转时会一起变慢。 */
+            /** 注水泵自己的惰转：公共给水泵因水罐满而停转时，注水泵仍可保持转速。 */
+            void updateCorePump(float dt){
+                boolean running = coreInjectEnabled && !melted && liquids.get(Liquids.water) > 0.001f;
+                float target = running ? 1f : 0f;
+                float alpha = target > corePumpSpeed
+                    ? 1f - (float)Math.exp(-dt / 2f)
+                    : 1f - (float)Math.exp(-dt / pumpCoastTau);
+                corePumpSpeed += (target - corePumpSpeed) * Mathf.clamp(alpha, 0f, 1f);
+            }
+
+            /** 从水罐向堆芯注水；注水率决定流量，注水泵惰转时会一起变慢。 */
             void injectCoreWater(float dt){
                 lastCoreInjection = 0f;
                 if(!coreInjectEnabled || dt <= 0f) return;
                 float available = liquids.get(Liquids.water);
                 if(available <= 0.001f) return;
-                float budget = Math.min(available, coreInjectMax() * coreInjectRate * pumpSpeed * dt);
+                float budget = Math.min(available, coreInjectMax() * coreInjectRate * corePumpSpeed * dt);
                 float requested = budget;
                 for(int pass = 0; pass < 9 && budget > 0.001f; pass++){
                     float totalRoom = 0f;
@@ -937,6 +976,14 @@ public class IronworksRBMK{
                 }
 
                 float waterFrac = water / waterScale;
+                // 保护必须看最坏分区，不能被 9 区平均值掩盖。
+                float worstFlow = flow;
+                if(zoned){
+                    for(int i = 0; i < 9; i++){
+                        waterFrac = Math.min(waterFrac, zoneWaterFrac(i));
+                        worstFlow = Math.min(worstFlow, zoneFlow[i]);
+                    }
+                }
                 float low = Math.max(waterLowLevel, 0.10f);
                 // 低于低线的 75% 才开始硬保护；正常「低线启泵→高线」循环不会误触发
                 float trigger = Math.max(0.12f, low * 0.75f);
@@ -978,7 +1025,7 @@ public class IronworksRBMK{
                 }
 
                 float flowRisk = (waterFrac < trigger || heat > (zoned ? 1.4f : 0.9f))
-                    ? Mathf.clamp((0.9f - flow) / 0.4f, 0f, 1f) : 0f;
+                    ? Mathf.clamp((0.9f - worstFlow) / 0.4f, 0f, 1f) : 0f;
                 float steamFrac = Mathf.clamp(liquids.get(IronworksLiquids.steam) / steamCap(), 0f, 1f);
                 float steamRisk = Mathf.clamp((steamFrac - 0.8f) / 0.15f, 0f, 1f);
 
@@ -988,8 +1035,32 @@ public class IronworksRBMK{
                 if(waterFrac <= 0.02f) risk = Math.max(risk, 0.9f);
                 if(heat >= hotLimit) risk = 1f;
 
+                // 越限即跳闸锁存：保护不能只是杆位下限，否则风险一降就自动回到高目标。
+                if(!tripLatched && hasFuel && controlMode != MODE_MANUAL){
+                    int reason = TRIP_NONE;
+                    if(heat >= hotLimit - 0.02f){
+                        reason = TRIP_HIGH_HEAT;
+                    }else if(waterFrac <= 0.02f){
+                        reason = TRIP_LOW_CORE;
+                    }else if(loopPressure >= pressureLimit || pressureDamage >= 0.45f){
+                        reason = TRIP_HIGH_PRESSURE;
+                    }else if(steamFrac >= 0.97f){
+                        reason = TRIP_HIGH_STEAM;
+                    }else if(heat > 0.8f && worstFlow < 0.05f){
+                        reason = TRIP_LOW_FLOW;
+                    }else if(risk >= 0.92f){
+                        reason = TRIP_LOW_CORE;
+                    }
+                    if(reason != TRIP_NONE){
+                        tripLatched = true;
+                        tripReason = reason;
+                        autoIntegral = 0f;
+                        protectRods = 1f;
+                    }
+                }
+                if(tripLatched) protectRods = 1f;
                 float rate = risk > protectRods ? 0.10f : 0.02f;
-                protectRods = Mathf.lerpDelta(protectRods, risk, rate);
+                if(!tripLatched) protectRods = Mathf.lerpDelta(protectRods, risk, rate);
                 if(heat >= hotLimit) protectRods = Math.max(protectRods, 0.98f);
             }
 
@@ -1111,15 +1182,14 @@ public class IronworksRBMK{
                 }else{
                     float common;
                     if(controlMode == MODE_SEMI){
-                        common = scramLatch ? 1f : Math.max(targetRods, protectRods);
+                        common = (scramLatch || tripLatched) ? 1f : Math.max(targetRods, protectRods);
                     }else{
                         float steamFrac = Mathf.clamp(liquids.get(IronworksLiquids.steam) / steamCap(), 0f, 1f);
-                        // 分区堆的给水看堆芯水位，而不是公共水罐（两者已经拆开）。
-                        float coreAvg = 0f;
-                        for(int z = 0; z < 9; z++) coreAvg += zoneWaterFrac(z);
-                        coreAvg /= 9f;
+                        // 给水能力看最干的分区，避免平均值掩盖单区失水。
+                        float coreWorst = 1f;
+                        for(int z = 0; z < 9; z++) coreWorst = Math.min(coreWorst, zoneWaterFrac(z));
                         float steamFactor = Mathf.clamp(1f - (steamFrac - 0.5f) / 0.4f, 0f, 1f);
-                        float waterFactor = Mathf.clamp((coreAvg - 0.1f) / 0.2f, 0f, 1f);
+                        float waterFactor = Mathf.clamp((coreWorst - 0.1f) / 0.2f, 0f, 1f);
                         // 只在接近 200% 熔毁线时收功率，正常高功率段不提前压棒。
                         float heatFactor = Mathf.clamp((zonedMeltTemp + 0.05f - heat) / 0.15f, 0f, 1f);
                         float effective = Math.max(0f, autoPower) * Math.min(steamFactor, Math.min(waterFactor, heatFactor));
@@ -1129,10 +1199,15 @@ public class IronworksRBMK{
                         // 反算要同时考虑多普勒和棒尖曲线；再加 PI 修正消除稳态误差。
                         float feedRods = autoRodsFor(effective, poison, doppler, voidFactor);
                         float error = effective - flux;
-                        autoIntegral = Mathf.clamp(autoIntegral + error * dt * 0.05f, -0.60f, 0.60f);
+                        if(tripLatched){
+                            autoIntegral = 0f;
+                        }else if(Math.abs(error) < 0.25f){
+                            // 条件积分：大误差期间冻结积分，避免 999% 目标把积分顶到正饱和。
+                            autoIntegral = Mathf.clamp(autoIntegral + error * dt * 0.05f, -0.35f, 0.35f);
+                        }
                         common = Mathf.clamp(feedRods - error * 0.25f - autoIntegral, 0f, 1f);
                     }
-                    if(scramLatch) common = 1f;
+                    if(scramLatch || tripLatched) common = 1f;
                     common = Math.max(common, protectRods);
                     for(int i = 0; i < 9; i++){
                         zoneTarget[i] = common;
@@ -1163,6 +1238,7 @@ public class IronworksRBMK{
                     }
                 }
                 pullFeedwater(dt);
+                updateCorePump(dt);
                 injectCoreWater(dt);
                 syncZoneSteam();
 
@@ -1457,17 +1533,22 @@ public class IronworksRBMK{
                     float feedRods = autoRodsFor(effective, poison, doppler, voidFactor);
                     // 前馈 + PI 修正：只靠反算曲线会在氙毒/空泡/棒尖变化时留下稳态误差。
                     float error = effective - flux;
-                    autoIntegral = Mathf.clamp(autoIntegral + error * dt * 0.05f, -0.60f, 0.60f);
+                    if(tripLatched){
+                        autoIntegral = 0f;
+                    }else if(Math.abs(error) < 0.25f){
+                        // 条件积分：大误差期间冻结积分，避免目标功率长期高于物理上限时积分饱和。
+                        autoIntegral = Mathf.clamp(autoIntegral + error * dt * 0.05f, -0.35f, 0.35f);
+                    }
                     targetRods = Mathf.clamp(feedRods - error * 0.25f - autoIntegral, 0f, 1f);
-                    // 实时保护量是杆位下限，不允许自动目标把棒留在危险位置
+                    // 实时保护量是杆位下限；跳闸锁存后强制全插，不再追目标功率。
                     targetRods = Math.max(targetRods, protectRods);
-                    if(scramLatch) targetRods = 1f;
+                    if(scramLatch || tripLatched) targetRods = 1f;
                     if(!rodJammed) rods = Mathf.approach(rods, targetRods,
                         rodStep(dt, scramLatch ? rodTravelScram : rodTravelAuto));
                 }else{
                     // 半自动：用户目标 + 实时保护下限；保护插棒用 1.5 秒行程，
                     // 正常提/插棒用 20 秒行程，SCRAM 才用 3 秒紧急行程。
-                    float demand = scramLatch ? 1f : Math.max(targetRods, protectRods);
+                    float demand = (scramLatch || tripLatched) ? 1f : Math.max(targetRods, protectRods);
                     boolean inserting = demand > rods;
                     float travel = scramLatch ? rodTravelScram
                         : (inserting && protectRods > targetRods ? rodTravelAuto : rodTravelNormal);
@@ -1895,7 +1976,7 @@ public class IronworksRBMK{
 
             @Override
             public byte version(){
-                return ((RBMKReactor)block).zoned ? (byte)15 : (byte)8;
+                return ((RBMKReactor)block).zoned ? (byte)16 : (byte)8;
             }
 
             @Override
@@ -1949,6 +2030,9 @@ public class IronworksRBMK{
                     write.bool(rodJammed);
                     write.f(jamTimer);
                     write.bool(corePrimed);
+                    write.f(corePumpSpeed);
+                    write.bool(tripLatched);
+                    write.i(tripReason);
                 }
             }
 
@@ -2014,6 +2098,11 @@ public class IronworksRBMK{
                                 rodJammed = read.bool();
                                 jamTimer = read.f();
                                 if(revision >= 15) corePrimed = read.bool();
+                                if(revision >= 16){
+                                    corePumpSpeed = read.f();
+                                    tripLatched = read.bool();
+                                    tripReason = read.i();
+                                }
                             }else{
                                 for(int i = 0; i < 9; i++){
                                     zoneClad[i] = Math.max(0f, zoneHeat[i] * 0.9f);

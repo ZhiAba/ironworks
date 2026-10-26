@@ -39,15 +39,16 @@ public class IronworksRbmkAlerts{
     private static long lastAlertSoundAt = -alertSoundCooldownMillis;
 
     private static final int TEMP = 0, FLOW = 1, STEAM = 2, WATER = 3,
-        BLOCKED = 4, PRESSURE = 5, SCRAM = 6, POISON = 7, JAM = 8, HAMMER = 9, WET = 10, CORELOW = 11;
+        BLOCKED = 4, PRESSURE = 5, SCRAM = 6, POISON = 7, JAM = 8, HAMMER = 9, WET = 10, CORELOW = 11,
+        TRIP = 12;
 
     private IronworksRbmkAlerts(){
     }
 
     public static void update(RBMKReactorBuild b, float dt){
         if(headless || b == null || b.alertsMuted || b.melted || b.liquids == null) return;
-        if(b.alertQuiet == null || b.alertQuiet.length < 12){
-            b.alertQuiet = new float[12];
+        if(b.alertQuiet == null || b.alertQuiet.length < 13){
+            b.alertQuiet = new float[13];
             b.alertMask = 0;
         }
 
@@ -131,6 +132,14 @@ public class IronworksRbmkAlerts{
                 + Core.bundle.get("ironworks.log.reactor.poisoned"));
         }
 
+        if(b.tripLatched){
+            if(raise(b, TRIP)){
+                warn(b, Core.bundle.format("ironworks.log.reactor.trip", tripReasonText(b)));
+            }
+        }else{
+            lower(b, TRIP, true, dt);
+        }
+
         if(b.rodJammed){
             if(raise(b, JAM)){
                 warn(b, Core.bundle.get("ironworks.log.reactor.jam"));
@@ -178,6 +187,18 @@ public class IronworksRbmkAlerts{
     private static boolean zonedManual(RBMKReactorBuild b){
         return b.block instanceof RBMKReactor r && r.zoned
             && b.controlMode == IronworksRBMK.MODE_MANUAL;
+    }
+
+    private static String tripReasonText(RBMKReactorBuild b){
+        return switch(b.tripReason){
+            case IronworksRBMK.TRIP_HIGH_HEAT -> Core.bundle.get("ironworks.rbmk.trip.highHeat");
+            case IronworksRBMK.TRIP_LOW_CORE -> Core.bundle.get("ironworks.rbmk.trip.lowCore");
+            case IronworksRBMK.TRIP_LOW_FLOW -> Core.bundle.get("ironworks.rbmk.trip.lowFlow");
+            case IronworksRBMK.TRIP_HIGH_STEAM -> Core.bundle.get("ironworks.rbmk.trip.highSteam");
+            case IronworksRBMK.TRIP_HIGH_PRESSURE -> Core.bundle.get("ironworks.rbmk.trip.highPressure");
+            case IronworksRBMK.TRIP_ROD_JAM -> Core.bundle.get("ironworks.rbmk.trip.rodJam");
+            default -> Core.bundle.get("ironworks.rbmk.trip.none");
+        };
     }
 
     private static int hottestZone(RBMKReactorBuild b){

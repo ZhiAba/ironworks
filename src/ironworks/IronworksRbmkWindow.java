@@ -271,6 +271,10 @@ public class IronworksRbmkWindow{
         stat(grid, "ironworks.rbmk.win.hammer", b -> Mathf.round(b.waterHammer * 100f) + "%", b -> b.waterHammer > 0.3f ? Pal.remove : Color.valueOf("ffb066"));
         stat(grid, "ironworks.rbmk.win.jam", b -> Core.bundle.get(b.rodJammed ? "ironworks.rbmk.win.jammed" : "ironworks.rbmk.win.free"),
             b -> b.rodJammed ? Pal.remove : Color.valueOf("7fe08a"));
+        stat(grid, "ironworks.rbmk.win.trip", b -> Core.bundle.get(b.tripLatched
+            ? "ironworks.rbmk.win.tripActive" : "ironworks.rbmk.win.tripNone"),
+            b -> b.tripLatched ? Pal.remove : Color.valueOf("7fe08a"));
+        stat(grid, "ironworks.rbmk.win.limit", b -> limitReasonText(b), b -> b.tripLatched ? Pal.remove : Color.lightGray);
         body.add(grid).width(contentWidth).row();
 
         Table tip = new Table(Styles.grayPanel);
@@ -332,8 +336,8 @@ public class IronworksRbmkWindow{
         targetLabel.update(() -> {
             if(current == null) return;
             if(current.controlMode == IronworksRBMK.MODE_AUTO){
-                targetLabel.setText(Core.bundle.format("ironworks.rbmk.win.autoTarget",
-                    Mathf.round(current.autoPower * 100f), Mathf.round(current.flux * 100f)));
+                targetLabel.setText(Core.bundle.format("ironworks.rbmk.win.autoTargetLimit",
+                    Mathf.round(current.autoPower * 100f), Mathf.round(current.flux * 100f), limitReasonText(current)));
             }else if(current.controlMode == IronworksRBMK.MODE_MANUAL && current.selectedZone >= 0){
                 targetLabel.setText(Core.bundle.format("ironworks.rbmk.win.zoneTarget",
                     current.selectedZone + 1, Mathf.round(current.zoneTarget[current.selectedZone] * 100f),
@@ -440,7 +444,8 @@ public class IronworksRbmkWindow{
         Label injectValue = new Label("");
         injectValue.update(() -> {
             if(current != null) injectValue.setText(Core.bundle.format("ironworks.rbmk.win.injectRate",
-                Mathf.round(current.coreInjectRate * 100f), Mathf.round(current.lastCoreInjection)));
+                Mathf.round(current.coreInjectRate * 100f), Mathf.round(current.corePumpSpeed * 100f),
+                Mathf.round(current.lastCoreInjection)));
         });
         injectValue.setColor(Color.valueOf("8fd4ff"));
         injectRow.add(injectValue).left().row();
@@ -475,7 +480,25 @@ public class IronworksRbmkWindow{
             if(current != null) current.configure(-4);
         });
         actions.add(reset).size(220f, 38f).padTop(4f).row();
+        TextButton jamReset = new TextButton(Core.bundle.get("ironworks.rbmk.win.resetJam"), Styles.defaultt);
+        jamReset.clicked(() -> {
+            if(current != null) current.configure(-6);
+        });
+        jamReset.update(() -> {
+            if(current == null) return;
+            jamReset.touchable = current.rodJammed && current.heat < 1.10f ? Touchable.enabled : Touchable.disabled;
+        });
+        actions.add(jamReset).size(220f, 38f).padTop(4f).row();
         emergency.add(actions).left().row();
+        Label trip = new Label("");
+        trip.update(() -> {
+            if(current == null) return;
+            trip.setText(current.tripLatched
+                ? Core.bundle.format("ironworks.rbmk.win.tripReason", tripReasonText(current))
+                : Core.bundle.get("ironworks.rbmk.win.tripClear"));
+            trip.setColor(current.tripLatched ? Pal.remove : Color.lightGray);
+        });
+        emergency.add(trip).wrap().width(contentWidth - 24f).left().padTop(4f).row();
         TextButton mute = new TextButton("", Styles.flatTogglet);
         mute.clicked(() -> {
             if(current != null) current.configure(-3);
@@ -530,6 +553,37 @@ public class IronworksRbmkWindow{
             if(!s.isDragging()) s.setValue(shown * 100f);
         });
         return s;
+    }
+
+    private static String tripReasonText(RBMKReactorBuild b){
+        return switch(b.tripReason){
+            case IronworksRBMK.TRIP_HIGH_HEAT -> Core.bundle.get("ironworks.rbmk.trip.highHeat");
+            case IronworksRBMK.TRIP_LOW_CORE -> Core.bundle.get("ironworks.rbmk.trip.lowCore");
+            case IronworksRBMK.TRIP_LOW_FLOW -> Core.bundle.get("ironworks.rbmk.trip.lowFlow");
+            case IronworksRBMK.TRIP_HIGH_STEAM -> Core.bundle.get("ironworks.rbmk.trip.highSteam");
+            case IronworksRBMK.TRIP_HIGH_PRESSURE -> Core.bundle.get("ironworks.rbmk.trip.highPressure");
+            case IronworksRBMK.TRIP_ROD_JAM -> Core.bundle.get("ironworks.rbmk.trip.rodJam");
+            default -> Core.bundle.get("ironworks.rbmk.trip.none");
+        };
+    }
+
+    /** 当前物理限制项；不改变任何控制量，只给 UI 解释“为什么到不了目标”。 */
+    private static String limitReasonText(RBMKReactorBuild b){
+        if(b.tripLatched) return Core.bundle.get("ironworks.rbmk.limit.trip");
+        if(b.rodJammed) return Core.bundle.get("ironworks.rbmk.limit.jam");
+        boolean zoned = b.block instanceof RBMKReactor r && r.zoned;
+        float melt = zoned ? IronworksRBMK.zonedMeltTemp : IronworksRBMK.meltTemp;
+        if(b.heat > melt * 0.82f) return Core.bundle.get("ironworks.rbmk.limit.heat");
+        if(zoned){
+            float core = 1f;
+            for(int i = 0; i < 9; i++) core = Math.min(core, b.zoneWaterFrac(i));
+            if(core < 0.22f) return Core.bundle.get("ironworks.rbmk.limit.core");
+        }else if(b.liquids.get(Liquids.water) < b.waterCap() * 0.22f){
+            return Core.bundle.get("ironworks.rbmk.limit.core");
+        }
+        if(b.liquids.get(IronworksLiquids.steam) > b.steamCap() * 0.85f) return Core.bundle.get("ironworks.rbmk.limit.steam");
+        if(b.flow < 0.55f) return Core.bundle.get("ironworks.rbmk.limit.flow");
+        return Core.bundle.get("ironworks.rbmk.limit.none");
     }
 
     private static Slider throttleSlider(){

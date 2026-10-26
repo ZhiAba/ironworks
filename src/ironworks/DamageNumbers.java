@@ -5,6 +5,7 @@ import arc.Events;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Font;
+import arc.graphics.g2d.GlyphLayout;
 import arc.math.Mathf;
 import arc.scene.ui.layout.Scl;
 import arc.struct.Seq;
@@ -35,6 +36,9 @@ public class DamageNumbers{
     public static final float lifetime = 180f;
     public static final float mergeWindow = 60f;
     private static final int maxActive = 64;
+    private static final GlyphLayout measure = new GlyphLayout();
+    private static final Color COMBO_COLOR = Color.valueOf("ffd166");
+    private static final Color DETAIL_COLOR = Color.valueOf("9aa0a6");
 
     public static boolean enabled = true;
 
@@ -61,6 +65,7 @@ public class DamageNumbers{
         for(Floating f : active){
             f.target = null;
             f.text = null;
+            f.parts.clear();
             pool.free(f);
         }
         active.clear();
@@ -126,7 +131,7 @@ public class DamageNumbers{
             merge.count++;
             merge.lastHit = Time.time;
             merge.life = lifetime;
-            merge.text = buildText(merge);
+            rebuild(merge);
             return;
         }
 
@@ -134,6 +139,7 @@ public class DamageNumbers{
             Floating old = active.remove(0);
             old.target = null;
             old.text = null;
+            old.parts.clear();
             pool.free(old);
         }
 
@@ -156,7 +162,7 @@ public class DamageNumbers{
         f.r = color.r;
         f.g = color.g;
         f.b = color.b;
-        f.text = buildText(f);
+        rebuild(f);
         active.add(f);
     }
 
@@ -175,38 +181,65 @@ public class DamageNumbers{
         return Core.bundle.formatString(Core.bundle.get(key, fallback), args);
     }
 
-    private static String buildText(Floating f){
+    /** 重建纯文本与彩色分段；合并伤害时两者都必须刷新。 */
+    private static void rebuild(Floating f){
+        f.parts.clear();
+        f.text = null;
         int actual = Math.max(0, Math.round(f.amount));
         int armor = Math.max(0, Math.round(f.armor));
         int pierce = Math.max(0, Math.min(100, Math.round(f.pierce * 100f)));
 
         if(f.kind == Kind.RICOCHET){
-            return f.count > 1
+            String t = f.count > 1
                 ? text("ironworks.damage-number-ricochet-count", "跳弹×{0}", f.count)
                 : Core.bundle.get("ironworks.damage-number-ricochet", "跳弹");
+            addPart(f, t, Color.valueOf("9aa0a6"));
+            return;
         }
         if(f.kind == Kind.SHIELD){
-            return text("ironworks.damage-number-shield", "护盾 -{0}", actual);
+            addPart(f, text("ironworks.damage-number-shield", "护盾 -{0}", actual), Color.valueOf("5aa9ff"));
+            return;
         }
         if(f.kind == Kind.OVERPEN){
-            return text("ironworks.damage-number-overpen", "过穿 {0}", actual);
+            partText(f, "ironworks.damage-number-overpen", "过穿 {0}", Color.valueOf("f2f2f2"), actual);
+            return;
         }
         if(f.kind == Kind.TRUE){
-            return text("ironworks.damage-number-true", "真伤 {0}", actual);
+            partText(f, "ironworks.damage-number-true", "真伤 {0}", Color.valueOf("ff4d4d"), actual);
+            return;
         }
 
-        boolean combo = f.combo > 1.001f;
-        String body;
+        // 反应倍率与伤害数值分开着色：倍率黄色，数值使用属性自身颜色。
+        if(f.combo > 1.001f){
+            String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0}").replace("{0}", trim(f.combo));
+            addPart(f, prefix + " ", COMBO_COLOR);
+        }
+        Color valueColor = f.type == null ? DamageType.physical.color() : f.type.color();
+        if(actual > 0){
+            addPart(f, String.valueOf(actual), valueColor);
+        }
         if(armor > 0){
-            body = text("ironworks.damage-number-armor", "{0}（{1}-{2}%）", actual, armor, pierce);
-        }else{
-            body = text("ironworks.damage-number", "{0}", actual);
+            String detail = text("ironworks.damage-number-armor-detail", "（{0}-{1}%）", armor, pierce);
+            addPart(f, detail, DETAIL_COLOR);
         }
-        if(combo){
-            String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0}");
-            body = prefix.replace("{0}", trim(f.combo)) + " " + body;
+        if(f.parts.isEmpty()){
+            addPart(f, String.valueOf(actual), valueColor);
         }
-        return body;
+    }
+
+    /** 单段文本（带本地化兜底）。 */
+    private static void partText(Floating f, String key, String fallback, Color color, Object... args){
+        addPart(f, text(key, fallback, args), color);
+    }
+
+    private static void addPart(Floating f, String value, Color color){
+        Part p = new Part();
+        p.text = value;
+        p.r = color.r;
+        p.g = color.g;
+        p.b = color.b;
+        f.parts.add(p);
+        f.text = f.text == null ? value : f.text + value;
     }
 
     private static Color colorFor(Floating f){
@@ -244,6 +277,7 @@ public class DamageNumbers{
                 active.remove(i);
                 f.target = null;
                 f.text = null;
+                f.parts.clear();
                 pool.free(f);
             }
         }
@@ -259,10 +293,27 @@ public class DamageNumbers{
         Draw.z(Layer.playerName + 1f);
         for(Floating f : active){
             float alpha = Mathf.clamp(f.life / 60f);
-            float y = f.y + (1f - f.life / f.maxLife) * 18f;
+            // 同一目标的多种伤害按行排布，避免不同来源在同一个坐标上完全重叠。
+            int row = 0;
+            for(Floating other : active){
+                if(other == f) break;
+                if(other.target == f.target) row++;
+            }
+            float y = f.y + (1f - f.life / f.maxLife) * 18f + row * 15f * f.scale;
             font.getData().setScale(0.25f * 1.6f / Scl.scl(1f) * f.scale);
-            font.setColor(f.r, f.g, f.b, alpha);
-            font.draw(f.text, f.x, y, Align.center);
+
+            float total = 0f;
+            for(Part part : f.parts){
+                measure.setText(font, part.text);
+                part.width = measure.width;
+                total += part.width;
+            }
+            float cursor = f.x - total / 2f;
+            for(Part part : f.parts){
+                font.setColor(part.r, part.g, part.b, alpha);
+                font.draw(part.text, cursor, y, Align.left | Align.center);
+                cursor += part.width;
+            }
         }
 
         font.getData().setScale(1f);
@@ -296,5 +347,11 @@ public class DamageNumbers{
         float r, g, b, scale = 1f;
         int count;
         String text;
+        final Seq<Part> parts = new Seq<>();
+    }
+
+    static class Part{
+        String text;
+        float r, g, b, width;
     }
 }
