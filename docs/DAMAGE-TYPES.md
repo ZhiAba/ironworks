@@ -1,4 +1,4 @@
-# 属性伤害（v3.0：元素 × 形态）
+# 属性伤害（v3.0.1：元素 × 形态）
 
 > v2.6 的线性衰减、10% 保底、按最大生命过穿已被 v3.0 的平方衰减、
 > 跳弹/过穿与四层防御管线取代。完整规则见 [`COMBAT-SYSTEM.md`](COMBAT-SYSTEM.md)。
@@ -62,13 +62,15 @@ Dmg.pierce(unit, 9f, DamageType.thunder);
 ```
 
 新增元素：在 `DamageType` 枚举加一行，在 `Dmg.load()` 注册归属。
-新增弹体基类：在 `TypedBullets.java` 加 `TypedXxx extends Xxx`。
+新增弹体基类：在 `TypedBullets.java` 加 `TypedXxx extends Xxx`；`Dmg.copy()` 只复制已知基类，未知弹体原样保留。
+原版炮塔由 `Dmg.load()` 中的 `integrateVanillaTurrets()` 自动接入，物品/液体/电力炮塔都无需逐个写死。
 新增抗性：`Resistance.set("unit-name", DamageType.fire, 0.5f)`。
 
 ## 已知边界
 
 - 抗性表默认空；具体单位抗性尚未配置，需要主人给数值。
 - 腐蚀当前只减甲，没有独立每 tick 真伤。
-- 原版电弧塔连锁逐跳仍走原版逻辑。
+- 原版电弧塔的闪电分叉已换成带属性 `lightningType` 子类；逐跳命中在实机仍需验收。
+- 连续激光/轨道炮/霰射弹用带属性子类接管 `hitEntity`，建筑端表现仍需实机验收。
 - 切割形态已定义但没有内容。
 - 无头回归不渲染 UI，视觉需实机验收。

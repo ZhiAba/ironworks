@@ -706,6 +706,7 @@ cd "$TESTDIR" || exit 1
   echo 'js var src=Vars.world.tile(100,200).build; src.source=Vars.content.liquid("ironworks-chiller"); Log.info("T90 srcSet=" + (src.source != null))'
   sleep 8
   echo 'js Log.info("T90b turret=" + Math.round(Vars.world.tile(105,200).build.liquids.get(Vars.content.liquid("ironworks-chiller"))))'
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=198;y<=202;y++){for(var x=98;x<=107;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}} Log.info("T90c cleanup=true")'
   # ---- 91. 天罚冷却配置：1440 容量 / 120 每秒 / 虚拟热槽 ----
   echo 'js var tb=Vars.content.block("ironworks-tianfa"); Log.info("T91 cap=" + tb.liquidCapacity + " use=" + tb.coolantUse + " hotCap=" + tb.hotCapacity + " virtualHot=" + tb.virtualHot + " consumeOnlyFiring=" + tb.consumeOnlyWhenFiring)'
 
@@ -716,12 +717,13 @@ cd "$TESTDIR" || exit 1
   echo 'js var cv=Vars.world.tile(55,130).build; var w=Vars.content.liquid("water"); var fe=Vars.content.liquid("ironworks-molten-iron"); Log.info("T92 waterAcc=" + cv.acceptLiquid(cv, w) + " ironAcc=" + cv.acceptLiquid(cv, fe))'
 
   # ---- 93. 热冷却液堆满 → 强制过热、停止开火 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=195;y<=205;y++){for(var x=125;x<=145;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js Vars.world.tile(130,200).setBlock(Vars.content.block("ironworks-tianfa"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(133,200).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
   sleep 2
   echo 'js var hb=Vars.world.tile(130,200).build; hb.hotStored=1440; Log.info("T93 hot=" + Math.round(hb.hotStored))'
   echo 'js var dt=null; var us=Vars.content.units(); for(var i=0;i<us.size;i++){if(us.get(i).name=="dagger") dt=us.get(i);} var tgt=dt.spawn(Vars.state.rules.waveTeam, 140*8, 200*8); Log.info("T93b spawnHp=" + Math.round(tgt.health))'
-  sleep 4
+  sleep 6
   echo 'js Log.info("T93c heat=" + Math.round(Vars.world.tile(130,200).build.overheat) + " hot=" + Math.round(Vars.world.tile(130,200).build.hotStored))'
   echo 'js Vars.world.tile(130,200).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam); Vars.world.tile(133,200).setBlock(Vars.content.block("air"), Vars.state.rules.defaultTeam); if(typeof tgt !== "undefined" && tgt != null) tgt.remove(); Log.info("T93d cleanup=true")'
   # ---- 94. 内容静态检查：颜色/容量/配方输出与液体方向 ----
@@ -744,6 +746,7 @@ cd "$TESTDIR" || exit 1
   echo 'js var cb2=Vars.world.tile(150,240).build; Log.info("T96 mods=" + cb2.moduleCount + " bonus=" + Math.round(cb2.moduleBonus*100) + " capped=" + (cb2.moduleBonus <= 2.001))'
 
   # ---- 97. 整边贴合 + 四方向识别：只贴 1 格不算；上下左右 dir = 0/1/2/3 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=232;y<=247;y++){for(var x=175;x<=187;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js Vars.world.tile(180,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(184,237).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
   sleep 2
@@ -753,26 +756,28 @@ cd "$TESTDIR" || exit 1
   echo 'js Vars.world.tile(177,240).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(180,235).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(180,244).setBlock(Vars.content.block("ironworks-compute-basic"), Vars.state.rules.defaultTeam)'
-  sleep 3
+  sleep 6
   echo 'js var rb=Vars.world.tile(184,240).build; var lb=Vars.world.tile(177,240).build; var bb=Vars.world.tile(180,235).build; var ub=Vars.world.tile(180,244).build; Log.info("T97b full mods=" + Vars.world.tile(180,240).build.moduleCount + " R=" + rb.dir + " L=" + lb.dir + " D=" + bb.dir + " U=" + ub.dir)'
 
   # ---- 98. 矩形占地：主集群 4×6 / 高级模块 2×3 的链接块确实生成并绑定核心 ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=234;y<=246;y++){for(var x=155;x<=168;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js Vars.world.tile(160,240).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(163,240).setBlock(Vars.content.block("ironworks-compute-advanced"), Vars.state.rules.defaultTeam)'
-  sleep 3
+  sleep 6
   echo 'js var c=Vars.world.tile(160,240).build; var cl=Vars.world.tile(159,237).build; var cr=Vars.world.tile(162,238).build; var adv=Vars.world.tile(163,240).build; var al=Vars.world.tile(163,239).build; Log.info("T98 clusterLinks=" + (cl!=null && cl.host==c) + "," + (cr!=null && cr.host==c) + " advLink=" + (al!=null && al.host==adv) + " advAttached=" + adv.attached + " advDir=" + adv.dir)'
 
   # ---- 99. 拆除主块时链接块一起消失（含模块的通风块） ----
   echo 'js Vars.world.tile(160,240).remove()'
-  sleep 2
+  sleep 3
   echo 'js var t=Vars.content.block("air"); var gone=(Vars.world.tile(159,237).block()==t) && (Vars.world.tile(162,238).block()==t); Log.info("T99a clusterLinksGone=" + gone)'
   echo 'js Vars.world.tile(163,240).remove()'
-  sleep 2
+  sleep 3
   echo 'js var agone=(Vars.world.tile(163,239).block()==Vars.content.block("air")); Log.info("T99b advLinkGone=" + agone)'
 
   # ---- 100. 读档重绑：链接块按相对坐标重新找到主块（host 置空后 10 tick 内恢复） ----
+  echo 'js var T=Vars.state.rules.defaultTeam; for(var y=214;y<=226;y++){for(var x=194;x<=206;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js Vars.world.tile(200,220).setBlock(Vars.content.block("ironworks-compute-cluster"), Vars.state.rules.defaultTeam)'
-  sleep 3
+  sleep 6
   echo 'js var lk=Vars.world.tile(199,217).build; Log.info("T100a link=" + (lk!=null) + " rel=" + (lk!=null ? (lk.relX + "," + lk.relY) : "-") + " bound=" + (lk!=null && lk.host!=null))'
   echo 'js Vars.world.tile(199,217).build.host=null'
   sleep 1
@@ -1065,7 +1070,7 @@ cd "$TESTDIR" || exit 1
   sleep 2
   echo 'js var b=Vars.world.tile(208,253).build; Log.info("T144 water=" + Math.round(b.liquids.get(Vars.content.liquid("water"))) + " warm=" + Math.round(b.liquids.get(Vars.content.liquid("ironworks-warm-water"))))'
   # ---- 145. 同样的憋压工况，但棒没插到底 → 不引爆 ----
-  echo 'js var T=Vars.state.rules.defaultTeam; Vars.state.rules.reactorExplosions=true; Vars.world.tile(220,250).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(220,250).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.set(Vars.content.liquid("water"),10000); b.liquids.set(Vars.content.liquid("ironworks-steam"),2000); b.applyConfig(-12); b.targetRods=0.5; b.rods=0.5; b.flux=0.5; b.heat=0.5; for(var i=0;i<300;i++) b.updateTile(); Log.info("T145 melted=" + b.melted + " boom=" + Math.round(b.coreBoom*10))'
+  echo 'js var T=Vars.state.rules.defaultTeam; Vars.state.rules.reactorExplosions=true; Vars.world.tile(220,250).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); var b=Vars.world.tile(220,250).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.liquids.set(Vars.content.liquid("water"),10000); b.liquids.set(Vars.content.liquid("ironworks-steam"),2000); b.applyConfig(-12); b.targetRods=0.5; b.rods=0.5; b.flux=0.5; b.heat=0.5; var od=Packages.arc.util.Time.delta; Packages.arc.util.Time.delta=1/60; for(var i=0;i<300;i++) b.updateTile(); Packages.arc.util.Time.delta=od; Log.info("T145 melted=" + b.melted + " boom=" + Math.round(b.coreBoom*10))'
   # ---- 146. 给水侧不被蒸汽污染：水从左进、汽从右出，左管只允许是水 ----
   echo 'js var T=Vars.state.rules.defaultTeam; for(var y=246;y<=254;y++){for(var x=230;x<=248;x++){var t=Vars.world.tile(x,y); if(t!=null)t.setBlock(Vars.content.block("air"),T);}}'
   echo 'js var T=Vars.state.rules.defaultTeam; Vars.world.tile(234,250).setBlock(Vars.content.block("liquid-source"),T); Vars.world.tile(235,250).setBlock(Vars.content.block("conduit"),T); Vars.world.tile(238,250).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(241,250).setBlock(Vars.content.block("conduit"),T); var s=Vars.world.tile(234,250).build; s.source=Vars.content.liquid("water"); s.liquids.set(s.source,10000); var c1=Vars.world.tile(235,250).build, c2=Vars.world.tile(241,250).build, b=Vars.world.tile(238,250).build; b.items.add(Vars.content.item("ironworks-fuel-rod"),5); b.applyConfig(-12); b.targetRods=0.5; b.rods=0.5; for(var i=0;i<400;i++){ s.updateTile(); c1.updateTile(); b.updateTile(); c2.updateTile(); } var st=Vars.content.liquid("ironworks-steam"), wt=Vars.content.liquid("water"); Log.info("T146 side=" + b.waterSide + " leftSteam=" + Math.round(c1.liquids.get(st)) + " rightSteam=" + Math.round(c2.liquids.get(st)) + " reactorWater=" + Math.round(b.liquids.get(wt)) + " melted=" + b.melted)'

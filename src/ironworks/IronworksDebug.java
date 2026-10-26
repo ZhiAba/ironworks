@@ -2,6 +2,7 @@ package ironworks;
 
 import mindustry.Vars;
 import mindustry.content.Blocks;
+import mindustry.content.Items;
 import mindustry.content.Liquids;
 import mindustry.content.StatusEffects;
 import mindustry.content.UnitTypes;
@@ -11,6 +12,8 @@ import mindustry.gen.Bullet;
 import mindustry.gen.Unit;
 import mindustry.world.Block;
 import mindustry.world.Tile;
+import mindustry.world.blocks.defense.turrets.ItemTurret;
+import mindustry.world.blocks.defense.turrets.LiquidTurret;
 
 /** 调试内容（不进科技树，不影响正常内容）。 */
 public class IronworksDebug{
@@ -41,6 +44,16 @@ public class IronworksDebug{
         sb.append(" heForm=").append(Dmg.formOf(IronworksShells.heBullet).id);
         sb.append(" napalmForm=").append(Dmg.formOf(IronworksTurrets.napalmBullet).id);
 
+        boolean vanillaItem = ((ItemTurret) Blocks.scatter).ammoTypes.get(Items.scrap) instanceof TypedBullet
+            && ((ItemTurret) Blocks.ripple).ammoTypes.get(Items.graphite) instanceof TypedBullet;
+        boolean vanillaLiquid = ((LiquidTurret) Blocks.wave).ammoTypes.get(Liquids.water) instanceof TypedBullet;
+        boolean vanillaPower = ((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.lancer).shootType instanceof TypedBullet;
+        boolean vanillaLightning = ((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.arc).shootType instanceof TypedBullet;
+        boolean vanillaContinuous = ((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.meltdown).shootType instanceof TypedBullet;
+        boolean lightningChunk = ((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.arc).shootType instanceof TypedLightningBulletType lightning
+            && lightning.lightningType instanceof TypedBullet
+            && Dmg.formOf(lightning.lightningType) == DamageForm.ENERGY;
+
         ArmorPen test = new ArmorPen(0.50f, 15f, 0.30f, 0.02f);
         boolean rateFlat = Math.abs(test.effective(10f) - 0.50f) < 0.0001f;
         boolean rateSquare = Math.abs(test.effective(30f) - 0.20f) < 0.002f;
@@ -53,7 +66,7 @@ public class IronworksDebug{
 
         float x = at.x, y = at.y;
         Unit a = UnitTypes.fortress.spawn(Team.crux, x + 40f, y);
-        Unit b = UnitTypes.dagger.spawn(Team.crux, x + 72f, y);
+        Unit b = UnitTypes.fortress.spawn(Team.crux, x + 72f, y);
         Unit c = UnitTypes.fortress.spawn(Team.crux, x + 104f, y);
         Unit d = UnitTypes.dagger.spawn(Team.crux, x + 136f, y);
         Unit e = UnitTypes.dagger.spawn(Team.crux, x + 168f, y);
@@ -78,13 +91,16 @@ public class IronworksDebug{
             && "water".equals(ElementCombo.auraName(c));
         Dmg.ricochetRoll = -1f;
 
-        // 过穿：动能白值 20 ≥ 匕首护甲 0×2；伤害 30%，跳过 Combo/Aura。
+        // 过穿：白值 18 / 护甲 9 = 2.0 → 保留 30%；跳过 Combo/Aura。
         ElementCombo.apply(b, DamageType.water);
         float hb = b.health;
-        Dmg.hit(b, 100f, DamageType.thunder, true, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), true, DamageForm.KINETIC);
+        Dmg.hit(b, 100f, DamageType.thunder, true, false, new ArmorPen(0.50f, 18f, 0.30f, 0f), true, DamageForm.KINETIC);
         boolean overpen = Dmg.lastOverpen
             && Math.abs((hb - b.health) - 30f) < 0.5f
+            && Math.abs(Dmg.lastOverpenKeepRate - 0.30f) < 0.001f
             && "water".equals(ElementCombo.auraName(b));
+        boolean overpenKeepZero = Math.abs(new ArmorPen(0.5f, 20f, 0.3f, 0f).overpenKeepRate(0f) - 0.10f) < 0.001f;
+        boolean overpenKeepHigh = Math.abs(new ArmorPen(0.5f, 90f, 0.3f, 0f).overpenKeepRate(9f) - 0.10f) < 0.001f;
 
         // 能量形态：不触发过穿，且穿透护盾。
         float hd = d.health;
@@ -191,6 +207,12 @@ public class IronworksDebug{
         a.remove(); b.remove(); c.remove(); d.remove(); e.remove(); f.remove(); g.remove(); h.remove(); i.remove();
         j.remove(); k.remove(); l.remove(); m.remove(); n.remove(); o.remove(); p.remove();
 
+        sb.append(" vanillaItem=").append(vanillaItem);
+        sb.append(" vanillaLiquid=").append(vanillaLiquid);
+        sb.append(" vanillaPower=").append(vanillaPower);
+        sb.append(" vanillaLightning=").append(vanillaLightning);
+        sb.append(" lightningChunk=").append(lightningChunk).append(" lightningChunkEnergy=").append(lightningChunk);
+        sb.append(" vanillaContinuous=").append(vanillaContinuous);
         sb.append(" rateFlat=").append(rateFlat);
         sb.append(" rateSquare=").append(rateSquare);
         sb.append(" rateCut=").append(rateCut);
@@ -200,6 +222,8 @@ public class IronworksDebug{
         sb.append(" overpenGate=").append(overpenGate);
         sb.append(" ricochet=").append(ricochet);
         sb.append(" overpen=").append(overpen);
+        sb.append(" overpenKeepZero=").append(overpenKeepZero);
+        sb.append(" overpenKeepHigh=").append(overpenKeepHigh);
         sb.append(" energyNoOverpen=").append(energyNoOverpen);
         sb.append(" shieldOverflow=").append(shieldOverflow);
         sb.append(" shieldBlocked=").append(shieldBlocked);

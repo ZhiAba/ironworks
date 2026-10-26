@@ -8,6 +8,9 @@ import arc.struct.Seq;
 import arc.util.Tmp;
 import mindustry.Vars;
 import mindustry.content.Blocks;
+import mindustry.content.Fx;
+import mindustry.content.Items;
+import mindustry.content.StatusEffects;
 import mindustry.content.Liquids;
 import mindustry.entities.Damage;
 import mindustry.entities.Units;
@@ -48,8 +51,8 @@ public class Dmg{
     public static String lastComboName;
     /** 上一次命中是否触发跳弹/过穿。 */
     public static boolean lastRicochet, lastOverpen, lastShieldBlocked;
-    /** 过穿伤害倍率：基础伤害的 30%。 */
-    public static final float overpenFactor = 0.30f;
+    /** 最近一次过穿的动态保留率。 */
+    public static float lastOverpenKeepRate;
     /** 测试钩子：>=0 时覆盖跳弹随机 roll，生产环境保持 -1。 */
     public static float ricochetRoll = -1f;
     /** 标记在 Bullet.data 上，供 splash 判定“本次命中禁止溅射/状态”。 */
@@ -246,10 +249,11 @@ public class Dmg{
             }
         }
 
-        // 3. 过穿：动能形态且白值 >= 当前护甲 × 2；直接 30%，跳过抗性/Combo/附着。
+        // 3. 过穿：动能形态且白值 >= 当前护甲 × 2；按动态保留率结算，跳过抗性/Combo/附着。
         if(allowExtremes && f.kinetic && p.canOverpen(armor)){
             lastOverpen = true;
-            float dealt = Math.max(1f, p.overpenDamage(incoming));
+            lastOverpenKeepRate = p.overpenKeepRate(armor);
+            float dealt = incoming * lastOverpenKeepRate;
             float actual = applyBody(target, dealt, shieldRemaining);
             lastDealt = dealt;
             lastBodyDamage = actual;
@@ -289,7 +293,10 @@ public class Dmg{
         lastBodyDamage = actual;
 
         if(numbers){
-            DamageNumbers.showHit(target, actual, lastArmorAbsorbed, effectivePierce, combo, t, false);
+            // 某些单位/护盾/瞬时状态会让“结算前后生命差”为 0；用最终伤害兜底，
+            // 避免正常伤害完全不显示。过穿/跳弹/护盾有各自分类，不走这里。
+            float shown = actual > 0.01f ? actual : finalDamage;
+            DamageNumbers.showHit(target, shown, lastArmorAbsorbed, effectivePierce, combo, t, false);
         }
 
         // 7. 扣血后再消耗旧 Aura、挂新状态；腐蚀另行登记永久减甲。
@@ -338,6 +345,7 @@ public class Dmg{
         lastRicochet = false;
         lastOverpen = false;
         lastShieldBlocked = false;
+        lastOverpenKeepRate = 0f;
     }
 
     /** UI 用：该属性默认形态是否动能。 */
@@ -529,12 +537,21 @@ public class Dmg{
             target = new TypedArtilleryBulletType(type, source.speed, source.damage);
         }else if(source instanceof LiquidBulletType liquid){
             target = new TypedLiquidBulletType(type, liquid.liquid);
+        }else if(source instanceof LightningBulletType){
+            target = new TypedLightningBulletType(type, source.damage);
+        }else if(source instanceof ContinuousLaserBulletType){
+            target = new TypedContinuousLaserBulletType(type, source.damage);
+        }else if(source instanceof ShrapnelBulletType){
+            target = new TypedShrapnelBulletType(type);
+        }else if(source instanceof RailBulletType){
+            target = new TypedRailBulletType(type);
         }else if(source instanceof LaserBulletType){
             target = new TypedLaserBulletType(type, source.damage);
         }else if(source instanceof BasicBulletType){
             target = new TypedBasicBulletType(type, source.speed, source.damage);
         }else{
-            target = new TypedBulletType(type, source.speed, source.damage);
+            // 未知基类（连续激光/闪电/轨道弹等）不要伪装成普通子弹，否则会破坏原行为。
+            return source;
         }
 
         copyFields(source, target);
@@ -542,6 +559,18 @@ public class Dmg{
         target.armorMultiplier = 1f;
         if(form != null) formRegistry.put(target, form);
 
+        if(target instanceof TypedLightningBulletType lightning){
+            BulletType chunk = new TypedBulletType(type, 0.0001f, 0f);
+            chunk.hittable = false;
+            chunk.lifetime = Fx.lightning.lifetime;
+            chunk.hitEffect = Fx.hitLancer;
+            chunk.despawnEffect = Fx.none;
+            chunk.status = StatusEffects.shocked;
+            chunk.statusDuration = 10f;
+            chunk.armorMultiplier = 1f;
+            formRegistry.put(chunk, form == null ? type.defaultForm : form);
+            lightning.lightningType = chunk;
+        }
         target.fragBullet = retype(source.fragBullet, type, form);
         target.intervalBullet = retype(source.intervalBullet, type, form);
 
@@ -554,7 +583,7 @@ public class Dmg{
         return target;
     }
 
-    /** 只复制已知行为一致的子类；LightningBulletType 这类特殊弹体保持原样。 */
+    /** 复制 frag/spawn 中已知的弹体；未知特殊基类原样保留。 */
     private static BulletType retype(BulletType source, DamageType type){
         return retype(source, type, null);
     }
@@ -562,13 +591,7 @@ public class Dmg{
     private static BulletType retype(BulletType source, DamageType type, DamageForm form){
         if(source == null || source instanceof TypedBullet) return source;
 
-        boolean known = source instanceof FlakBulletType
-            || source instanceof ArtilleryBulletType
-            || source instanceof LiquidBulletType
-            || source instanceof LaserBulletType
-            || source instanceof BasicBulletType;
-
-        return known ? copy(source, type, form) : source;
+        return canCopy(source) ? copy(source, type, form) : source;
     }
 
     private static void copyFields(BulletType source, BulletType target){
@@ -618,6 +641,9 @@ public class Dmg{
         register(Blocks.meltdown, DamageType.physical, DamageForm.ENERGY);
         register(Blocks.malign, DamageType.physical, DamageForm.ENERGY);
         register(Blocks.duo, DamageType.physical);
+
+        // 3b. 所有原版物品/液体/电力炮塔统一接管，避免只覆盖少数硬编码炮塔
+        integrateVanillaTurrets();
 
         // 4. 原版液体炮弹：水 / 冰 / 火（渣）按弹种分开
         retypeLiquid((LiquidTurret) Blocks.tsunami, Liquids.water, DamageType.water, DamageForm.ENERGY);
@@ -674,6 +700,96 @@ public class Dmg{
         }
 
         if(!Vars.headless) DamageNumbers.init();
+    }
+
+    /** 原版炮塔自动接管：跳过模组方块，按弹种/液体映射元素与形态。 */
+    private static void integrateVanillaTurrets(){
+        if(Vars.content == null || Vars.content.blocks() == null) return;
+
+        for(Block block : Vars.content.blocks()){
+            if(block == null || (block.name != null && block.name.startsWith("ironworks-"))
+                || (block.minfo != null && block.minfo.mod != null)) continue;
+
+            if(block instanceof ItemTurret turret){
+                registerIfAbsent(turret, DamageType.physical, DamageForm.KINETIC);
+                if(turret.ammoTypes == null) continue;
+                for(Item item : turret.ammoTypes.keys().toSeq()){
+                    BulletType old = turret.ammoTypes.get(item);
+                    if(old == null || old instanceof TypedBullet || !canCopy(old)) continue;
+                    DamageType type = itemType(item);
+                    DamageForm form = itemForm(item);
+                    BulletType copied = copy(old, type, form);
+                    if(copied != old) turret.ammoTypes.put(item, copied);
+                }
+            }else if(block instanceof LiquidTurret turret){
+                registerIfAbsent(turret, DamageType.physical, DamageForm.KINETIC);
+                if(turret.ammoTypes == null) continue;
+                for(Liquid liquid : turret.ammoTypes.keys().toSeq()){
+                    BulletType old = turret.ammoTypes.get(liquid);
+                    if(old == null || old instanceof TypedBullet || !canCopy(old)) continue;
+                    DamageType type = liquidType(liquid);
+                    DamageForm form = liquidForm(liquid);
+                    BulletType copied = copy(old, type, form);
+                    if(copied != old) turret.ammoTypes.put(liquid, copied);
+                }
+            }else if(block instanceof PowerTurret turret){
+                DamageType type = powerType(block.name);
+                DamageForm form = DamageForm.ENERGY;
+                registerIfAbsent(turret, type, form);
+                if(turret.shootType != null && !(turret.shootType instanceof TypedBullet) && canCopy(turret.shootType)){
+                    BulletType copied = copy(turret.shootType, type, form);
+                    if(copied != turret.shootType) turret.shootType = copied;
+                }
+            }
+        }
+    }
+
+    private static void registerIfAbsent(Object key, DamageType type, DamageForm form){
+        if(!registry.containsKey(key)){
+            registry.put(key, type);
+            formRegistry.put(key, form);
+        }
+    }
+
+    private static boolean canCopy(BulletType type){
+        return type instanceof FlakBulletType
+            || type instanceof ArtilleryBulletType
+            || type instanceof LiquidBulletType
+            || type instanceof LaserBulletType
+            || type instanceof LightningBulletType
+            || type instanceof ContinuousLaserBulletType
+            || type instanceof ShrapnelBulletType
+            || type instanceof RailBulletType
+            || type instanceof BasicBulletType;
+    }
+
+    private static DamageType itemType(Item item){
+        if(item == Items.pyratite) return DamageType.fire;
+        return DamageType.physical;
+    }
+
+    private static DamageForm itemForm(Item item){
+        if(item == Items.pyratite || item == Items.blastCompound || item == Items.sporePod) return DamageForm.EXPLOSIVE;
+        return DamageForm.KINETIC;
+    }
+
+    private static DamageType liquidType(Liquid liquid){
+        if(liquid == Liquids.water) return DamageType.water;
+        if(liquid == Liquids.cryofluid) return DamageType.ice;
+        if(liquid == Liquids.slag) return DamageType.fire;
+        return DamageType.physical;
+    }
+
+    private static DamageForm liquidForm(Liquid liquid){
+        if(liquid == Liquids.water || liquid == Liquids.cryofluid) return DamageForm.ENERGY;
+        if(liquid == Liquids.slag) return DamageForm.EXPLOSIVE;
+        return DamageForm.KINETIC;
+    }
+
+    private static DamageType powerType(String name){
+        if(name == null) return DamageType.physical;
+        if(name.equals("lancer") || name.equals("arc")) return DamageType.thunder;
+        return DamageType.physical;
     }
 
     private static void retypeItems(ItemTurret turret, DamageType type, DamageForm form){

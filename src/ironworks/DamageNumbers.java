@@ -170,6 +170,11 @@ public class DamageNumbers{
         return null;
     }
 
+    /** 带兜底的本地化格式：I18NBundle.format 不会把兜底文案当 fallback，必须自己先 get。 */
+    private static String text(String key, String fallback, Object... args){
+        return Core.bundle.formatString(Core.bundle.get(key, fallback), args);
+    }
+
     private static String buildText(Floating f){
         int actual = Math.max(0, Math.round(f.amount));
         int armor = Math.max(0, Math.round(f.armor));
@@ -177,31 +182,31 @@ public class DamageNumbers{
 
         if(f.kind == Kind.RICOCHET){
             return f.count > 1
-                ? Core.bundle.format("ironworks.damage-number-ricochet-count", "跳弹×{0}", f.count)
+                ? text("ironworks.damage-number-ricochet-count", "跳弹×{0}", f.count)
                 : Core.bundle.get("ironworks.damage-number-ricochet", "跳弹");
         }
         if(f.kind == Kind.SHIELD){
-            return Core.bundle.format("ironworks.damage-number-shield", "护盾 -{0}", actual);
+            return text("ironworks.damage-number-shield", "护盾 -{0}", actual);
         }
         if(f.kind == Kind.OVERPEN){
-            return Core.bundle.format("ironworks.damage-number-overpen", "过穿 {0}", actual);
+            return text("ironworks.damage-number-overpen", "过穿 {0}", actual);
         }
         if(f.kind == Kind.TRUE){
-            return Core.bundle.format("ironworks.damage-number-true", "真伤 {0}", actual);
+            return text("ironworks.damage-number-true", "真伤 {0}", actual);
         }
 
         boolean combo = f.combo > 1.001f;
-        String text;
+        String body;
         if(armor > 0){
-            text = Core.bundle.format("ironworks.damage-number-armor", "{0}（{1}-{2}%）", actual, armor, pierce);
+            body = text("ironworks.damage-number-armor", "{0}（{1}-{2}%）", actual, armor, pierce);
         }else{
-            text = Core.bundle.format("ironworks.damage-number", "{0}", actual);
+            body = text("ironworks.damage-number", "{0}", actual);
         }
         if(combo){
             String prefix = Core.bundle.get("ironworks.damage-number-combo", "×{0}");
-            text = prefix.replace("{0}", trim(f.combo)) + " " + text;
+            body = prefix.replace("{0}", trim(f.combo)) + " " + body;
         }
-        return text;
+        return body;
     }
 
     private static Color colorFor(Floating f){

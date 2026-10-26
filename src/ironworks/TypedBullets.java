@@ -3,6 +3,8 @@ package ironworks;
 import mindustry.entities.bullet.*;
 import mindustry.gen.Bullet;
 import mindustry.gen.Hitboxc;
+import mindustry.content.Fx;
+import mindustry.content.StatusEffects;
 import mindustry.type.Liquid;
 
 /**
@@ -93,4 +95,50 @@ class TypedBulletType extends BulletType implements TypedBullet{
     @Override public void createSplashDamage(Bullet b, float x, float y){
         Dmg.splash(this, b, x, y, dtype, () -> super.createSplashDamage(b, x, y));
     }
+}
+
+/** 原版电弧炮的闪电主弹：真正的伤害在 lightningType 的每一跳里。 */
+class TypedLightningBulletType extends LightningBulletType implements TypedBullet{
+    final DamageType dtype;
+    TypedLightningBulletType(DamageType dtype, float damage){
+        this.damage = damage;
+        this.dtype = dtype;
+        armorMultiplier = 1f;
+    }
+    @Override public DamageType dtype(){ return dtype; }
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
+}
+
+/** 原版熔化/连续激光：每 tick 的线段命中仍走自定义结算。 */
+class TypedContinuousLaserBulletType extends ContinuousLaserBulletType implements TypedBullet{
+    final DamageType dtype;
+    TypedContinuousLaserBulletType(DamageType dtype, float damage){
+        super(damage);
+        this.dtype = dtype;
+        armorMultiplier = 1f;
+    }
+    @Override public DamageType dtype(){ return dtype; }
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
+}
+
+/** 原版霰射/破片炮。 */
+class TypedShrapnelBulletType extends ShrapnelBulletType implements TypedBullet{
+    final DamageType dtype;
+    TypedShrapnelBulletType(DamageType dtype){
+        this.dtype = dtype;
+        armorMultiplier = 1f;
+    }
+    @Override public DamageType dtype(){ return dtype; }
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
+}
+
+/** 原版轨道炮。 */
+class TypedRailBulletType extends RailBulletType implements TypedBullet{
+    final DamageType dtype;
+    TypedRailBulletType(DamageType dtype){
+        this.dtype = dtype;
+        armorMultiplier = 1f;
+    }
+    @Override public DamageType dtype(){ return dtype; }
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
 }

@@ -42,6 +42,14 @@
 
 ## 3.0.x
 
+### 3.0.1.0 — 动态过穿 + 原版炮塔接入 + 飘字修复
+
+- **动态过穿**：条件仍为动能且 `P_flat >= A*2`；保留率 `keep=max(0.10,0.30-(P_flat/A-2)*0.10)`，A≤0 时 0.10；伤害 = 基础伤害×keep，跳过抗性/Combo/Aura/腐蚀/溅射不变。2×→30%，3×→20%，≥4×→10%。
+- **原版炮塔接入**：开局遍历所有非模组 `ItemTurret`/`LiquidTurret`/`PowerTurret`，按弹种/液体映射元素与形态并复制为带属性弹体；未识别的特殊基类保持原样，不再替换成普通 `TypedBulletType`。
+- **特殊弹体**：新增带属性 `LightningBulletType`（闪电分叉用带属性 `lightningType`）、`ContinuousLaserBulletType`、`RailBulletType`、`ShrapnelBulletType` 子类并接管 `hitEntity`。
+- **飘字修复**：统一用 `Core.bundle.get(key, fallback)` + `formatString`，不再把兜底文案当 `{0}` 参数；普通/护甲/护盾/过穿/真伤/跳弹计数全部恢复正确文案。普通伤害实际生命差为 0 时回退显示计算伤害。
+- **测试/文档**：T154 增加动态过穿三档和原版炮塔/特殊弹体接入检查；全量 **125/125**（725 秒，T1–T187）；T93/T97/T98/T100 区域清理、T145 固定模拟时间步。UI 与 `COMBAT-SYSTEM.md` 同步新公式。
+
 ### 3.0.0.0 — 平方衰减 + 跳弹/过穿 + 四层防御 + 永久腐蚀
 
 - **穿透重写**：`ArmorPen` 从“线性阈值”改为白值 + 基础穿透率 + 相对比例平方衰减 `P = max(0, rate - decay*((A-flat)/flat)^2)`；有效护甲 `A_eff=A*(1-P)`，减伤 `A_eff/(A_eff+100)`；删除旧 10% 刮痧保底。

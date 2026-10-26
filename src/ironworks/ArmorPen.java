@@ -106,9 +106,19 @@ public final class ArmorPen{
         return flat >= Math.max(0f, armor) * 2f;
     }
 
-    /** 过穿伤害：基础伤害的 30%。 */
-    public float overpenDamage(float damage){
-        return Math.max(0f, damage) * 0.30f;
+    /**
+     * 动态过穿保留率：比例刚好 2 倍时 30%，每多 1 倍扣 10 个百分点；
+     * 最低 10%。目标护甲 <=0 时直接取最低保底。
+     */
+    public float overpenKeepRate(float armor){
+        if(armor <= 0f) return 0.10f;
+        float ratio = flat / armor;
+        return Mathf.clamp(0.30f - (ratio - 2f) * 0.10f, 0.10f, 0.30f);
+    }
+
+    /** 过穿伤害：基础伤害 × 动态保留率。 */
+    public float overpenDamage(float damage, float armor){
+        return Math.max(0f, damage) * overpenKeepRate(armor);
     }
 
     public String percent(){
