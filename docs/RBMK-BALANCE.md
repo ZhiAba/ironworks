@@ -1,44 +1,39 @@
-# RBMK-9 v2.5 平衡数据、公式与实现边界
+# RBMK-9 v3.1 平衡数据、公式与实现边界
 
-> 适用版本：**2.5.0.0**。旧 2.4 版数据保留在 `docs/RBMK-BALANCE-2.4.md`。
+> 适用版本：**3.1.0.0**。旧 5×5 的参数保留在本文末尾，RBMK-9 的分区物理以本文为准。
 > 代码：`src/ironworks/IronworksRBMK.java`、`IronworksRbmkWindow.java`、`IronworksRbmkAlerts.java`。
-> 时间单位：`dt = delta()/60` 秒；`meltTimer` 这类用 `delta()` 的地方是 **tick**。正常 60 tps。
+> 时间单位：`dt = delta()/60` 秒；正常 60 tps。测试里 `b.updateTile()` 一次约等于 1 tick。
 
-## 0. 这版到底改了什么
+## 0. 这版新增/修了什么
 
-已实现：
+- **三节点热工**：燃料芯块 `zoneHeat` → 包壳 `zoneClad` → 冷却剂 `zoneCoolant`，不再把燃料和冷却剂当成一个混合温度。
+- **燃料蓄热滞后**：停堆后燃料仍比包壳/冷却剂热，包壳再慢慢把热交给水；SCRAM 不会让温度瞬间归零。
+- **蒸汽干度与湿蒸汽**：低堆芯水位时干度下降，干度 <90% 的部分进入 `ironworks-wet-steam`。湿蒸汽可以进汽轮机，但不发电，并累积叶片水锤损伤。
+- **堆芯水 / 水罐水拆分**：公共水罐不再自动倒灌堆芯。首次灌水后必须用堆芯注水泵（开关 + 注水率）补水；注水也受泵惰转影响。
+- **主泵惰转**：失去水源后泵速按 `exp(-t/45s)` 衰减，不会瞬停；重新有水源才重新升速。
+- **一回路压力与水锤**：低堆芯水位/高热/高汽量会升压；冷水注入高温低水位堆芯会产生水锤和压力损伤，压力损伤到 1 会炸堆。
+- **控制棒高温卡死**：燃料温度超过卡死阈值并持续 2 秒后 `rodJammed=true`，SCRAM 也无法再插棒；只能先注水降温。
+- **执行器行程**：正常棒 20 秒、SCRAM 3 秒、自动保护 1.5 秒；节流阀 8 秒；水位设定值 10 秒。不再瞬动。
+- **自动功率不再有 100%/125% 硬上限**：目标功率可设到 999%，实际功率由传热、堆芯水、汽包和空泡自己限制。
+- **UI**：总览新增包壳温度、堆芯水量、干度、湿蒸汽、泵速、回路压力、水锤、卡棒；控制页新增堆芯注水开关和注水率滑条；自动目标滑条可超过 100%。
 
-- **双节点热工**：燃料温度 `zoneHeat` + 冷却剂温度 `zoneCoolant`，不再只有一个混合温度。
-- **多普勒负反馈**：燃料温度越高，目标通量越低。
-- **控制棒棒尖**：0～20% 插入段先引入正反应性，之后再转负；SCRAM 仍然能把棒价值压到 0。
-- **温度加速蒸发**：冷却剂超过 50% 后，同通量下产汽更快，最高 1.6×。
-- **逐区熔毁损伤**：燃料 ≥200% 后累积损伤，任意一区到 1 就整堆爆炸；不再是全局 125%/1秒。
-- **衰变热**：停堆后仍有约 7% 的功率历史热，不能立刻拆泵。
-- **分区水汽账面**：9 区各有水/汽账面，独立转化，不再按总转化量权重分配。
-- **弹出式控制台**：黑色半透明浮层 + 总览/控制/分区/维护四页签，替换原来方块 config 里的长条。
-- **自动/半自动更新**：按燃料温度、多普勒、棒尖曲线反算棒位；SCRAM 增加锁存与复位。
-
-未实现（保留为后续，不是隐藏开关）：
-
-- 分区水容量/汽容量百分比滑条（当前固定单区 3600 L / 720 L）。
-- 汽轮机直接调用 `extractSteam()`；目前仍读公共汽包，以保持原版导管/汽轮机兼容。
-- 燃耗对反应性的长期影响、压力安全阀、主泵惰转、蒸汽干度、逐区氙、卡棒、硼混合延迟。
-
-## 1. 数据与容量
+## 1. 容量与额定值
 
 | 项目 | 数值 |
 |---|---:|
 | 分区 | 3×3 个 4×4 |
-| 单区水账面 | 3600 L |
-| 单区汽账面 | 720 L |
-| 总水罐 | 32400 L |
-| 总汽包 | 6480 L |
+| 单区水容量 | 3600 L |
+| 单区汽容量 | 720 L |
+| 总堆芯水容量 | 32400 L |
+| 公共水罐 | 32400 L |
+| 公共汽包 | 6480 L |
+| 公共湿蒸汽包 | 3240 L（汽包一半） |
 | 给水泵 | 4700 L/s |
+| 堆芯注水泵 | 额定给水的 1.5×，即 4860 L/s（满注水率） |
 | 额定总产汽 | 3240 L/s（9×360） |
-| 手动峰值 | 4050 L/s（9×450） |
 | 燃料 | 燃料棒 900 秒/根，钍 20 秒/个 |
 
-公共水罐/汽包仍是物理容器；`zoneWater/zoneSteam` 是分区账面和独立转化边界。公共总量变化时（补水、汽轮机抽汽、测试直接 set），下一次 reactor tick 会按容量×`zoneBias` 重新对齐，保证账面总和跟公共罐一致。
+`zoneWater` 是堆芯水；`liquids.get(water)` 是公共水罐。两者独立记账。首次 `syncZoneWater()` 会把公共水按容量搬进堆芯并从罐里扣除，避免复制水；之后 `corePrimed=true`，罐里的水不会自己再流进堆芯。
 
 ## 2. 通量
 
@@ -53,237 +48,212 @@ poison = clamp(1 - 0.65*xenon - 1.2*boron, 0, 1)
 target_i = 1.25 * rodEffect(zoneRods_i) * poison * doppler(zoneHeat_i)
 if(poisoned) target_i = 0
 target_i *= 1 + (1 - zoneFlow_i)*1.2
-target_i = clamp(target_i, 0, manual ? 1.25 : 1)
+target_i = max(0, target_i)
 zoneFlux_i = lerpDelta(zoneFlux_i, target_i, 0.008)
 ```
 
-- `rodEffect` 在 r=0 为 1；r=0.1 约 1.25；r=0.2 为 0.8；r=1 为 0。因此 0～20% 段会先升功率，但全插仍然归零。
-- 这个 `rodTipStrength=0.35` 是为了让 `(1-rod)` 上限下仍然能看见正反应性；建议文档里的 +0.15 在旧式乘法里不会产生净上升。
-- 毒物是加法括号，再乘到通量；控制棒/多普勒/空泡是乘法。
-- 自动/半自动上限 100%；强制手动 125%。
+- 0～20% 插入段有石墨棒尖，`rodEffect` 先升后降；全插仍然归零。
+- 通量没有模式上限；自动目标只改变控制器的目标功率，不直接截断 `zoneFlux`。
+- 毒物、多普勒、空泡和棒位共同决定目标，最终由热工和水/汽转化限制稳态。
 
-## 3. 双节点热工
+## 3. 三节点热工
 
 ```text
 waterFrac_i = zoneWater_i / zoneWaterCap_i
 heatGen_i = zoneFlux_i*0.14 + zonePrompt_i + decayHeat/9
 
-fuelToCoolant_i = 2.0 * waterFrac_i * max(0, zoneHeat_i - zoneCoolant_i)
-coolingLoss_i = zoneFlow_i * waterFrac_i
-                 * (0.06 + 0.09*zoneCoolant_i) + 0.01
+fuelToClad_i    = 0.9 * max(0, zoneHeat_i - zoneClad_i)
+cladToCoolant_i = 3.0 * waterFrac_i * max(0, zoneClad_i - zoneCoolant_i)
+coolingLoss_i   = zoneFlow_i * waterFrac_i
+                  * (0.06 + 0.09*zoneCoolant_i) + 0.01
 
-zoneHeat_i    += (heatGen_i - fuelToCoolant_i)*dt
-zoneCoolant_i += (fuelToCoolant_i - coolingLoss_i)*dt
+zoneHeat_i    += (heatGen_i - fuelToClad_i) / 6.0 * dt
+zoneClad_i    += (fuelToClad_i - cladToCoolant_i) / 1.5 * dt
+zoneCoolant_i += (cladToCoolant_i - coolingLoss_i) * dt
 
 zoneHeat_i    = clamp(0, 3.0)
+zoneClad_i    = clamp(0, 2.5)
 zoneCoolant_i = clamp(0, 1.5)
 zonePrompt_i -= 0.22*dt
 ```
 
-- 燃料温度决定：多普勒、自动 `heatFactor`、熔毁损伤、保护热风险。
-- 冷却剂温度决定：蒸发加速、冷却损失、水位提前量；保护时乘 0.85 作为辅助。
-- 水少 → `waterFrac` 小 → 燃料→冷却剂传热差 → 燃料温度飙升；这是失水事故曲线。
-- 显示：`tempK = 280 + fuel*800`，`coolantK = 280 + coolant*80`，UI 标 °C。
+- 燃料热容 6.0、包壳 1.5，所以停堆后燃料温度会拖尾；包壳温度再慢半拍。
+- 水少 → `waterFrac` 小 → 包壳→水传热差 → 包壳和燃料一起升温；这是失水事故曲线。
+- UI：`tempK = 280 + fuel*800`，包壳/冷却剂只显示归一化百分比；冷却剂温度还控制蒸发加速。
+- 旧 5×5 仍用原来的单节点 `heat` 公式，不套三节点，避免破坏旧存档和既有平衡。
 
-## 4. 温度加速蒸发
+## 4. 蒸汽干度与湿蒸汽
 
 ```text
-evapFactor_i = clamp(1 + 0.6*max(0, coolant_i - 0.5), 1, 1.6)
-nominal_i    = max(zoneFlux_i,0) * 360 * evapFactor_i * dt
+zoneDryness_i = clamp(0.45 + 0.55*waterFrac_i, 0.35, 1)
+dry_i = converted_i * zoneDryness_i
+wet_i = converted_i - dry_i
+
+公共汽包加 dry_i；公共湿蒸汽包加 wet_i
+若湿蒸汽总量超过湿蒸汽包剩余空间，按比例缩放整批转化量
 ```
 
-- 冷却剂 0.5 以下不加速；0.5→1.0 线性到 1.3；1.5 封顶 1.6。
-- 手动节流仍只影响手动模式：`throttle=1`（自动/半自动）或 `zoneThrottle[i]`。
-- 之前“没有温度→蒸发加速”的结论只适用于 2.4；v2.5 已显式加入。
+- 干度 <0.90 时开始产生湿蒸汽；干度低到 0.45（水位很低）时一半以上是湿汽。
+- 湿蒸汽和干蒸汽都从非进水侧排出，可以进现有汽轮机。
+- 汽轮机吃湿蒸汽时：
+  - 不产生电（`used` 只统计干蒸汽）；
+  - `bladeDamage += wetUsed/(warmRoom+1)*dt*0.8`，最高 1，功率最多损失 90%；
+  - `waterHammer += wetUsed/need*dt*0.25`。
+- 湿蒸汽冷凝成温水，仍遵守汽轮机温水排出口限制。
 
-## 5. 分区水→汽
+## 5. 堆芯水、注水泵与主泵惰转
 
 ```text
-roomSteam_i = max(zoneSteamCap_i - zoneSteam_i, 0)
-converted_i = clamp(min(nominal_i*throttle_i,
-                        zoneWater_i,
-                        roomSteam_i), 0, inf)
+corePrimed = false 初始
+syncZoneWater():
+  if corePrimed: return
+  corePrimed = true
+  把公共水罐现有水按 zoneWaterCap 分进 zoneWater，并从罐里扣掉
+
+injectCoreWater(dt):
+  if !coreInjectEnabled: return
+  budget = min(水罐水, 4860 * coreInjectRate * pumpSpeed * dt)
+  按各分区剩余容量分配；lastCoreInjection 记录本 tick 实际注入量
+```
+
+- 堆芯水只通过注水泵补充；水罐水不会自动倒灌。
+- 注水开关默认开，注水率 0～100%（配置 `4000+v`）。
+- 给水泵从相邻水源抽水，泵速：
+  - 有水源且低于低线：`α = 1-exp(-dt/2)` 升速；
+  - 失去水源/高于高线：`α = 1-exp(-dt/45)` 惰转下降。
+- 没有相邻水源时不会假装升速；这是 v3.1 修掉的“泵永远满速”问题。
+
+## 6. 水→汽与真实冷却流量
+
+```text
+nominal_i = max(zoneFlux_i,0) * 360 * evapFactor_i * dt
+roomSteam_i = zoneSteamCap_i - zoneSteam_i
+converted_i = min(nominal_i * zoneThrottleActual_i,
+                  zoneWater_i,
+                  roomSteam_i / max(zoneDryness_i, 0.01))
+converted_i = max(0, converted_i)
 
 zoneWater_i -= converted_i
-zoneSteam_i += converted_i
+zoneSteam_i += converted_i * zoneDryness_i
+公共湿蒸汽 += converted_i * (1-zoneDryness_i)
 ```
 
-- 每区独立，不再用 `convertedTotal * 权重` 跨区分配。
-- 公共水罐/汽包和总液容仍做最后一道全局比例缩放，保证不会凭空多水/多汽。
-- `zoneFlow` 不再用“转化量/需求”，改成：
+- 转化只受**堆芯水**、单区汽空间、湿蒸汽包和阀位限制；公共水罐满不会再把堆芯转化卡死（v3.1 修）。
+- `zoneFlow` 是实际转化/理论需求，不再用“阀位”冒充流量：
 
 ```text
-steamFull_i = zoneSteamCap_i<=0 || zoneSteam_i>=cap-0.001 || 公共汽包满
-flowTarget_i = (steamFull_i || throttle_i<0.01) ? 0 : throttle_i
-zoneFlow_i = lerpDelta(zoneFlow_i, flowTarget_i, 0.08)
+flowTarget_i =
+  0                                   if 堆芯无水
+  converted_i / nominal_i             if nominal_i > 0
+  throttleActual_i                    if 无热需求且汽未满
+zoneFlow_i = lerpDelta(zoneFlow_i, flowTarget_i, 0.15)
 ```
 
-- 所以停堆、水满、汽不满时 `zoneFlow` 仍可保持 1，正常冷却；汽满/节流关死才归零。
-- 没有跨区蒸汽转移；公共汽包只作为管路出口，汽轮机仍吃公共汽包。
+- 汽包满/湿蒸汽包满时流量下降；冷却水少时流量也下降。
+- `evapFactor = clamp(1 + 0.6*max(0, coolant-0.5), 1, 1.6)`。
 
-## 6. 衰变热
+## 7. 执行器行程
+
+| 执行器 | 全行程 |
+|---|---:|
+| 正常插/拔棒 | 20 s |
+| SCRAM | 3 s |
+| 自动保护压棒 | 1.5 s |
+| 手动/自动节流阀 | 8 s |
+| 手动水位设定值 | 10 s |
 
 ```text
-fluxHistory = lerpDelta(fluxHistory, flux, 0.01)
-if(flux < 0.01) decayTimer += dt
-else if(flux > 0.05) decayTimer = 0
-decayHeat = 0.07 * fluxHistory * exp(-decayTimer/300)
+rodStep(dt, travel) = clamp(dt / travel, 0, 1)
+rods = approach(rods, target, rodStep(...))
 ```
 
-- `decayHeat` 是总额定通量比例，平均分到 9 区热源（每区 `+decayHeat/9`）。
-- 停堆后不能立刻拆泵；UI 维护页显示衰变热，停堆时给出提示。
+- 强制手动模式不再“滑条一动棒就到”；T189 验证 2 秒只走约 9%，20 秒才到目标。
+- 自动/半自动的保护压棒仍比正常插棒快，但不再是瞬动。
 
-## 7. 熔毁损伤
+## 8. 一回路压力、水锤与卡棒
 
 ```text
-if(fuel_i >= 2.0):
-    zoneMeltDamage_i += (fuel_i - 2.0 + 0.10) * 0.04 * dt
-else:
-    zoneMeltDamage_i -= 0.02 * dt
+avgCore = 平均堆芯水位
+steamFrac = 公共汽包 / 汽包容量
+pressureTarget = 0.45 + (1-avgCore)*0.80 + coolantHeat*0.25 + steamFrac*0.15
+loopPressure = lerpDelta(loopPressure, pressureTarget, 0.03)
 
-zoneMeltDamage_i = clamp(0, 1)
-if(any zoneMeltDamage_i >= 1) detonate()
+if lastCoreInjection > 1 && heat > 1.0 && avgCore < 0.45:
+    shock = clamp((heat-0.8)*(0.45-avgCore)
+                  *(lastCoreInjection/ratedFlow)*0.35, 0, 0.5)
+    waterHammer += shock
+    pressureDamage += shock*0.015*dt*60
+    loopPressure += shock*0.35
+
+waterHammer -= 0.02*dt
+if loopPressure > 1.4:
+    pressureDamage += (loopPressure-1.4)*0.20*dt
+if pressureDamage >= 1: detonate()
 ```
 
-- 阈值是 **燃料温度 200%**，不是旧全局 125%。
-- 2.1 约 125 秒、2.5 约 42 秒、3.0 约 23 秒（连续保持时）。
-- 低于 2.0 后损伤按 0.02/s 恢复；不是瞬时清零。
-- 任意一区到 1 → 整堆爆炸，爆炸/辐射参数沿用旧版（26 格、12000、900 tick、落尘半径 26×8×1.6）。
+- 冷水注入热而低水位的堆芯 → 水锤；小流量、慢注水更安全。
+- 压力损伤是累积的，不会瞬间消失；UI 显示水锤和回路压力。
+- `updateRodJam(dt, guard)`：`heat > guard` 持续 2 秒 → `rodJammed=true`。
+  - RBMK-9 的保护阈值是 2.20；旧 5×5 是 `meltTemp-0.05`。
+  - 卡死后所有模式都不能移动棒，包括 SCRAM；只能等温度降下来（当前实现不自动复位，需维护/读档）。
+- 卡棒提示走 `IronworksRbmkAlerts`。
 
-## 8. SCRAM 与锁存
+## 9. 自动/半自动/手动
 
-- `applyConfig(-1)` 设 `scramLatch=true`，自动/半自动的公共目标强制 1；不会下一 tick 被目标功率拔棒。
-- `applyConfig(-4)` 复位锁存。UI 应急页有“复位 SCRAM 锁存”。
-- 手动 SCRAM 仍把 9 区目标设 1，实际棒位瞬动（手动模式）。
-- 高功率 SCRAM 仍会先闪蒸、加 prompt 热冲击，再由燃料温度积分决定是否熔毁。
-- 压力 AZ-5：仍只手动判定；水≥98% + 汽包满 + 9 区棒全部到底，持续 2 秒爆炸。
-
-## 9. 自动模式
-
-每 tick 先算保护量，再算全自动目标：
+自动（`MODE_AUTO`）：
 
 ```text
 steamFactor = clamp(1 - (steamFrac-0.5)/0.4, 0, 1)
-waterFactor = clamp((waterFrac-0.1)/0.2, 0, 1)
-heatFactor  = clamp((2.0 - fuelHeat)/0.5, 0, 1)   // 1.5以下=1，2.0=0
+waterFactor = clamp((avgCore-0.1)/0.2, 0, 1)   // 看堆芯水位，不看公共水罐
+heatFactor  = clamp((2.05 - heat)/0.15, 0, 1)   // 接近 200% 才收功率
 effective   = autoPower * min(steamFactor, waterFactor, heatFactor)
-
-poison      = clamp(1 - 0.65*xenon - 1.2*boron, 0.05, 1)
-voidFactor  = 1 + (1-flow)*1.2
-doppler     = clamp(1 - 0.30*max(0,fuelHeat-0.8), 0.05, 1)
-
-common = autoRodsFor(effective, poison, doppler, voidFactor)
-common = max(common, protectRods)
-if(scramLatch) common = 1
+feedRods    = autoRodsFor(effective, poison, doppler, voidFactor)
+error       = effective - flux
+autoIntegral = clamp(autoIntegral + error*dt*0.05, -0.60, 0.60)
+common      = clamp(feedRods - error*0.25 - autoIntegral, 0, 1)
+common      = max(common, protectRods)
+if scramLatch: common = 1
 ```
 
-`autoRodsFor` 对 `rodEffect(r)` 做数值反解：
+- `autoPowerMax = 9.99`，UI 目标滑条 0～999%；`autoRodsFor` 不再把目标比压到 1。
+- 自动水位高线仍限制在 90%，给水不超过额定；堆芯注水独立控制。
+- 半自动：`common = scramLatch ? 1 : max(targetRods, protectRods)`，保护解除后回到操作员目标。
+- 强制手动：棒/阀按实际行程追随目标，无自动保护；可单区调棒和节流。
+- 保护量现在用**堆芯水位**、燃料/包壳热趋势、冷却流量和蒸汽压力；不会因为公共水罐空就永久满棒。
 
-- 目标落在正常段（r≥0.2）用二分；
-- 目标高到需要进入 0～0.2 棒尖段时，从 0.2 向 0 扫描，取较大的解，避免自动钻到正反应性峰上。
+## 10. 配置码（`applyConfig`）
 
-水位：
-
-```text
-autoHigh = clamp(0.55 + 0.35*min(flux,1), 0.55, 0.90)
-if(coolantHeat>0.9 && fuelHeat<1.2) autoHigh = min(autoHigh+0.05, 0.95)
-autoLow = clamp(autoHigh-0.20, 0.25, autoHigh-0.05)
-```
-
-- 冷却剂热、燃料不热 = 传热差/水位低，优先加泵，不先插棒。
-- 棒执行器仍为 `1/90` 插入（约1.5秒）、`1/2000` 拔出（约33.3秒）。
-
-## 10. 半自动
-
-```text
-common = scramLatch ? 1 : max(targetRods, protectRods)
-zoneTarget[i] = common
-zoneRods[i] = approachDelta(zoneRods[i], common,
-    common > zoneRods[i] ? 1/90 : 1/2000)
-```
-
-- `targetRods` 是操作员插入比例；0=全提，1=全插。
-- 保护量只是下限；风险解除后回到操作员目标，不会被棘轮抬高。
-- 9 区共用一套目标；没有单区自动配平。
-
-## 11. 保护量
-
-```text
-low = max(waterLowLevel, 0.10)
-trigger = max(0.12, low*0.75)
-below = clamp((trigger-waterFrac)/max(trigger*0.75,0.05), 0, 1)
-
-demand = flux*3240
-runway = demand>1 ? water/demand : 99
-runwayRisk = clamp((9-runway)/6, 0, 1)
-
-waterRisk = below
-if(!feedwaterAvailable || below>0)
-    waterRisk = max(waterRisk, runwayRisk)
-
-futureFuel = fuelHeat + max(heatTrend,0)*2.5
-thermal = max(futureFuel, coolantHeat*0.85)
-heatRisk = clamp((thermal-1.15)/0.55, 0, 1)
-
-flowRisk = (waterFrac<trigger || fuelHeat>1.4)
-    ? clamp((0.9-flow)/0.4,0,1) : 0
-steamRisk = clamp((steamFrac-0.8)/0.15,0,1)
-
-risk = max(waterRisk, heatRisk, flowRisk*0.9, steamRisk*0.85)
-if(waterFrac<=0.02) risk=max(risk,0.9)
-if(fuelHeat>=1.8) risk=1
-
-protectRods = lerpDelta(protectRods, risk, risk>protectRods?0.10:0.02)
-if(fuelHeat>=1.8) protectRods=max(protectRods,0.98)
-```
-
-## 12. 弹出式 UI
-
-- 点击方块直接弹出控制台，方块 config 只留标题、模式/通量/燃料温度摘要和入口按钮。
-- 控制台挂在 `ui.hudGroup`，`Styles.black6` 全屏遮罩 + 同色半透明面板，和日志弹窗同一套视觉。
-- 四页签：
-  - **总览**：通量、燃料温度、冷却剂温度、流量、水/汽、衰变热、最大损伤、棒位、蒸发率。
-  - **控制**：模式、目标滑条、分区选择、水位、节流、SCRAM/注硼/静音/复位锁存。
-  - **分区**：3×3 卡片，每区通量/燃料/冷却剂/流量/水/汽/棒位/损伤。
-  - **维护**：衰变热、多普勒、损伤、氙、燃耗、燃料、憋压、棒价值与物理提示。
-- 所有数值 `Label.update()` 实时刷新；面板关闭/方块被拆/读档时自动隐藏。
-
-## 13. 配置码与存档
-
-| 值 | 作用 |
+| 值 | 含义 |
 |---|---|
-| `-10/-11/-12` | 半自动/全自动/强制手动 |
-| `-20..-28` | 选择1..9号堆 |
-| `-30` | 总控 |
-| `-1` | SCRAM（并锁存） |
-| `-2` | 武装注硼 |
-| `-3` | 静音（仅手动） |
+| `-1` | SCRAM（锁存，插棒） |
+| `-2` | 注硼武装 |
+| `-3` | 手动模式静音通知 |
 | `-4` | 复位 SCRAM 锁存 |
-| `1000+v` / `2000+v` | 手动高/低水位线 |
-| `3000+v` | 手动冷却节流 |
-| `0..100` | 棒位/目标功率 |
+| `-5` | 切换堆芯注水开关 |
+| `-10/-11/-12` | 半自动/全自动/强制手动 |
+| `-20..-28` | 选择 0..8 号分区 |
+| `-30` | 总控 |
+| `0..999` | 自动目标功率 0..999%，或非自动的棒位 0..100% |
+| `1000+v` | 手动最高水位线 v% |
+| `2000+v` | 手动最低水位线 v% |
+| `3000+v` | 手动节流阀 v% |
+| `4000+v` | 堆芯注水率 v% |
 
-- 分区堆存档版本 **12**：旧 v11 读档后按公共水/汽自动分摊到 9 区；温度/v11 字段兼容。
-- 旧 5×5 版本仍为 **8**，物理逻辑保持 2.4 的全局单节点，不受 v2.5 双节点改动影响。
+## 11. 存档
 
-## 14. 平衡提示
+分区堆存档 revision **15**：
 
-1. 改 360 仍然主要改水汽/涡轮机数量；热平衡由 `0.14 / 2.0 / 0.06 / 0.09` 决定。
-2. 手动 125% + 低流量区仍可能把燃料推过 2.0；但现在熔毁需要损伤积分，不是一到线就爆。
-3. 多普勒会限制高温功率；自动的反算已包含它，半自动需要操作员自己补偿。
-4. 0～20% 棒尖段是危险区；UI 滑条旁已给出提示。
-5. 停堆后衰变热仍在；冷却泵和给水不能立刻全拆。
-6. 汽包满 → 该区蒸汽空间为 0 → `zoneFlow` 归零 → 冷却只剩 0.01，但给水泵不会因汽包满而停。
+- revision 9：分区基础量；10：节流目标；11：冷却剂/熔毁；12：分区水/汽；13：实际阀位；14：包壳温度、干度、泵速、压力、水锤、注水开关/速率、卡棒；15：`corePrimed`。
+- 旧 revision 读入时给包壳/干度/泵速等合理默认值；没有 `corePrimed` 的旧档会在首次 `syncZoneWater()` 时补一次。
+- 旧 5×5 revision 8 不变。
 
-## 15. 测试
+## 12. 测试与已知边界
 
-新增：
+测试：`tools/chain-test.sh` 的 T139–T197，覆盖分区、自动高功率、手动、棒尖、SCRAM、闪蒸、节流、衰变热、熔毁、泵惰转、湿蒸汽、水锤、卡棒、堆芯注水、汽轮机湿蒸汽损伤。期望见 `tools/test-expect.txt`。
 
-- T180 分区水账面总和 32400、单区 3600。
-- T181 冷却剂 1.0 时蒸发 1.3×（约 4212 L/s）。
-- T182 棒尖：0.1 插入通量高于 0.2。
-- T183 停堆衰变热 >0（约 7%）。
-- T184 燃料 2.5/无水时逐区损伤累积。
-- T185 自动 SCRAM 锁存，`-4` 复位。
+仍未实现/保留：
 
-全量回归结果见 `docs/STATE.md` / `docs/HANDOFF.md`。
+- 5×5 旧堆仍是单节点热工，不套三节点。
+- 没有独立安全阀/泄压阀；压力只能靠降功率、注水、排汽间接控制。
+- 没有逐区氙毒和硼混合延迟；氙/硼仍是整堆标量。
+- 卡棒不会自动复位；当前需要降温后读档/维护（后续可加维护按钮）。

@@ -251,6 +251,26 @@ public class IronworksRbmkWindow{
         stat(grid, "ironworks.rbmk.win.rodNow", b -> Mathf.round(b.rods * 100f) + "%", b -> Pal.accent);
         stat(grid, "ironworks.rbmk.row.rate", b -> Mathf.round(b.steamRate) + " L/s", b -> Liquids.water.color);
         stat(grid, "ironworks.rbmk.row.xenon", b -> Mathf.round(b.xenon * 100f) + "%", b -> Color.valueOf("b6a8ff"));
+        stat(grid, "ironworks.rbmk.win.cladTemp", b -> b.block instanceof RBMKReactor r && r.zoned
+            ? Mathf.round(b.cladHeat * 100f) + "%" : "—", b -> Color.valueOf("ffb066"));
+        stat(grid, "ironworks.rbmk.win.coreWater", b -> {
+            if(!(b.block instanceof RBMKReactor r) || !r.zoned) return "—";
+            float sum = 0f;
+            for(int i = 0; i < 9; i++) sum += b.zoneWater[i];
+            return Mathf.round(sum) + "/" + (int)b.waterTotalCap() + " L";
+        }, b -> Liquids.water.color);
+        stat(grid, "ironworks.rbmk.win.dryness", b -> {
+            if(!(b.block instanceof RBMKReactor r) || !r.zoned) return "—";
+            float sum = 0f;
+            for(int i = 0; i < 9; i++) sum += b.zoneDryness[i];
+            return Mathf.round(sum / 9f * 100f) + "%";
+        }, b -> Color.valueOf("8fd4ff"));
+        stat(grid, "ironworks.rbmk.win.wetSteam", b -> Mathf.round(b.wetSteamRate) + " L/s", b -> IronworksLiquids.wetSteam.color);
+        stat(grid, "ironworks.rbmk.win.pump", b -> Mathf.round(b.pumpSpeed * 100f) + "%", b -> b.pumpSpeed < 0.25f ? Pal.remove : Color.valueOf("8fd4ff"));
+        stat(grid, "ironworks.rbmk.win.pressure", b -> Mathf.round(b.loopPressure * 100f) + "%", b -> b.loopPressure > 1.12f ? Pal.remove : Color.valueOf("ffd166"));
+        stat(grid, "ironworks.rbmk.win.hammer", b -> Mathf.round(b.waterHammer * 100f) + "%", b -> b.waterHammer > 0.3f ? Pal.remove : Color.valueOf("ffb066"));
+        stat(grid, "ironworks.rbmk.win.jam", b -> Core.bundle.get(b.rodJammed ? "ironworks.rbmk.win.jammed" : "ironworks.rbmk.win.free"),
+            b -> b.rodJammed ? Pal.remove : Color.valueOf("7fe08a"));
         body.add(grid).width(contentWidth).row();
 
         Table tip = new Table(Styles.grayPanel);
@@ -313,7 +333,7 @@ public class IronworksRbmkWindow{
             if(current == null) return;
             if(current.controlMode == IronworksRBMK.MODE_AUTO){
                 targetLabel.setText(Core.bundle.format("ironworks.rbmk.win.autoTarget",
-                    Mathf.round(current.autoPower * 100f), Mathf.round(Math.min(current.flux, 1f) * 100f)));
+                    Mathf.round(current.autoPower * 100f), Mathf.round(current.flux * 100f)));
             }else if(current.controlMode == IronworksRBMK.MODE_MANUAL && current.selectedZone >= 0){
                 targetLabel.setText(Core.bundle.format("ironworks.rbmk.win.zoneTarget",
                     current.selectedZone + 1, Mathf.round(current.zoneTarget[current.selectedZone] * 100f),
@@ -330,10 +350,15 @@ public class IronworksRbmkWindow{
         });
         targetSlider.update(() -> {
             if(current == null) return;
+            // 自动功率不设 100% 上限；其余模式仍是棒位 0~100%。
+            float max = current.controlMode == IronworksRBMK.MODE_AUTO ? 999f : 100f;
+            if(Math.abs(targetSlider.getMaxValue() - max) > 0.5f && !targetSlider.isDragging()){
+                targetSlider.setRange(0f, max);
+            }
             float shown = current.controlMode == IronworksRBMK.MODE_AUTO ? current.autoPower
                 : current.controlMode == IronworksRBMK.MODE_MANUAL && current.selectedZone >= 0
                     ? current.zoneTarget[current.selectedZone] : current.targetRods;
-            if(!targetSlider.isDragging()) targetSlider.setValue(shown * 100f);
+            if(!targetSlider.isDragging()) targetSlider.setValue(Math.min(shown * 100f, max));
         });
         target.add(targetSlider).width(contentWidth - 30f).row();
         target.add(Core.bundle.get("ironworks.rbmk.win.targetHint")).wrap()
@@ -397,6 +422,40 @@ public class IronworksRbmkWindow{
                 ? "ironworks.rbmk.waterhint.manual" : "ironworks.rbmk.waterhint.auto"));
         });
         water.add(waterHint).wrap().width(contentWidth - 24f).color(Color.lightGray).left().row();
+
+        // 堆芯注水：水罐 → 堆芯，独立于给水泵；关掉后堆芯只能靠原有存水。
+        Table injection = section("ironworks.rbmk.win.injectSection");
+        Table injectRow = new Table();
+        TextButton injectToggle = new TextButton("", Styles.flatTogglet);
+        injectToggle.clicked(() -> {
+            if(current != null) current.configure(-5);
+        });
+        injectToggle.update(() -> {
+            if(current == null) return;
+            injectToggle.setText(Core.bundle.format("ironworks.rbmk.win.injectToggle",
+                Core.bundle.get(current.coreInjectEnabled ? "ironworks.rbmk.win.on" : "ironworks.rbmk.win.off")));
+            injectToggle.setChecked(current.coreInjectEnabled);
+        });
+        injectRow.add(injectToggle).size(220f, 36f).padRight(8f);
+        Label injectValue = new Label("");
+        injectValue.update(() -> {
+            if(current != null) injectValue.setText(Core.bundle.format("ironworks.rbmk.win.injectRate",
+                Mathf.round(current.coreInjectRate * 100f), Mathf.round(current.lastCoreInjection)));
+        });
+        injectValue.setColor(Color.valueOf("8fd4ff"));
+        injectRow.add(injectValue).left().row();
+        injection.add(injectRow).left().row();
+        Slider injectSlider = new Slider(0f, 100f, 1f, false);
+        injectSlider.moved(v -> {
+            if(current != null) current.configure(4000 + (int)v);
+        });
+        injectSlider.update(() -> {
+            if(current == null) return;
+            if(!injectSlider.isDragging()) injectSlider.setValue(current.coreInjectRate * 100f);
+        });
+        injection.add(injectSlider).width(contentWidth - 30f).row();
+        injection.add(Core.bundle.get("ironworks.rbmk.win.injectHint")).wrap()
+            .width(contentWidth - 24f).color(Color.lightGray).left().row();
 
         Table emergency = section("ironworks.rbmk.win.emergencySection");
         Table actions = new Table();

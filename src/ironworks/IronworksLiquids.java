@@ -11,7 +11,7 @@ import mindustry.type.Liquid;
 public class IronworksLiquids{
 
     public static Liquid oxygen, moltenIron, moltenSteel, grapheneCoolant, hotCoolant, acid,
-        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller, boricAcid, steam, warmWater;
+        sodiumAluminate, moltenAluminum, moltenCopper, moltenLead, moltenTitanium, moltenSurge, gasoline, heavyOil, chiller, boricAcid, steam, wetSteam, warmWater;
 
     public static void load(){
         oxygen = new Liquid("oxygen", Color.valueOf("8fd4ff")){{
@@ -153,6 +153,17 @@ public class IronworksLiquids{
             temperature = 1.0f;
             heatCapacity = 1.9f;
             viscosity = 0.2f;
+            flammability = 0f;
+            explosiveness = 0f;
+            blockReactive = false;
+        }};
+
+        // 湿蒸汽：水位低/空泡严重时夹带水滴的蒸汽；进汽轮机不发电还会打坏叶片
+        wetSteam = new Liquid("wet-steam", Color.valueOf("b8c4d0")){{
+            gas = true;
+            temperature = 0.8f;
+            heatCapacity = 1.7f;
+            viscosity = 0.35f;
             flammability = 0f;
             explosiveness = 0f;
             blockReactive = false;

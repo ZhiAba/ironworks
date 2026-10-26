@@ -39,15 +39,15 @@ public class IronworksRbmkAlerts{
     private static long lastAlertSoundAt = -alertSoundCooldownMillis;
 
     private static final int TEMP = 0, FLOW = 1, STEAM = 2, WATER = 3,
-        BLOCKED = 4, PRESSURE = 5, SCRAM = 6, POISON = 7;
+        BLOCKED = 4, PRESSURE = 5, SCRAM = 6, POISON = 7, JAM = 8, HAMMER = 9, WET = 10, CORELOW = 11;
 
     private IronworksRbmkAlerts(){
     }
 
     public static void update(RBMKReactorBuild b, float dt){
         if(headless || b == null || b.alertsMuted || b.melted || b.liquids == null) return;
-        if(b.alertQuiet == null || b.alertQuiet.length < 8){
-            b.alertQuiet = new float[8];
+        if(b.alertQuiet == null || b.alertQuiet.length < 12){
+            b.alertQuiet = new float[12];
             b.alertMask = 0;
         }
 
@@ -129,6 +129,48 @@ public class IronworksRbmkAlerts{
         if(b.poisoned && raise(b, POISON)){
             warn(b, zoneTag(b, -3, "ironworks.log.reactor.zone.allcore")
                 + Core.bundle.get("ironworks.log.reactor.poisoned"));
+        }
+
+        if(b.rodJammed){
+            if(raise(b, JAM)){
+                warn(b, Core.bundle.get("ironworks.log.reactor.jam"));
+            }
+        }else{
+            lower(b, JAM, true, dt);
+        }
+
+        if(b.waterHammer > 0.20f){
+            if(raise(b, HAMMER)){
+                warn(b, Core.bundle.get("ironworks.log.reactor.hammer"));
+            }
+        }else{
+            lower(b, HAMMER, b.waterHammer < 0.10f, dt);
+        }
+
+        boolean zoned = b.block instanceof RBMKReactor r && r.zoned;
+        if(zoned){
+            float dry = 0f, core = 0f;
+            for(int i = 0; i < 9; i++){
+                dry += b.zoneDryness[i];
+                core += b.zoneWater[i];
+            }
+            dry /= 9f;
+            core /= Math.max(1f, b.waterTotalCap());
+            if(dry < 0.90f && b.wetSteamRate > 0.5f){
+                if(raise(b, WET)){
+                    warn(b, Core.bundle.format("ironworks.log.reactor.wet", Mathf.round(dry * 100f)));
+                }
+            }else{
+                lower(b, WET, dry >= 0.90f || b.wetSteamRate <= 0.1f, dt);
+            }
+            if(core < 0.15f && b.flux > 0.05f && !b.melted){
+                if(raise(b, CORELOW)){
+                    warn(b, Core.bundle.format("ironworks.log.reactor.corelow", Mathf.round(core * 100f),
+                        Mathf.round(b.lastCoreInjection)));
+                }
+            }else{
+                lower(b, CORELOW, core > 0.20f, dt);
+            }
         }
     }
 

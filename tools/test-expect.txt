@@ -66,7 +66,7 @@
 134a	T134a after1s=[0-9]+ after10s=[0-9]+ travel=true
 134b	T134b early=[0-9]+ late=[0-9]+ inertia=true
 134c	T134c before=[0-9]+ after=[0-9]+ pit=true
-135a	T135a mode=2 target=30 actual=30 instant=true
+135a	T135a mode=2 target=30 slow=true
 135b	T135b mode=0 target=30 actual=[89][0-9] buffered=true
 135c	T135c mode=1 power=40 flux=[3-5][0-9] rods=[5-8][0-9] water=[5-8][0-9]
 135d	T135d heat=[0-9]+ target=40 noAutoScram=true
@@ -94,19 +94,19 @@
 155a	T155a disabledAlive=true
 155b	T155b enabledMelted=true
 156	T156 high=50 low=20 acceptHigh=false acceptLow=true acceptAtLow=true
-157	T157 semi=[0-9]+ auto=[0-9]+ manual=[0-9]+ cap=true
+157	T157 semi=[0-9]+ auto=[0-9]+ manual=[0-9]+ uncapped=true
 158	T158 filled=5000 hold=3000 low=20 high=50
 159	T159 high=[0-9]+ low=[0-9]+ cap=true band=true
 160	T160 melted=false boom=0
 161	T161 water=2500 steam=7500 flash=7500 immediate=false spike=true melted=true ticks=[0-9]+
-162	T162 line=10 clamped=1000 bulk=1000 accept=false
+162	T162 line=10 immediate=5000 clamped=1000 bulk=1000 accept=false
 163	T163 on=true off=false locked=false
 164	T164 line=100 bulk=500 clamped=500 trueCap=10000
 165	T165 line=5 water=500 source=[0-9]+
 166	T166 startHeat=[0-9]+ startWater=[0-9]+ melted=false maxHeat=[0-9]+ protect=[0-9]+ rods=[0-9]+ water=[0-9]+
 167	T167 manual=true auto=false semi=false
 168	T168 size=12 zones=9 sel=-1
-169	T169 r0=0\.00 r1=0\.80 r2=0\.20 f0=[0-9]+ f1=[0-9]+ indep=true melted=false
+169	T169 r0=0\.00 r1=0\.60 r2=0\.20 f0=[0-9]+ f1=[0-9]+ indep=true melted=false
 170	T170 all35=true sel=-1
 171	T171 th=0\.50 flow0=[0-9.]+ flow1=[0-9.]+ less=true
 172	T172 th4=0\.50 th0=1\.00 sel=4
@@ -125,3 +125,16 @@
 185	T185 held=1\.00 released=0\.[0-9]+ latch=true
 186	T186 placeholder=true links=true
 187	T187 sound=true
+188	T188 target=200 maxFlux=[1-9][0-9]{2} flux=[1-9][0-9]{2} rods=0 melted=false
+
+189	T189 start=1\.00
+189	T189 after2=0\.9[0-9]
+189	T189 after20=0\.50 gradual=true
+190	T190 fuel=[0-9.]+ clad=[0-9.]+ cool=[0-9.]+ lag=true
+191	T191 wet=[1-9][0-9]* dry=0\.[0-9]+ wetRate=[0-9]+ ok=true
+192	T192 pump=0\.[0-9]+ coast=true
+193	T193 hammer=[0-9.]+ pressure=[0-9.]+ shock=true
+194	T194 jam=true held=true rods=0\.0[0-9]
+195	T195 off=0 on=[1-9][0-9]* inject=true
+196	T196 damage=[0-9.]+ hammer=[0-9.]+ wet=true
+197	T197 maxFlux=[1-9][0-9]+ flux=[0-9]+ rods=[0-9.]+ heat=[0-9.]+ cw=[0-9]+ ok=true
