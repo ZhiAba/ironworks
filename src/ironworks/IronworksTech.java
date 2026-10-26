@@ -285,6 +285,10 @@ public class IronworksTech{
             with(IronworksMaterials.siliconCarbide, 100, IronworksMaterials.graphiteElectrode, 50));
         node(beltAdvNode, IronworksBelts.bridgeAdv,
             with(IronworksMaterials.siliconCarbide, 150, IronworksMaterials.graphiteElectrode, 80));
+        node(beltNode, IronworksLiquidSorters.sorter,
+            with(IronworksItems.steelPlate, 80, Items.silicon, 80, Items.metaglass, 40));
+        node(beltNode, IronworksLiquidSorters.inverted,
+            with(IronworksItems.steelPlate, 80, Items.silicon, 80, Items.metaglass, 40));
         node(hotPipe, IronworksHighTemp.coolantPipe,
             with(IronworksItems.steelPlate, 200, Items.silicon, 200, Items.metaglass, 150));
         node(hotPipe, IronworksHighTemp.crucible,

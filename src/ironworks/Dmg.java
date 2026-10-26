@@ -262,13 +262,23 @@ public class Dmg{
         }
 
         // 4. 穿透率/有效护甲/百分比减伤（不再使用旧版 10% 刮痧保底）。
-        float effectivePierce = p.effective(armor);
-        float afterArmor = p.damageAfterArmor(incoming, armor);
+        //    能量形态无视单位/建筑护甲：不是“穿透率 100%”，而是整段护甲乘区不参与结算。
+        float effectivePierce;
+        float afterArmor;
+        if(f == DamageForm.ENERGY){
+            effectivePierce = 1f;
+            afterArmor = incoming;
+            lastArmorAbsorbed = 0f;
+            lastArmorReduction = 0f;
+        }else{
+            effectivePierce = p.effective(armor);
+            afterArmor = p.damageAfterArmor(incoming, armor);
+            lastArmorAbsorbed = Math.max(0f, incoming - afterArmor);
+            lastArmorReduction = p.armorReduction(armor);
+        }
         lastEffectivePierce = effectivePierce;
-        lastArmorAbsorbed = Math.max(0f, incoming - afterArmor);
-        lastArmorReduction = p.armorReduction(armor);
 
-        // 5. 抗性乘区：元素抗性；只有能量形态再乘能量抗性。
+        // 5. 抗性乘区：元素抗性；能量形态同时乘能量抗性。能量形态不再有护甲项。
         float elementRes = Resistance.element(target, t);
         float energyRes = f.bypassShields ? Resistance.energy(target) : 0f;
         float afterResist = afterArmor * (1f - elementRes) * (1f - energyRes);
@@ -557,6 +567,8 @@ public class Dmg{
         copyFields(source, target);
         // 建筑碰撞也由 Dmg 自己结算，不能再让引擎套一层旧 armorMult
         target.armorMultiplier = 1f;
+        // 能量形态必须不被原版力场投影器吸收；否则伤害还没进 Dmg 就被力场墙拦掉了。
+        if((form == null ? type.defaultForm : form) == DamageForm.ENERGY) target.absorbable = false;
         if(form != null) formRegistry.put(target, form);
 
         if(target instanceof TypedLightningBulletType lightning){
@@ -568,6 +580,7 @@ public class Dmg{
             chunk.status = StatusEffects.shocked;
             chunk.statusDuration = 10f;
             chunk.armorMultiplier = 1f;
+            if((form == null ? type.defaultForm : form) == DamageForm.ENERGY) chunk.absorbable = false;
             formRegistry.put(chunk, form == null ? type.defaultForm : form);
             lightning.lightningType = chunk;
         }
@@ -695,6 +708,15 @@ public class Dmg{
                     bullet.status = type.status;
                     bullet.statusDuration = type.statusDuration;
                     bullet.statusChance = type.statusChance;
+                }
+            }
+        }
+
+        // 已存在的带属性弹体也同步力场墙穿透标记（包括本模组直接创建的弹体）。
+        if(Vars.content != null && Vars.content.bullets() != null){
+            for(BulletType bullet : Vars.content.bullets()){
+                if(bullet instanceof TypedBullet && formOf(bullet) == DamageForm.ENERGY){
+                    bullet.absorbable = false;
                 }
             }
         }

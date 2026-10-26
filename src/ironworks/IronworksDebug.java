@@ -53,6 +53,9 @@ public class IronworksDebug{
         boolean lightningChunk = ((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.arc).shootType instanceof TypedLightningBulletType lightning
             && lightning.lightningType instanceof TypedBullet
             && Dmg.formOf(lightning.lightningType) == DamageForm.ENERGY;
+        boolean energyAbsorbable = !((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.lancer).shootType.absorbable
+            && Dmg.formOf(((mindustry.world.blocks.defense.turrets.PowerTurret) Blocks.lancer).shootType) == DamageForm.ENERGY;
+        boolean kineticAbsorbable = IronworksTurrets.copperBullet.absorbable;
 
         ArmorPen test = new ArmorPen(0.50f, 15f, 0.30f, 0.02f);
         boolean rateFlat = Math.abs(test.effective(10f) - 0.50f) < 0.0001f;
@@ -120,6 +123,13 @@ public class IronworksDebug{
         Dmg.hit(f, 50f, DamageType.fire, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.EXPLOSIVE);
         boolean shieldBlocked = Dmg.lastShieldBlocked && Math.abs(f.shield() - 50f) < 0.01f
             && Math.abs(f.health - hf) < 0.01f;
+
+        // 能量形态无视护甲：高护甲堡垒也应吃满基础伤害，护甲乘区不参与。
+        float ha = a.health;
+        Dmg.hit(a, 100f, DamageType.water, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.ENERGY);
+        boolean energyNoArmor = Math.abs((ha - a.health) - 100f) < 0.5f
+            && Math.abs(Dmg.lastArmorAbsorbed) < 0.01f
+            && Dmg.lastEffectivePierce > 0.99f;
 
         // 能量形态无视盾：盾值不变，本体吃满。
         g.shield(100f);
@@ -212,6 +222,8 @@ public class IronworksDebug{
         sb.append(" vanillaPower=").append(vanillaPower);
         sb.append(" vanillaLightning=").append(vanillaLightning);
         sb.append(" lightningChunk=").append(lightningChunk).append(" lightningChunkEnergy=").append(lightningChunk);
+        sb.append(" energyAbsorbable=").append(energyAbsorbable);
+        sb.append(" kineticAbsorbable=").append(kineticAbsorbable);
         sb.append(" vanillaContinuous=").append(vanillaContinuous);
         sb.append(" rateFlat=").append(rateFlat);
         sb.append(" rateSquare=").append(rateSquare);
@@ -225,6 +237,7 @@ public class IronworksDebug{
         sb.append(" overpenKeepZero=").append(overpenKeepZero);
         sb.append(" overpenKeepHigh=").append(overpenKeepHigh);
         sb.append(" energyNoOverpen=").append(energyNoOverpen);
+        sb.append(" energyNoArmor=").append(energyNoArmor);
         sb.append(" shieldOverflow=").append(shieldOverflow);
         sb.append(" shieldBlocked=").append(shieldBlocked);
         sb.append(" energyShield=").append(energyShield);

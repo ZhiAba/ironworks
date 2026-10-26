@@ -29,6 +29,7 @@ public class IronworksMod extends Mod{
         IronworksRBMK.load();     // RBMK 核电站（反应堆 + 汽轮机）
         IronworksTeleport.load(); // MCT 跃迁节点（物品/液体）
         IronworksBelts.load();     // 通液传送带全套（带 / 路由器 / 带桥 ×2 档）
+        IronworksLiquidSorters.load(); // 液体分类器 / 反向分类器
         IronworksDebug.load();     // 调试：液体计量器
         IronworksSupport.load();   // 战术支援方块（状态光环形）
         IronworksRadar.load();     // 自动雷达（3×3，索敌 + 接管炮塔）

@@ -90,7 +90,7 @@
 151	T151 survivor=true coriumCount=[2-9][0-9]* melted=true
 152	T152 maxHp=mace nearest=dagger lowHp=mace dense=true linked=true timer=true teamKeep=true cap=10
 153	T153 after=mace same=true
-154	T154 auraTicks=240 tsun=water liquid=water lancer=thunder malign=physical napalm=fire corr=corrosive tianfa=thunder railForm=kinetic arcForm=energy malignForm=energy apForm=kinetic heForm=explosive napalmForm=explosive vanillaItem=true vanillaLiquid=true vanillaPower=true vanillaLightning=true lightningChunk=true lightningChunkEnergy=true vanillaContinuous=true rateFlat=true rateSquare=true rateCut=true armorDR=true noTenPercent=true ricFormula=true overpenGate=true ricochet=true overpen=true overpenKeepZero=true overpenKeepHigh=true energyNoOverpen=true shieldOverflow=true shieldBlocked=true energyShield=true fireResist=true energyResist=true resistCap=true comboAfterResist=true floorKept=true corrosion=true acidCap=true noCorrCombo=true trueDamage=true building=true apOverpen=true splashSkipped=true wet=true
+154	T154 auraTicks=240 tsun=water liquid=water lancer=thunder malign=physical napalm=fire corr=corrosive tianfa=thunder railForm=kinetic arcForm=energy malignForm=energy apForm=kinetic heForm=explosive napalmForm=explosive vanillaItem=true vanillaLiquid=true vanillaPower=true vanillaLightning=true lightningChunk=true lightningChunkEnergy=true energyAbsorbable=true kineticAbsorbable=true vanillaContinuous=true rateFlat=true rateSquare=true rateCut=true armorDR=true noTenPercent=true ricFormula=true overpenGate=true ricochet=true overpen=true overpenKeepZero=true overpenKeepHigh=true energyNoOverpen=true energyNoArmor=true shieldOverflow=true shieldBlocked=true energyShield=true fireResist=true energyResist=true resistCap=true comboAfterResist=true floorKept=true corrosion=true acidCap=true noCorrCombo=true trueDamage=true building=true apOverpen=true splashSkipped=true wet=true
 155a	T155a disabledAlive=true
 155b	T155b enabledMelted=true
 156	T156 high=50 low=20 acceptHigh=false acceptLow=true acceptAtLow=true
@@ -140,3 +140,6 @@
 197	T197 maxFlux=[1-9][0-9]+ flux=[0-9]+ rods=[0-9.]+ heat=[0-9.]+ cw=[0-9]+ ok=true
 198	T198 trip=true reason=2 held=true cleared=true auto=60 ok=true
 199	T199 hotHold=true coldReset=true ok=true
+200	T200 configured=true straight=true side=true ok=true
+201	T201 selectedSide=true otherStraight=true ok=true
+202	T202 flow=true dst=[1-9][0-9]* ok=true
