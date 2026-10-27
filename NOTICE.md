@@ -6,6 +6,8 @@ Copyright (C) 2026 只会阿巴阿巴の屑
 
 SPDX-License-Identifier: `GPL-3.0-only`
 
+源码仓库 / Source repository: <https://github.com/ZhiAba/ironworks>
+
 本程序是自由软件：你可以按照自由软件基金会发布的 GNU 通用公共许可证
 第 3 版的条款重新分发和/或修改它。
 
