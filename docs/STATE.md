@@ -19,8 +19,8 @@ Mindustry 模组「铁流工业」v3.3.0.0，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.3.0.0 / md5 `4d990c7502192faf39a1fc39f13ff91d`，双端已部署（2026-10-26，Shizuku）
-- 最近全量：**142/142**（747 秒，T1–T202），最终 jar `4d990c7502192faf39a1fc39f13ff91d`。新增 T200–T202 液体分类器；T154 覆盖能量无视护甲与力场盾穿透；T155 后世界不再因反应堆能量爆炸被清空。
+- 当前：v3.3.0.0 / md5 `2f2be4a3cf4edf62d42611fc5fde8282`，双端已部署（2026-10-27，Shizuku）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 最近全量：**142/142**（747 秒，T1–T202）；许可证只改打包内容，最终 jar 冒烟 T154/T200–T202 4/4。新增 T200–T202 液体分类器；T154 覆盖能量无视护甲与力场盾穿透；T155 后世界不再因反应堆能量爆炸被清空。
 
 ## 客户端版本实测
 | 包名 | 引擎 |

@@ -35,6 +35,8 @@ echo "== 3/5 装配资源 =="
 # mod.hjson / bundles / sprites / icon 全部平铺进 jar 根
 cp -a "$MOD/assets/." "$CLASSES/"
 cp -a "$MOD/mod.hjson" "$CLASSES/mod.hjson"
+# GPL 分发要求：许可证与第三方声明随 jar 一起走
+cp -a "$MOD/LICENSE" "$MOD/NOTICE.md" "$MOD/THIRD-PARTY.md" "$CLASSES/"
 
 echo "== 4/5 打 jar =="
 "$JAR" --create --file "$BUILD/$MOD_ID-classes.jar" -C "$CLASSES" .
