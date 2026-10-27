@@ -2,7 +2,7 @@
 
 **铁流工业 / Ironworks**
 
-Copyright (C) 2026 Ironworks contributors
+Copyright (C) 2026 只会阿巴阿巴の屑
 
 SPDX-License-Identifier: `GPL-3.0-only`
 
@@ -39,6 +39,10 @@ this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
   清单见 [`THIRD-PARTY.md`](THIRD-PARTY.md)。
 
 如果你认为某个素材的来源或署名有误，请通过仓库 issue 联系维护者。
+
+## 致谢
+
+- AI 助手「肥鱼」：参与代码实现、回归测试、文档整理与开源合规检查。AI 助手不持有本项目版权，也不作为贡献者协议的签署主体。
 
 ## 分发提示 / Distribution notes
 
