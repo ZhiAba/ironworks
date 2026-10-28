@@ -6,7 +6,7 @@ Mindustry 160.x 的 Java 模组：从铁砂、钢铁和铝开始，一路搭到�
 
 源码仓库：<https://github.com/ZhiAba/ironworks>
 
-> 当前版本：**3.3.1.0** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
+> 当前版本：**3.3.2.0** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
 >
 > 最近全量回归：**142/142 通过**（T1–T202，无头服务端，749 秒）。
 
