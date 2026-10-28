@@ -145,11 +145,13 @@ public class IronworksRBMK{
     public static final float pressureFuse = 2f;
     /** 熔毁后爆炸半径（tile）与伤害。 */
     public static final int meltRadius = 26;
-    public static final float meltDamage = 12000f;
+    /** 第一次主爆炸的固定伤害。 */
+    public static final float meltDamage = 999999f;
     /** 辐射持续时间（tick）。 */
     public static final float radiationTime = 900f;
     /** 辐射沉降半径（比爆炸大：落尘范围更广）。 */
-    public static final float falloutRadius = meltRadius * 8f * 1.6f;
+    /** 伤害半径与特效半径统一倍率：先对齐原 2 倍视觉，再整体扩大 1.5 倍。 */
+    public static final float blastRangeMultiplier = 3f;
 
     // ---- 汽轮机参数 ----
     /** 满流发电（/秒）。 */
@@ -1840,10 +1842,13 @@ public class IronworksRBMK{
                 if(state.rules.reactorExplosions){
                     // 功率越高、堆芯越热，炸得越狠（冷停堆被拆只会小爆）
                     float scale = 0.45f + Math.min(flux, 1.4f) * 0.45f + Math.min(heat, 1.6f) * 0.35f;
-                    float blastRadius = meltRadius * 8f * Math.min(scale, 1.6f);
-                    // 视觉效果：半径 2 倍、总时长 2 倍；伤害半径保持原值，避免平白拆家。
-                    IronworksFissionFx.at(x, y, blastRadius * IronworksFissionFx.radiusScale);
-                    Dmg.area(null, x, y, blastRadius, meltDamage * Math.min(scale, 1.6f), DamageType.physical, false, DamageForm.EXPLOSIVE);
+                    float blastRadius = meltRadius * 8f * Math.min(scale, 1.6f) * blastRangeMultiplier;
+                    // 第一次主爆炸固定 999999；元素/形态与二次爆燃一致：火 + 爆炸。
+                    // 友军 100%，敌军 2%，单位/建筑都走同一套属性结算。
+                    IronworksFissionFx.at(x, y, blastRadius, team);
+                    Dmg.areaWeighted(team, x, y, blastRadius, meltDamage * IronworksFissionFx.testDamageScale,
+                        DamageType.fire, DamageForm.EXPLOSIVE, 1f, 0.02f);
+                    float falloutRadius = blastRadius * 1.25f;
 
                     // 堆芯熔融物：在中心铺 1~5 格 corium，持续辐射 + 熔穿周围
                     IronworksNuclear.spawnCorium(tile, team);

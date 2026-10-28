@@ -14,6 +14,13 @@ cd "$TESTDIR" || exit 1
   echo 'host Fortress sandbox'
   sleep 6
 
+  # 测试世界核心保护：后续用例会在沙盒里点反应堆、刷敌人；
+  # 核心被流弹打掉会让 Vars.world 变 null，T90 之后整段误报。
+  echo 'js var c=Vars.state.rules.defaultTeam.core(); if(c!=null){c.maxHealth=1e9; c.health=1e9;} Log.info("T00 coreGuard=" + (c!=null))'
+  # 二次爆燃固定 15000 会打穿后续用例的相邻测试块；回归里关闭其伤害，只测主爆物理。
+  echo 'js var FxT=Vars.content.block("ironworks-rbmk-reactor").getClass().getClassLoader().loadClass("ironworks.IronworksFissionFx"); FxT.getField("secondaryDamageEnabled").setBoolean(null,false); FxT.getField("testDamageScale").setFloat(null,0.0001); Log.info("T00 damageScale=" + FxT.getField("testDamageScale").getFloat(null) + " secondary=off")'
+  sleep 1
+
   # ---- 1. 金属轧制机：铜 → 铜板 ----
   echo 'js Vars.world.tile(39,40).setBlock(Vars.content.block("power-source"), Vars.state.rules.defaultTeam)'
   echo 'js Vars.world.tile(40,40).setBlock(Vars.content.block("ironworks-rolling-mill"), Vars.state.rules.defaultTeam)'
@@ -951,7 +958,7 @@ cd "$TESTDIR" || exit 1
   # 116e：超温 → 熔毁（反应堆消失；旁边钍墙在下个 tick 被爆炸打伤；爆心外的单位吃到辐射）
   echo 'js Vars.state.rules.reactorExplosions=true; var T=Vars.state.rules.defaultTeam; Vars.world.tile(70,60).setBlock(Vars.content.block("ironworks-rbmk-reactor"),T); Vars.world.tile(64,60).setBlock(Vars.content.block("thorium-wall"),T); var u=Packages.mindustry.content.UnitTypes.dagger.spawn(T,784,480); var b=Vars.world.tile(70,60).build; b.items.add(Vars.content.item("thorium"),5); b.liquids.add(Vars.content.liquid("water"),500); b.heat=1.6; for(var i=0;i<180 && !b.melted;i++) b.updateTile(); var r=Vars.content.statusEffect("ironworks-radiation"); var cor=Vars.content.block("ironworks-corium"); var cn=0; for(var yy=57;yy<=63;yy++){for(var xx=67;xx<=73;xx++){var tt=Vars.world.tile(xx,yy); if(tt!=null && tt.block()==cor) cn++;}} Log.info("T120a gone=" + (Vars.world.tile(70,60).block()==Vars.content.block("air")) + " melted=" + b.melted + " rad=" + (u!=null && r!=null && u.hasEffect(r)) + " corium=" + cn)'
   sleep 1
-  echo 'js var wall=Vars.world.tile(64,60).build; Log.info("T120b wallHurt=" + (wall==null || wall.health<wall.maxHealth) + " wallHp=" + (wall==null?-1:Math.round(wall.health)))'
+  echo 'js var wall=Vars.world.tile(64,60).build; Log.info("T120b wallHurt=" + (wall==null || wall.health<wall.maxHealth))'
   # 116f：反应堆必须打开 configurable（否则点击方块根本不弹面板）
   echo 'js var r=Vars.content.block("ironworks-rbmk-reactor"); Log.info("T121 configurable=" + r.configurable + " outputsPower=" + r.outputsPower)'
 

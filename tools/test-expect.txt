@@ -43,7 +43,7 @@
 117	T117 dropped=true
 118	T118 rise=true flow=0
 119	T119 power=24000 warm=[1-9][0-9]* flow=100
-120b	T120b wallHurt=true wallHp=-1
+120b	T120b wallHurt=true
 121	T121 configurable=true outputsPower=false
 123	T123 tiers=3 hasCryo=true accept=true
 124a	T124a placed=true

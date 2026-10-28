@@ -434,6 +434,39 @@ public class Dmg{
         }
     }
 
+    /**
+     * 反应堆范围伤害：同一爆炸里对友军和敌军使用不同倍率。
+     *
+     * <p>RBMK 熔毁要求友军吃 100%、敌军只吃 2%，但两边都要走完整的护甲/抗性/Combo/状态结算，
+     * 所以不能简单调两次 {@link #area}（会重复命中友军或漏掉敌军）。</p>
+     */
+    public static void areaWeighted(Team sourceTeam, float x, float y, float radius, float amount,
+                                    DamageType type, DamageForm form,
+                                    float friendlyMultiplier, float enemyMultiplier){
+        DamageType t = type == null ? DamageType.physical : type;
+        ArmorPen p = t.pen;
+        DamageForm f = form == null ? t.defaultForm : form;
+        if(amount <= 0f || radius < 0f) return;
+
+        float rr = radius <= 0.00001f ? 0f : radius;
+        arc.func.Cons<Unit> unitHit = u -> {
+            if(!u.hittable() || u.dead() || !u.within(x, y, radius + u.hitSize / 2f)) return;
+            float mult = sourceTeam == null || u.team == sourceTeam ? friendlyMultiplier : enemyMultiplier;
+            float scaled = scaled(amount * mult, u.dst(x, y) - u.hitSize / 2f, rr);
+            hit(u, scaled, t, true, false, p, false, f);
+        };
+        // null = 查全部单位，而不是只查敌军；倍率在 unitHit 里按 team 结算。
+        Units.nearby(null, x, y, radius, unitHit);
+
+        if(Vars.indexer != null){
+            Vars.indexer.eachBlock(null, x, y, radius, b -> b != null && !b.dead(), b -> {
+                float mult = sourceTeam == null || b.team == sourceTeam ? friendlyMultiplier : enemyMultiplier;
+                float scaled = scaled(amount * mult, b.dst(x, y), rr);
+                hit(b, scaled, t, true, false, p, false, f);
+            });
+        }
+    }
+
     private static float scaled(float amount, float distance, float radius){
         if(radius <= 0.00001f) return amount;
         float falloff = Mathf.lerp(1f - Math.min(Math.max(distance, 0f) / radius, 1f), 1f, 0.4f);
