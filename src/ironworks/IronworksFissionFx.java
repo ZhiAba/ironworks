@@ -1,5 +1,6 @@
 package ironworks;
 
+import arc.graphics.Blending;
 import arc.graphics.Color;
 import arc.graphics.g2d.Fill;
 import arc.math.Interp;
@@ -62,6 +63,7 @@ public class IronworksFissionFx{
                     float sx = x + trnsx(angle, distance);
                     float sy = y + trnsy(angle, distance);
                     secondary.at(sx, sy, 0f, Color.white, subRadius);
+                    Sounds.explosion.at(sx, sy, 0.52f + (idx % 3) * 0.05f);
 
                     if(idx % 3 == 0) Fx.massiveExplosion.at(sx, sy);
                     if(idx % 4 == 0) Effect.shake(3.2f, 24f, sx, sy);
@@ -74,6 +76,21 @@ public class IronworksFissionFx{
         float radius = e.data instanceof Number n ? n.floatValue() : 480f;
         float t = e.time;
         float norm = Mathf.clamp(t / lifetime);
+
+        // 0. 巨型光球：比普通火球更大，使用加法混合形成真正的“光球”而不是一张白饼。
+        if(t < 320f){
+            float p = Mathf.clamp(t / 320f);
+            float orb = radius * (0.18f + 0.55f * Interp.pow3Out.apply(p));
+            blend(Blending.additive);
+            color(Color.white, Pal.lighterOrange, p);
+            alpha(0.34f * (1f - p));
+            Fill.circle(e.x, e.y, orb);
+            color(Pal.lighterOrange, Pal.reactorPurple2, p);
+            alpha(0.20f * (1f - p));
+            Fill.circle(e.x, e.y, orb * 1.45f);
+            blend();
+            Drawf.light(e.x, e.y, orb * 3.1f, Pal.lighterOrange, 0.95f * (1f - p));
+        }
 
         // 1. 白热闪光：给爆心一个短促、过曝的起点。
         if(t < 55f){
@@ -169,6 +186,21 @@ public class IronworksFissionFx{
         float radius = e.data instanceof Number n ? n.floatValue() : 160f;
         float t = e.time;
         float q = Mathf.clamp(t / 260f);
+
+        // 巨型光球：每次后续爆炸都要有一个能照亮地面的白色/橙色光核。
+        if(t < 260f){
+            float p = Mathf.clamp(t / 260f);
+            float orb = radius * (0.55f + 0.85f * Interp.pow3Out.apply(p));
+            blend(Blending.additive);
+            color(Color.white, Pal.lighterOrange, p);
+            alpha(0.42f * (1f - p));
+            Fill.circle(e.x, e.y, orb);
+            color(Pal.lighterOrange, Pal.reactorPurple2, p);
+            alpha(0.23f * (1f - p));
+            Fill.circle(e.x, e.y, orb * 1.55f);
+            blend();
+            Drawf.light(e.x, e.y, orb * 2.7f, Pal.lighterOrange, 0.95f * (1f - p));
+        }
 
         // 小型二次爆燃也有自己的白闪和橙环。
         if(t < 38f){

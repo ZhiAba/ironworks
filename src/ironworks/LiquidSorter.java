@@ -16,6 +16,7 @@ import mindustry.type.Liquid;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.ItemSelection;
+import mindustry.world.blocks.liquid.LiquidBlock;
 import mindustry.world.meta.BlockGroup;
 
 import static mindustry.Vars.*;
@@ -43,8 +44,9 @@ public class LiquidSorter extends Block{
         configurable = true;
         saveConfig = true;
         clearOnDoubleTap = true;
-        drawCached = true;
-        drawDynamic = false;
+        // 动态液体每帧都要重画，不能走静态方块缓存。
+        drawCached = false;
+        drawDynamic = true;
         noUpdateDisabled = true;
         liquidCapacity = 20f;
         hasLiquids = true;
@@ -54,6 +56,16 @@ public class LiquidSorter extends Block{
 
         config(Liquid.class, (LiquidSorterBuild build, Liquid liquid) -> build.sortLiquid = liquid);
         configClear((LiquidSorterBuild build) -> build.sortLiquid = null);
+    }
+
+    @Override
+    public void load(){
+        super.load();
+        // 防止贴图名/前缀异常时整块变黑：退回原版分类器底图。
+        if(Core.atlas != null && (region == null || !region.found())){
+            region = Core.atlas.find("sorter");
+            fullIcon = region;
+        }
     }
 
     @Override
@@ -79,7 +91,6 @@ public class LiquidSorter extends Block{
         public void configured(Unit player, Object value){
             super.configured(player, value);
             if(!headless && renderer != null){
-                recache();
                 renderer.minimap.update(tile);
             }
         }
@@ -90,13 +101,9 @@ public class LiquidSorter extends Block{
             super.draw();
             if(sortLiquid == null){
                 if(cross != null) Draw.rect(cross, x, y);
-            }else{
-                Draw.color(sortLiquid.color);
-                Fill.circle(x, y, 4.5f);
-                Draw.color();
-                if(sortLiquid.uiIcon != null && sortLiquid.uiIcon.found()){
-                    Draw.rect(sortLiquid.uiIcon, x, y, 8f, 8f);
-                }
+            }else if(!headless && renderer != null){
+                // 和液体源一样使用动态液体帧，中心会流动而不是静态色块。
+                LiquidBlock.drawTiledFrames(size, x, y, 1.5f, sortLiquid, 1f);
             }
         }
 
