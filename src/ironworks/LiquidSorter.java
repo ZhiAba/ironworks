@@ -1,33 +1,31 @@
 package ironworks;
 
 import arc.Core;
-import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.TextureRegion;
 import arc.math.Mathf;
 import arc.scene.ui.layout.Table;
+import arc.util.Eachable;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import mindustry.entities.units.BuildPlan;
 import mindustry.gen.Building;
+import mindustry.gen.Unit;
 import mindustry.type.Liquid;
 import mindustry.world.Block;
+import mindustry.world.Tile;
 import mindustry.world.blocks.ItemSelection;
 import mindustry.world.meta.BlockGroup;
 
-import static mindustry.Vars.content;
-import static mindustry.Vars.tilesize;
-import static mindustry.Vars.headless;
-import static mindustry.Vars.renderer;
+import static mindustry.Vars.*;
 
 /**
  * 液体分类器 / 反向分类器。
  *
  * <p>工作方式对应原版物品分类器：设定一种液体后，匹配液体沿进液方向直通，
  * 不匹配液体转向左右两侧；反向分类器反过来，把设定液体分流到两侧、放行其余液体。
- * 液体本身不是“瞬时物品”，所以这里通过 {@link #getLiquidDestination} 把上游
- * 液体直接导向目标，同时保留 {@link #acceptLiquid}/{@link #handleLiquid} 作为
- * 直接注液（泵、液体源）时的兼容入口。</p>
+ * 两侧都可用时通过 {@link #handleLiquid} 尽量均分，而不是只选一边。</p>
  */
 public class LiquidSorter extends Block{
     /** 未配置时显示的叉号；复用原版图集。 */
@@ -64,7 +62,12 @@ public class LiquidSorter extends Block{
     }
 
     @Override
-    public int minimapColor(mindustry.world.Tile tile){
+    public void drawPlanConfig(BuildPlan plan, Eachable<BuildPlan> list){
+        drawPlanConfigCenter(plan, plan.config, "center", true);
+    }
+
+    @Override
+    public int minimapColor(Tile tile){
         LiquidSorterBuild build = tile.build instanceof LiquidSorterBuild b ? b : null;
         return build == null || build.sortLiquid == null ? 0 : build.sortLiquid.color.rgba();
     }
@@ -73,84 +76,118 @@ public class LiquidSorter extends Block{
         public Liquid sortLiquid;
 
         @Override
-        public void configured(mindustry.gen.Unit player, Object value){
+        public void configured(Unit player, Object value){
             super.configured(player, value);
-            if(!headless && renderer != null) renderer.minimap.update(tile);
+            if(!headless && renderer != null){
+                recache();
+                renderer.minimap.update(tile);
+            }
         }
 
         @Override
         public void draw(){
+            // 先画方块本体，再把液体颜色/图标盖在中心，配置变化时才能看见。
+            super.draw();
             if(sortLiquid == null){
                 if(cross != null) Draw.rect(cross, x, y);
             }else{
                 Draw.color(sortLiquid.color);
-                Fill.square(x, y, tilesize / 2f - 0.00001f);
-                Draw.color(Color.white);
+                Fill.circle(x, y, 4.5f);
+                Draw.color();
+                if(sortLiquid.uiIcon != null && sortLiquid.uiIcon.found()){
+                    Draw.rect(sortLiquid.uiIcon, x, y, 8f, 8f);
+                }
             }
-            super.draw();
+        }
+
+        @Override
+        public void drawSelect(){
+            super.drawSelect();
+            drawItemSelection(sortLiquid);
         }
 
         @Override
         public boolean acceptLiquid(Building source, Liquid liquid){
-            Building target = destination(source, liquid, false);
-            return target != null && target != this && target.team == team && target.acceptLiquid(this, liquid);
+            if(source == null || liquid == null || !enabled) return false;
+            if(straight(liquid)){
+                Building ahead = straightTarget(source, liquid);
+                return ahead != null && ahead.team == team && ahead.acceptLiquid(this, liquid);
+            }
+            Building[] sides = sideTargets(source, liquid);
+            return sides[0] != null || sides[1] != null;
         }
 
         @Override
         public void handleLiquid(Building source, Liquid liquid, float amount){
-            Building target = destination(source, liquid, true);
-            if(target != null && target != this && target.team == team && target.acceptLiquid(this, liquid)){
-                target.handleLiquid(this, liquid, amount);
-            }else{
-                // 直接注液且暂时无处可去时先存住，下一 tick 再按当前方向尝试。
-                liquids.add(liquid, Math.min(amount, liquidCapacity - liquids.get(liquid)));
+            if(source == null || liquid == null || amount <= 0f) return;
+
+            if(straight(liquid)){
+                Building ahead = straightTarget(source, liquid);
+                if(ahead != null) ahead.handleLiquid(this, liquid, amount);
+                return;
+            }
+
+            // 两侧都通时先各送一半；如果一边满了，剩下的尽量补到另一边。
+            Building[] sides = sideTargets(source, liquid);
+            float sent = send(sides[0], liquid, amount / 2f);
+            sent += send(sides[1], liquid, amount - sent);
+            float remain = amount - sent;
+            if(remain > 0.001f){
+                send(sides[0], liquid, remain);
             }
         }
 
         @Override
         public Building getLiquidDestination(Building source, Liquid liquid){
-            Building target = destination(source, liquid, false);
-            return target == null ? this : target;
-        }
-
-        @Override
-        public void updateTile(){
-            // 正常管道会在 getLiquidDestination 阶段直通；这里只处理直接注液留下的暂存。
-            if(liquids.currentAmount() > 0.01f){
-                Liquid liquid = liquids.current();
-                Building a = destination(this, liquid, true);
-                if(a != null && a != this) transferLiquid(a, Math.min(liquids.get(liquid), 20f), liquid);
-            }
-        }
-
-        /** 根据进液侧和过滤条件选择出口；flip 只用于左右出口的确定性轮换。 */
-        private Building destination(Building source, Liquid liquid, boolean flip){
             if(source == null || liquid == null || !enabled) return this;
-            int dir = source.relativeTo(tile.x, tile.y);
-            if(dir < 0) return this;
 
-            boolean matches = sortLiquid != null && liquid == sortLiquid;
-            boolean straight = (matches != invert);
-            if(straight){
-                Building ahead = nearby(dir);
-                if(valid(ahead, liquid)) return ahead;
+            if(straight(liquid)){
+                Building ahead = straightTarget(source, liquid);
+                return ahead != null ? ahead : this;
             }
+
+            // 侧向输出需要同时拿到左右两个目标，交给 handleLiquid 均分。
+            return this;
+        }
+
+        private boolean straight(Liquid liquid){
+            boolean matches = sortLiquid != null && liquid == sortLiquid;
+            return matches != invert;
+        }
+
+        private Building straightTarget(Building source, Liquid liquid){
+            int dir = source.relativeTo(tile.x, tile.y);
+            if(dir < 0) return null;
+            Building ahead = nearby(dir);
+            return valid(ahead, liquid) ? ahead : null;
+        }
+
+        private Building[] sideTargets(Building source, Liquid liquid){
+            Building[] out = new Building[2];
+            int dir = source.relativeTo(tile.x, tile.y);
+            if(dir < 0) return out;
 
             Building left = nearby(Mathf.mod(dir - 1, 4));
             Building right = nearby(Mathf.mod(dir + 1, 4));
-            boolean lc = valid(left, liquid);
-            boolean rc = valid(right, liquid);
-            if(lc && !rc) return left;
-            if(rc && !lc) return right;
-            if(!lc && !rc) return this;
-            Building chosen = (rotation & (1 << dir)) == 0 ? left : right;
-            if(flip) rotation ^= (1 << dir);
-            return chosen;
+            if(valid(left, liquid)) out[0] = left;
+            if(valid(right, liquid)) out[1] = right;
+            return out;
         }
 
         private boolean valid(Building target, Liquid liquid){
             return target != null && target != this && target.team == team
                 && target.block.hasLiquids && target.acceptLiquid(this, liquid);
+        }
+
+        private float send(Building target, Liquid liquid, float amount){
+            if(target == null || amount <= 0f) return 0f;
+
+            float room = target.block.liquidCapacity - target.liquids.get(liquid);
+            float take = Math.min(amount, Math.max(0f, room));
+            if(take <= 0.001f || !target.acceptLiquid(this, liquid)) return 0f;
+
+            target.handleLiquid(this, liquid, take);
+            return take;
         }
 
         @Override

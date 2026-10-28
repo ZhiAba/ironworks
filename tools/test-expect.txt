@@ -140,6 +140,6 @@
 197	T197 maxFlux=[1-9][0-9]+ flux=[0-9]+ rods=[0-9.]+ heat=[0-9.]+ cw=[0-9]+ ok=true
 198	T198 trip=true reason=2 held=true cleared=true auto=60 ok=true
 199	T199 hotHold=true coldReset=true ok=true
-200	T200 configured=true straight=true side=true ok=true
-201	T201 selectedSide=true otherStraight=true ok=true
+200	T200 category=liquid configured=true straight=true side=true split=true l=50 r=50 ok=true
+201	T201 category=liquid selectedSide=true otherStraight=true split=true l=50 r=50 ok=true
 202	T202 flow=true dst=[1-9][0-9]* ok=true

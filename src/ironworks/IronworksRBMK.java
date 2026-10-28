@@ -1840,9 +1840,10 @@ public class IronworksRBMK{
                 if(state.rules.reactorExplosions){
                     // 功率越高、堆芯越热，炸得越狠（冷停堆被拆只会小爆）
                     float scale = 0.45f + Math.min(flux, 1.4f) * 0.45f + Math.min(heat, 1.6f) * 0.35f;
-                    Fx.reactorExplosion.at(x, y);
-                    Fx.massiveExplosion.at(x, y);
-                    Dmg.area(null, x, y, meltRadius * 8f * Math.min(scale, 1.6f), meltDamage * Math.min(scale, 1.6f), DamageType.physical, false, DamageForm.EXPLOSIVE);
+                    float blastRadius = meltRadius * 8f * Math.min(scale, 1.6f);
+                    // 视觉效果：半径 2 倍、总时长 2 倍；伤害半径保持原值，避免平白拆家。
+                    IronworksFissionFx.at(x, y, blastRadius * IronworksFissionFx.radiusScale);
+                    Dmg.area(null, x, y, blastRadius, meltDamage * Math.min(scale, 1.6f), DamageType.physical, false, DamageForm.EXPLOSIVE);
 
                     // 堆芯熔融物：在中心铺 1~5 格 corium，持续辐射 + 熔穿周围
                     IronworksNuclear.spawnCorium(tile, team);

@@ -12,12 +12,12 @@ public class IronworksLiquidSorters{
 
     public static void load(){
         sorter = new LiquidSorter("liquid-sorter"){{
-            requirements(Category.distribution,
+            requirements(Category.liquid,
                 with(Items.metaglass, 10, Items.graphite, 10, IronworksItems.steelPlate, 10));
         }};
 
         inverted = new LiquidSorter("liquid-inverted-sorter"){{
-            requirements(Category.distribution,
+            requirements(Category.liquid,
                 with(Items.metaglass, 10, Items.graphite, 10, IronworksItems.steelPlate, 10));
             invert = true;
         }};
