@@ -4,6 +4,7 @@ import arc.Core;
 import arc.func.Boolc;
 import arc.func.Boolp;
 import arc.math.Mathf;
+import arc.scene.ui.Image;
 import arc.scene.ui.Label;
 import arc.scene.ui.Slider;
 import arc.scene.ui.layout.Table;
@@ -114,8 +115,17 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
             inner.table(Tex.button, t -> {
                 t.margin(10f);
                 Label current = new Label("", Styles.outlineLabel);
+                Image colorBar = new Image(Tex.whiteui);
                 t.add(current).left().row();
-                current.update(() -> current.setText(Difficulty.tierName(Difficulty.tier())));
+                t.add(colorBar).growX().height(4f).padBottom(4f).row();
+                current.update(() -> {
+                    int tier = Difficulty.tier();
+                    String text = Difficulty.tierName(tier);
+                    if(tier == Difficulty.maxTier && IronworksGlitch.active()) text = IronworksGlitch.garble(text);
+                    current.setText(text);
+                    current.setColor(Difficulty.tierColor(tier));
+                    colorBar.setColor(Difficulty.tierColor(tier));
+                });
 
                 Slider slider = new Slider(0f, Difficulty.maxTier, 1f, false);
                 float[] stops = new float[Difficulty.maxTier + 1];

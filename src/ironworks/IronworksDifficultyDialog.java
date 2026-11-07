@@ -8,7 +8,6 @@ import arc.scene.ui.Label;
 import arc.scene.ui.Slider;
 import arc.scene.ui.TextButton;
 import arc.scene.ui.layout.Table;
-import arc.util.Time;
 import mindustry.gen.Tex;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
@@ -90,8 +89,8 @@ public class IronworksDifficultyDialog{
             int value = preview[0];
             Color color = Difficulty.tierColor(value);
             String text = Difficulty.tierName(value);
-            if(value == Difficulty.maxTier && (Time.time % 30f) < 9f){
-                text = garble(text);
+            if(value == Difficulty.maxTier && IronworksGlitch.active()){
+                text = IronworksGlitch.garble(text);
             }
             if(!text.equals(tierLabel.getText().toString())){
                 tierLabel.setText(text);
@@ -122,27 +121,24 @@ public class IronworksDifficultyDialog{
         }
 
         for(String id : Difficulty.modIds){
-            int current = Difficulty.modifierLevel(id);
-            int maxShown = Math.max(2, current + 2);
-
             Table group = new Table();
             group.left();
 
+            // 所有等级一次性显示；每个等级是独立开关，可同时启用 I/II/III。
             Table levels = new Table();
             levels.left();
-            for(int i = 1; i <= maxShown; i++){
-                final int level = i;
-                boolean selected = current == i;
+            for(int level = 1; level <= Difficulty.maxModifierLevel; level++){
+                final int value = level;
+                boolean selected = Difficulty.hasModifierLevel(id, level);
                 String label = Difficulty.modName(id) + roman(level) + (selected ? "●" : "○");
-                levels.button(label, Styles.flatTogglet, () -> {
-                    Difficulty.setModifierLevel(id, current == level ? 0 : level);
+                levels.button(label, Styles.defaultt, () -> {
+                    Difficulty.toggleModifierLevel(id, value);
                     summary.setText(Difficulty.modifierSummary());
                     buildModifierRows(list, summary);
-                }).width(160f).pad(2f);
-                if(i % 3 == 0) levels.row();
+                }).width(175f).pad(2f);
             }
             group.add(levels).left().row();
-            group.add(Difficulty.modDesc(id)).left().wrap().width(500f)
+            group.add(Difficulty.modDesc(id)).left().wrap().width(520f)
                 .color(Color.lightGray).padTop(2f).row();
             list.add(group).growX().pad(4f).row();
         }
@@ -212,14 +208,5 @@ public class IronworksDifficultyDialog{
         }
     }
 
-    private static String garble(String source){
-        char[] glitch = {'#', '%', '&', '?', '@', '!', '0', '1', '█', '▓'};
-        StringBuilder sb = new StringBuilder(source.length());
-        for(int i = 0; i < source.length(); i++){
-            char c = source.charAt(i);
-            if(c == ' ' || Mathf.chance(0.35)) sb.append(c);
-            else sb.append(glitch[Mathf.random(glitch.length - 1)]);
-        }
-        return sb.toString();
-    }
+
 }

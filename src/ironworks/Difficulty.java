@@ -67,6 +67,18 @@ public final class Difficulty{
     public static final String MOD_SCARCITY = "scarcity";
     public static final String MOD_HEAVY = "heavy-industry";
     public static final String[] modIds = {MOD_FORCED, MOD_JERRY, MOD_SCARCITY, MOD_HEAVY};
+    /** 每个词条最多 III 级；不同等级可以同时启用，效果按已启用等级相加。 */
+    public static final int maxModifierLevel = 3;
+
+    // 每级数值不相等，随等级提升而增大；例如资源匮乏 I/II/III = 15%/30%/50%。
+    private static final float[] forcedLossLevels = {0.20f, 0.35f, 0.50f};
+    private static final float[] jerryHealthLevels = {0.06f, 0.15f, 0.26f};
+    private static final float[] jerryArmorLevels = {1.0f, 2.5f, 4.5f};
+    private static final float[] jerryBuildLevels = {0.08f, 0.18f, 0.30f};
+    private static final float[] scarcityPenaltyLevels = {0.15f, 0.30f, 0.50f};
+    private static final float[] scarcityRefundLevels = {0.05f, 0.10f, 0.20f};
+    private static final float[] heavyCostLevels = {0.25f, 0.60f, 1.00f};
+    private static final float[] heavyStatLevels = {0.10f, 0.25f, 0.40f};
 
     private static int tier;
     private static final ObjectIntMap<String> modifiers = new ObjectIntMap<>();
@@ -110,7 +122,7 @@ public final class Difficulty{
     public static float ricochetBonus(){ return ricochetBonus[tier]; }
     public static float productionMultiplier(){
         float value = production[tier];
-        if(tier == maxTier) value *= 1f - scarcityPenalty();
+        if(tier == maxTier) value *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
         // 主人指定的防死锁底线：产能/资源惩罚不低过 0.80。
         return Math.max(0.80f, value);
     }
@@ -118,44 +130,52 @@ public final class Difficulty{
     /** 采矿/资源产出与产能共用同一倍率和 0.80 底线。 */
     public static float miningMultiplier(){ return productionMultiplier(); }
 
-    /** T7 资源匮乏：1/2/3 级分别 -15%/-30%/-50%，再往上不再加深。 */
-    private static float scarcityPenalty(){
-        int level = Math.min(3, modifierLevel(MOD_SCARCITY));
-        return level <= 0 ? 0f : level == 1 ? 0.15f : level == 2 ? 0.30f : 0.50f;
-    }
     public static float buildSpeedMultiplier(){
         float value = playerBuildSpeed[tier];
-        if(tier == maxTier) value *= 1f + 0.12f * modifierLevel(MOD_JERRY);
-        // 正向补偿有上限，避免无限叠“豆腐渣”把建造速度刷成外挂；防御惩罚仍无上限。
+        if(tier == maxTier) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
+        // 正向补偿有上限，避免“豆腐渣”叠加把建造速度刷成外挂。
         return Math.max(0.35f, Math.min(1.35f, value));
     }
+
     public static float playerBlockHealthMultiplier(){
         float value = playerBlockHealth[tier];
-        if(tier == maxTier) value *= Math.max(0.55f, 1f - 0.06f * modifierLevel(MOD_JERRY));
+        if(tier == maxTier) value *= Math.max(0.55f, 1f - modifierSum(MOD_JERRY, jerryHealthLevels));
         return value;
     }
+
     public static float playerBlockArmorModifier(){
         float value = playerBlockArmor[tier];
-        if(tier == maxTier) value -= 1.5f * modifierLevel(MOD_JERRY);
+        if(tier == maxTier) value -= modifierSum(MOD_JERRY, jerryArmorLevels);
         return value;
     }
+
     public static float playerUnitCostMultiplier(){
-        return tier == maxTier ? 1f + 0.25f * modifierLevel(MOD_HEAVY) : 1f;
+        return tier == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyCostLevels) : 1f;
     }
+
     public static float playerUnitStatMultiplier(){
-        return tier == maxTier ? 1f + 0.10f * modifierLevel(MOD_HEAVY) : 1f;
+        return tier == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
     }
-    /** 击杀回收比例；仅 T7 资源匮乏生效。前三级 5/10/35%，再叠仍封顶 35%。 */
+
+    /** 击杀回收比例；T7 资源匮乏各级回收相加。 */
     public static float killRefund(){
         if(tier != maxTier) return 0f;
-        int level = modifierLevel(MOD_SCARCITY);
-        if(level <= 0) return 0f;
-        return level == 1 ? 0.05f : level == 2 ? 0.10f : 0.35f;
+        return Math.min(0.35f, modifierSum(MOD_SCARCITY, scarcityRefundLevels));
     }
+
     /** 迫降损失的开局资源比例；仅 T7 且本局尚未应用。 */
     public static float forcedLandingLoss(){
         if(tier != maxTier) return 0f;
-        return Math.min(0.90f, 0.20f * modifierLevel(MOD_FORCED));
+        return Math.min(0.90f, modifierSum(MOD_FORCED, forcedLossLevels));
+    }
+
+    private static float modifierSum(String id, float[] perLevel){
+        int mask = modifierMask(id);
+        float sum = 0f;
+        for(int i = 0; i < perLevel.length; i++){
+            if((mask & (1 << i)) != 0) sum += perLevel[i];
+        }
+        return sum;
     }
 
     /** UI 预览：按指定档位生成详细数值说明。 */
@@ -168,40 +188,83 @@ public final class Difficulty{
     }
 
     private static float productionFor(int value){
-        return Math.max(0.80f, production[value]);
+        float result = production[value];
+        if(value == maxTier) result *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        return Math.max(0.80f, result);
     }
 
     private static float buildSpeedFor(int value){
         float result = playerBuildSpeed[value];
-        if(value == maxTier) result *= 1f + 0.12f * modifierLevel(MOD_JERRY);
+        if(value == maxTier) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
         return Math.max(0.35f, Math.min(1.35f, result));
     }
 
     private static float blockHealthFor(int value){
         float result = playerBlockHealth[value];
-        if(value == maxTier) result *= Math.max(0.55f, 1f - 0.06f * modifierLevel(MOD_JERRY));
+        if(value == maxTier) result *= Math.max(0.55f, 1f - modifierSum(MOD_JERRY, jerryHealthLevels));
         return result;
     }
 
     private static float armorFor(int value){
         float result = playerBlockArmor[value];
-        if(value == maxTier) result -= 1.5f * modifierLevel(MOD_JERRY);
+        if(value == maxTier) result -= modifierSum(MOD_JERRY, jerryArmorLevels);
         return result;
     }
 
+    private static int maskBits(){
+        return (1 << maxModifierLevel) - 1;
+    }
+
+    /** 已启用等级的位掩码；第 1 级是 bit0。 */
+    public static int modifierMask(String id){
+        return modifiers.get(id, 0) & maskBits();
+    }
+
+    public static boolean hasModifierLevel(String id, int level){
+        return level > 0 && level <= maxModifierLevel && (modifierMask(id) & (1 << (level - 1))) != 0;
+    }
+
+    /** 兼容查询：返回已启用的最高等级。 */
     public static int modifierLevel(String id){
-        return modifiers.get(id, 0);
+        int mask = modifierMask(id);
+        return mask == 0 ? 0 : 32 - Integer.numberOfLeadingZeros(mask);
+    }
+
+    public static void toggleModifierLevel(String id, int level){
+        if(tier != maxTier || id == null || level <= 0 || level > maxModifierLevel) return;
+        int mask = modifierMask(id);
+        int bit = 1 << (level - 1);
+        mask ^= bit;
+        if(mask == 0) modifiers.remove(id);
+        else modifiers.put(id, mask);
+        setModifiersFromUi();
     }
 
     public static String modifierSummary(){
         StringBuilder sb = new StringBuilder();
         for(String id : modIds){
-            int level = modifierLevel(id);
-            if(level <= 0) continue;
+            int mask = modifierMask(id);
+            if(mask == 0) continue;
             if(sb.length() > 0) sb.append(" / ");
-            sb.append(modName(id)).append(" ×").append(level);
+            sb.append(modName(id)).append(' ');
+            boolean first = true;
+            for(int i = 1; i <= maxModifierLevel; i++){
+                if((mask & (1 << (i - 1))) == 0) continue;
+                if(!first) sb.append('+');
+                sb.append(romanLevel(i));
+                first = false;
+            }
         }
         return sb.length() == 0 ? (Core.bundle == null ? "无词条" : Core.bundle.get("ironworks.difficulty.no-mods", "无词条")) : sb.toString();
+    }
+
+    private static String romanLevel(int value){
+        return switch(value){
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            default -> String.valueOf(value);
+        };
     }
 
     public static String modName(String id){
@@ -244,15 +307,22 @@ public final class Difficulty{
 
     public static void addModifier(String id){
         if(tier != maxTier || id == null) return;
-        modifiers.increment(id);
-        setModifiersFromUi();
+        int mask = modifierMask(id);
+        for(int level = 1; level <= maxModifierLevel; level++){
+            int bit = 1 << (level - 1);
+            if((mask & bit) == 0){
+                modifiers.put(id, mask | bit);
+                setModifiersFromUi();
+                return;
+            }
+        }
     }
 
-    /** 直接设置某个词条的等级；0 表示移除。供“等级按钮”UI 使用。 */
+    /** 只启用指定等级；0 表示移除该词条。独立按钮应使用 toggleModifierLevel。 */
     public static void setModifierLevel(String id, int level){
         if(tier != maxTier || id == null) return;
-        if(level <= 0) modifiers.remove(id);
-        else modifiers.put(id, level);
+        if(level <= 0 || level > maxModifierLevel) modifiers.remove(id);
+        else modifiers.put(id, 1 << (level - 1));
         setModifiersFromUi();
     }
 
@@ -460,10 +530,11 @@ public final class Difficulty{
     private static String modifierString(){
         StringBuilder sb = new StringBuilder();
         for(String id : modIds){
-            int level = modifiers.get(id, 0);
-            if(level <= 0) continue;
+            int mask = modifierMask(id);
+            if(mask <= 0) continue;
             if(sb.length() > 0) sb.append(',');
-            sb.append(id).append(':').append(level);
+            // m 前缀表示位掩码；旧版本没有 m，按“等级计数”迁移。
+            sb.append(id).append(":m").append(mask);
         }
         return sb.toString();
     }
@@ -474,8 +545,19 @@ public final class Difficulty{
         for(String part : text.split(",")){
             int colon = part.indexOf(':');
             if(colon <= 0) continue;
+            String id = part.substring(0, colon);
+            String raw = part.substring(colon + 1);
             try{
-                modifiers.put(part.substring(0, colon), Math.max(0, Integer.parseInt(part.substring(colon + 1))));
+                int mask;
+                if(raw.startsWith("m")){
+                    mask = Integer.parseInt(raw.substring(1));
+                }else{
+                    int oldLevel = Math.max(0, Integer.parseInt(raw));
+                    mask = oldLevel <= 0 ? 0 : (1 << Math.min(maxModifierLevel, oldLevel)) - 1;
+                }
+                mask &= maskBits();
+                if(mask == 0) modifiers.remove(id);
+                else modifiers.put(id, mask);
             }catch(Exception ignored){
             }
         }
