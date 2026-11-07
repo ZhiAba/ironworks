@@ -209,11 +209,10 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
         if(!isShown()) return;
         int target = Mathf.clamp((int)Math.round(slider.getValue()), 0, Difficulty.maxTier);
         if(target == Difficulty.tier()) return;
-        if(prompting || Time.time - lastPromptAt < PROMPT_COOLDOWN){
+        if(prompting){
             slider.setValue(Difficulty.tier());
             return;
         }
-        lastPromptAt = Time.time;
         requestTier(target);
         // 受袭拦截/等待确认时回到当前实际档位；确认应用后 Difficulty.tier 已更新，不回写。
         if(Difficulty.tier() != target) slider.setValue(Difficulty.tier());
@@ -221,8 +220,13 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
 
     private void requestTier(int target){
         if(target == Difficulty.tier() || prompting) return;
-        if(Difficulty.hasActiveAttackedSector()){
+        boolean active = Difficulty.hasActiveAttackedSector();
+        boolean attacked = active || Difficulty.hasAttackedSector();
+        // 只有会弹提示的分支才需要冷却；普通直接切换不节流。
+        if((active || attacked) && Time.time - lastPromptAt < PROMPT_COOLDOWN) return;
+        if(active){
             prompting = true;
+            lastPromptAt = Time.time;
             BaseDialog blocked = new BaseDialog(Core.bundle.get("ironworks.difficulty.blocked.title", "无法切换难度"));
             blocked.cont.add(Core.bundle.get("ironworks.difficulty.blocked.text",
                 "当前区块正在遭遇袭击。请先结束当前战斗，再切换难度。")).wrap().width(480f).pad(16f).row();
@@ -231,8 +235,9 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
             blocked.show();
             return;
         }
-        if(Difficulty.hasAttackedSector()){
+        if(attacked){
             prompting = true;
+            lastPromptAt = Time.time;
             BaseDialog confirm = new BaseDialog(Core.bundle.get("ironworks.difficulty.confirm.title", "难度切换警告"));
             confirm.cont.add(Core.bundle.get("ironworks.difficulty.confirm.text",
                 "此操作会自动放弃所有正在遭遇袭击中的区块，是否继续操作？"))

@@ -19,7 +19,7 @@ Mindustry 模组「铁流工业」v3.4.0.0，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.4.1.3 / md5 `e85e8f07353402603717b7502edbce14`，双端已部署（2026-11-07，文件复制）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.4.1.3 / md5 `1d65de6fb291dba387d2bd52473e8b42`，双端已部署（2026-11-07，文件复制）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
 - 最近全量：**140/142**（754 秒，T1–T202，3.3.3.0）；T142/T144 受顺序干扰，单独复跑 **2/2** 通过。主爆 999999 / 二次爆燃 15000、火元素爆炸形态、友军 100% / 敌军 2% 已用 headless 临时用例验证（友军 967,680 vs 敌军 19,072）。
 
 ## 客户端版本实测
