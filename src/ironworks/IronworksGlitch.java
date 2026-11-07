@@ -13,15 +13,15 @@ public final class IronworksGlitch{
 
     public static boolean active(){
         float now = Time.time;
-        if(nextAt < 0f) nextAt = now + Mathf.random(2f, 4f);
+        if(nextAt < 0f) nextAt = now + Mathf.random(3f, 6f) * Time.toSeconds;
         if(until > now) return true;
         if(until >= 0f){
             until = -1f;
-            nextAt = now + Mathf.random(2f, 4f);
+            nextAt = now + Mathf.random(3f, 6f) * Time.toSeconds;
         }
         if(now >= nextAt){
-            until = now + Mathf.random(1f, 2f);
-            nextAt = until + Mathf.random(2f, 4f);
+            until = now + Mathf.random(1f, 2f) * Time.toSeconds;
+            nextAt = until + Mathf.random(3f, 6f) * Time.toSeconds;
             return true;
         }
         return false;

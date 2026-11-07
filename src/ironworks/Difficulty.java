@@ -127,8 +127,15 @@ public final class Difficulty{
         return Math.max(0.80f, value);
     }
 
-    /** 采矿/资源产出与产能共用同一倍率和 0.80 底线。 */
-    public static float miningMultiplier(){ return productionMultiplier(); }
+    /**
+     * 资源/采掘倍率：T7 资源匮乏可把钻机/单位采矿压到 0.50。
+     * MultiCrafter 的产能仍单独遵守 0.80 底线。
+     */
+    public static float miningMultiplier(){
+        float value = production[tier];
+        if(tier == maxTier) value *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        return Math.max(0.50f, value);
+    }
 
     public static float buildSpeedMultiplier(){
         float value = playerBuildSpeed[tier];
@@ -178,13 +185,34 @@ public final class Difficulty{
         return sum;
     }
 
-    /** UI 预览：按指定档位生成详细数值说明。 */
+    /** UI 预览：按指定档位生成详细数值说明，包含已启用词条的实时效果。 */
     public static String describe(int value){
         value = clampTier(value);
+        int forced = value == maxTier ? Math.round(forcedLandingLoss() * 100f) : 0;
+        int refund = value == maxTier ? Math.round(killRefund() * 100f) : 0;
         return Core.bundle.format("ironworks.difficulty.detail",
             num(enemyHealth[value]), num(enemyDamage[value]), String.valueOf((int)enemyArmorBonus[value]),
-            num(waveSpacing[value]), num(ricochetBonus[value]), num(productionFor(value)),
-            num(buildSpeedFor(value)), num(blockHealthFor(value)), num(armorFor(value)));
+            num(ricochetBonus[value]), num(waveSpacing[value]),
+            num(buildSpeedFor(value)), num(blockHealthFor(value)), num(armorFor(value)),
+            num(unitCostFor(value)), num(unitStatFor(value)), num(productionFor(value)), num(miningFor(value)),
+            String.valueOf(forced), String.valueOf(refund), activeModifierSummary(value));
+    }
+
+    private static float miningFor(int value){
+        float result = value == maxTier ? miningMultiplier() : production[value];
+        return value == maxTier ? result : Math.max(0.80f, result);
+    }
+
+    private static float unitCostFor(int value){
+        return value == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyCostLevels) : 1f;
+    }
+
+    private static float unitStatFor(int value){
+        return value == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
+    }
+
+    private static String activeModifierSummary(int value){
+        return value == maxTier && tier == maxTier ? modifierSummary() : (Core.bundle == null ? "无词条" : Core.bundle.get("ironworks.difficulty.no-mods", "无词条"));
     }
 
     private static float productionFor(int value){
@@ -297,12 +325,14 @@ public final class Difficulty{
         syncTags();
         savePrefs();
         applyRules();
+        IronworksDrills.apply();
     }
 
     public static void setModifiersFromUi(){
         savePrefs();
         syncTags();
         applyRules();
+        IronworksDrills.apply();
     }
 
     public static void addModifier(String id){
@@ -438,6 +468,7 @@ public final class Difficulty{
         }
 
         syncTags();
+        IronworksDrills.apply();
     }
 
     private static void syncTags(){
@@ -485,7 +516,7 @@ public final class Difficulty{
 
     public static Seq<Sector> attackedSectors(){
         Seq<Sector> result = new Seq<>();
-        if(state == null || !state.isGame() || state.getPlanet() == null) return result;
+        if(state == null || state.getPlanet() == null) return result;
         for(Sector sector : state.getPlanet().sectors){
             if(sector != null && sector.isAttacked()) result.add(sector);
         }

@@ -26,10 +26,16 @@ public final class IronworksCampaignDifficulty{
         if(installed || Vars.headless || Vars.ui == null) return;
         try{
             Vars.ui.campaignRules = new IronworksCampaignRulesDialog();
-            installed = true;
             Log.info("[IRONWORKS] campaign difficulty page installed");
         }catch(Throwable t){
             Log.err("IronworksCampaignDifficulty: 安装战役难度页失败", t);
         }
+        try{
+            Vars.ui.content = new IronworksContentInfoDialog();
+            Log.info("[IRONWORKS] content difficulty stats installed");
+        }catch(Throwable t){
+            Log.err("IronworksCampaignDifficulty: 安装建筑/单位详情难度状态失败", t);
+        }
+        installed = true;
     }
 }
