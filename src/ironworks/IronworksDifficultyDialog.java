@@ -134,7 +134,7 @@ public class IronworksDifficultyDialog{
                 levels.button(label, Styles.defaultt, () -> {
                     Difficulty.toggleModifierLevel(id, value);
                     summary.setText(Difficulty.modifierSummary());
-                    buildModifierRows(list, summary);
+                    postModifierRows(list, summary);
                 }).width(175f).pad(2f);
             }
             group.add(levels).left().row();
@@ -148,9 +148,16 @@ public class IronworksDifficultyDialog{
             Styles.defaultt, () -> {
                 Difficulty.clearModifiers();
                 summary.setText(Difficulty.modifierSummary());
-                buildModifierRows(list, summary);
+                postModifierRows(list, summary);
             }).width(120f);
         list.add(footer).left().padTop(8f).row();
+    }
+
+    private static void postModifierRows(Table list, Label summary){
+        // 触摸事件分发期间清空/重建控件会让当前按钮失去 scene，触发 addTouchFocus NPE。
+        Core.app.post(() -> {
+            if(list.getScene() != null) buildModifierRows(list, summary);
+        });
     }
 
     private static String roman(int value){
@@ -169,7 +176,7 @@ public class IronworksDifficultyDialog{
 
     private static void requestApply(int target, BaseDialog owner){
         if(target == Difficulty.tier()){
-            owner.hide();
+            Core.app.post(owner::hide);
             return;
         }
         if(Difficulty.hasActiveAttackedSector()){
@@ -190,16 +197,20 @@ public class IronworksDifficultyDialog{
                 Styles.defaultt, () -> {
                     Difficulty.abandonAttackedSectors();
                     Difficulty.setTier(target);
-                    confirm.hide();
-                    owner.hide();
-                    reopenForModifiers(target);
+                    Core.app.post(() -> {
+                        confirm.hide();
+                        owner.hide();
+                        reopenForModifiers(target);
+                    });
                 }).width(220f);
             confirm.show();
             return;
         }
         Difficulty.setTier(target);
-        owner.hide();
-        reopenForModifiers(target);
+        Core.app.post(() -> {
+            owner.hide();
+            reopenForModifiers(target);
+        });
     }
 
     private static void reopenForModifiers(int target){

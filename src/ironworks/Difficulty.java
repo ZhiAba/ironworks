@@ -15,6 +15,7 @@ import mindustry.gen.Healthc;
 import mindustry.gen.Unit;
 import mindustry.type.Item;
 import mindustry.type.ItemStack;
+import mindustry.type.Planet;
 import mindustry.type.Sector;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 
@@ -516,9 +517,13 @@ public final class Difficulty{
 
     public static Seq<Sector> attackedSectors(){
         Seq<Sector> result = new Seq<>();
-        if(state == null || state.getPlanet() == null) return result;
-        for(Sector sector : state.getPlanet().sectors){
-            if(sector != null && sector.isAttacked()) result.add(sector);
+        // 刚大退重进时 state.planet 可能还没建立；扫描所有战役星球上的 sector。
+        if(state == null || content == null) return result;
+        for(Planet planet : content.planets()){
+            if(planet == null) continue;
+            for(Sector sector : planet.sectors){
+                if(sector != null && sector.isAttacked()) result.add(sector);
+            }
         }
         return result;
     }

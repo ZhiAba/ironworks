@@ -9,6 +9,7 @@ import arc.scene.ui.Label;
 import arc.scene.ui.Slider;
 import arc.scene.ui.layout.Table;
 import arc.util.Log;
+import arc.util.Time;
 import mindustry.Vars;
 import mindustry.game.CampaignRules;
 import mindustry.gen.Call;
@@ -51,8 +52,11 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
         SUPER_PLANET = field;
     }
 
+    private static final float PROMPT_COOLDOWN = Time.toSeconds;
     private Planet myPlanet;
     private Table currentTable;
+    private boolean prompting;
+    private float lastPromptAt = -9999f;
 
     public IronworksCampaignRulesDialog(){
         super();
@@ -64,7 +68,10 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
 
     @Override
     public void show(Planet planet){
+        if(isShown()) return;
         this.myPlanet = planet;
+        prompting = false;
+        lastPromptAt = -9999f;
         Log.info("[IRONWORKS] campaign difficulty show @", planet == null ? "null" : planet.name);
         if(planet != null){
             // 原版难度不再参与缩放；T0-T7 是唯一难度来源。
@@ -135,6 +142,11 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
                 slider.moved(v -> {
                     int target = Mathf.clamp((int)Math.round(v), 0, Difficulty.maxTier);
                     if(target == Difficulty.tier()) return;
+                    if(prompting || Time.time - lastPromptAt < PROMPT_COOLDOWN){
+                        slider.setValue(Difficulty.tier());
+                        return;
+                    }
+                    lastPromptAt = Time.time;
                     requestTier(target);
                     // 被受袭拦截或等待确认时，滑块回到当前实际档位。
                     if(Difficulty.tier() != target) slider.setValue(Difficulty.tier());
@@ -178,16 +190,19 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
     }
 
     private void requestTier(int target){
-        if(target == Difficulty.tier()) return;
+        if(target == Difficulty.tier() || prompting) return;
         if(Difficulty.hasActiveAttackedSector()){
+            prompting = true;
             BaseDialog blocked = new BaseDialog(Core.bundle.get("ironworks.difficulty.blocked.title", "无法切换难度"));
             blocked.cont.add(Core.bundle.get("ironworks.difficulty.blocked.text",
                 "当前区块正在遭遇袭击。请先结束当前战斗，再切换难度。")).wrap().width(480f).pad(16f).row();
             blocked.buttons.button(Core.bundle.get("ok", "确定"), Styles.defaultt, blocked::hide).width(120f);
+            blocked.hidden(() -> { prompting = false; lastPromptAt = Time.time; });
             blocked.show();
             return;
         }
         if(Difficulty.hasAttackedSector()){
+            prompting = true;
             BaseDialog confirm = new BaseDialog(Core.bundle.get("ironworks.difficulty.confirm.title", "难度切换警告"));
             confirm.cont.add(Core.bundle.get("ironworks.difficulty.confirm.text",
                 "此操作会自动放弃所有正在遭遇袭击中的区块，是否继续操作？"))
@@ -199,6 +214,7 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
                     applyTier(target);
                     confirm.hide();
                 }).width(220f);
+            confirm.hidden(() -> { prompting = false; lastPromptAt = Time.time; });
             confirm.show();
             return;
         }
@@ -211,6 +227,9 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
             myPlanet.campaignRules.difficulty = mindustry.game.Difficulty.normal;
             myPlanet.saveRules();
         }
-        rebuildCustom();
+        // 触摸事件分发期间清空/重建控件会让当前按钮失去 scene，触发 addTouchFocus NPE。
+        Core.app.post(() -> {
+            if(isShown()) rebuildCustom();
+        });
     }
 }
