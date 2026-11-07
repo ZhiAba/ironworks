@@ -3,7 +3,10 @@ package ironworks;
 import arc.Core;
 import arc.func.Boolc;
 import arc.func.Boolp;
+import arc.input.KeyCode;
 import arc.math.Mathf;
+import arc.scene.event.InputEvent;
+import arc.scene.event.InputListener;
 import arc.scene.ui.Image;
 import arc.scene.ui.Label;
 import arc.scene.ui.Slider;
@@ -119,6 +122,7 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
             inner.add(Core.bundle.get("ironworks.difficulty.campaign.title",
                 "铁流工业难度协议 T0 - T7")).left().pad(4f).row();
 
+            int[] preview = {Difficulty.tier()};
             inner.table(Tex.button, t -> {
                 t.margin(10f);
                 Label current = new Label("", Styles.outlineLabel);
@@ -126,7 +130,7 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
                 t.add(current).left().row();
                 t.add(colorBar).growX().height(4f).padBottom(4f).row();
                 current.update(() -> {
-                    int tier = Difficulty.tier();
+                    int tier = preview[0];
                     String text = Difficulty.tierName(tier);
                     if(tier == Difficulty.maxTier && IronworksGlitch.active()) text = IronworksGlitch.garble(text);
                     current.setText(text);
@@ -140,16 +144,27 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
                 slider.setSnapToValues(stops, 0.30f);
                 slider.setValue(Difficulty.tier());
                 slider.moved(v -> {
-                    int target = Mathf.clamp((int)Math.round(v), 0, Difficulty.maxTier);
-                    if(target == Difficulty.tier()) return;
-                    if(prompting || Time.time - lastPromptAt < PROMPT_COOLDOWN){
-                        slider.setValue(Difficulty.tier());
-                        return;
+                    // 拖动时只更新预览，绝不回写滑块，否则手指会“粘不住”。
+                    preview[0] = Mathf.clamp((int)Math.round(v), 0, Difficulty.maxTier);
+                });
+                int[] sliderPointer = {-1};
+                slider.addListener(new InputListener(){
+                    @Override
+                    public boolean touchDown(InputEvent event, float x, float y, int pointer, KeyCode button){
+                        if(sliderPointer[0] != -1) return false;
+                        sliderPointer[0] = pointer;
+                        return true;
                     }
-                    lastPromptAt = Time.time;
-                    requestTier(target);
-                    // 被受袭拦截或等待确认时，滑块回到当前实际档位。
-                    if(Difficulty.tier() != target) slider.setValue(Difficulty.tier());
+
+                    @Override
+                    public void touchUp(InputEvent event, float x, float y, int pointer, KeyCode button){
+                        if(pointer != sliderPointer[0]) return;
+                        sliderPointer[0] = -1;
+                        // 让 Slider 自己先完成吸附/收尾，再在下一帧提交，避免触点事件内改值。
+                        Core.app.post(() -> {
+                            if(slider.getScene() != null) commitSlider(slider);
+                        });
+                    }
                 });
                 t.add(slider).growX().padTop(6f).row();
             }).left().fillX().expand(false, false).row();
@@ -157,7 +172,7 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
             Label detail = new Label("", Styles.outlineLabel);
             detail.setWrap(true);
             inner.add(detail).width(560f).left().pad(6f).row();
-            detail.update(() -> detail.setText(Difficulty.describe(Difficulty.tier())));
+            detail.update(() -> detail.setText(Difficulty.describe(preview[0])));
 
             if(myPlanet.allowSectorInvasion){
                 ruleCheck("@rules.invasions", b -> rules.sectorInvasion = b, () -> rules.sectorInvasion);
@@ -187,6 +202,21 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
         }
         cell.get().left();
         currentTable.row();
+    }
+
+    /** 只在抬起手指时提交，拖动期间让滑块完全跟手。 */
+    private void commitSlider(Slider slider){
+        if(!isShown()) return;
+        int target = Mathf.clamp((int)Math.round(slider.getValue()), 0, Difficulty.maxTier);
+        if(target == Difficulty.tier()) return;
+        if(prompting || Time.time - lastPromptAt < PROMPT_COOLDOWN){
+            slider.setValue(Difficulty.tier());
+            return;
+        }
+        lastPromptAt = Time.time;
+        requestTier(target);
+        // 受袭拦截/等待确认时回到当前实际档位；确认应用后 Difficulty.tier 已更新，不回写。
+        if(Difficulty.tier() != target) slider.setValue(Difficulty.tier());
     }
 
     private void requestTier(int target){
