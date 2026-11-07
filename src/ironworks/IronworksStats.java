@@ -22,6 +22,7 @@ public class IronworksStats{
     /** 自定义统计项：最大射速 / 命中效果 */
     public static final Stat maxFire = new Stat("ironworks-max-fire");
     public static final Stat onHit = new Stat("ironworks-on-hit");
+    public static final Stat wallResistance = new Stat("ironworks-wall-resist");
 
     /**
      * @param actionKey 文案 key（如开火速率 / 传送速度）

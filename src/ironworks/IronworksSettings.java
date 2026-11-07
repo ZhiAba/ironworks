@@ -6,6 +6,7 @@ import arc.func.Cons;
 import arc.graphics.g2d.TextureRegion;
 import arc.scene.style.Drawable;
 import arc.scene.style.TextureRegionDrawable;
+import arc.scene.ui.layout.Table;
 import arc.util.Log;
 import mindustry.game.EventType;
 import mindustry.gen.Call;
@@ -45,6 +46,20 @@ public class IronworksSettings{
                 ? new TextureRegionDrawable(new TextureRegion(mod.iconTexture)) : Styles.black6;
 
             ui.settings.addCategory("@settings.ironworks.category.name", icon, st -> {
+                // —— 难度协议（独立子入口） ——
+                custom(st, t -> {
+                    Table row = new Table();
+                    row.left();
+                    row.add(Core.bundle.get("ironworks.difficulty.entry", "难度协议")).left().padRight(12f);
+                    row.button("", Styles.defaultt, IronworksDifficultyDialog::show)
+                        .width(150f)
+                        .update(b -> b.setText(Difficulty.tierName(Difficulty.tier())));
+                    t.add(row).left().padTop(4f);
+                });
+
+                custom(st, t -> t.image(Tex.whiteui).growX().height(2f)
+                    .color(Pal.gray).padTop(8f).padBottom(8f));
+
                 // —— 多人暂停 ——
                 st.sliderPref("ironworks.pause.mode", 0, 0, 2, 1,
                     i -> Core.bundle.get("setting.ironworks.pause.mode.value." + i, String.valueOf(i)),

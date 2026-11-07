@@ -1,5 +1,6 @@
 package ironworks.multicraft;
 
+import ironworks.Difficulty;
 import arc.Core;
 import arc.graphics.g2d.TextureRegion;
 import arc.scene.ui.Image;
@@ -240,7 +241,7 @@ public class MultiCrafter extends Block{
         public void updateTile(){
             if(efficiency > 0f){
                 // 与原版一致：进度按效率缩放，缺料/缺电时会变慢而不是照常推进
-                progress += edelta() * Math.min(efficiency, 1f) / Math.max(recipe().craftTime, 1f);
+                progress += edelta() * Math.min(efficiency, 1f) * Difficulty.productionMultiplier() / Math.max(recipe().craftTime, 1f);
                 warmup = Mathf.approachDelta(warmup, 1f, warmupSpeed);
             }else{
                 warmup = Mathf.approachDelta(warmup, 0f, warmupSpeed);

@@ -302,7 +302,70 @@ public class IronworksTech{
         node(asm, IronworksTurrets.piercer, with(IronworksItems.steelPlate, 250, Items.titanium, 400, Items.silicon, 300));
         node(asm, IronworksRadar.radar,
             with(IronworksSilicon.quantumCore, 2, IronworksMaterials.siliconCarbide, 30, Items.silicon, 200, Items.metaglass, 120));
-        node(asm, IronworksBlocks.steelWall, with(IronworksItems.steelPlate, 100, Items.copper, 200));
+        TechNode wallNode = node(asm, IronworksBlocks.steelWall,
+            with(IronworksItems.steelPlate, 100, Items.copper, 200));
+        node(wallNode, IronworksBlocks.steelWallLarge,
+            with(IronworksItems.steelPlate, 400, Items.copper, 800));
+
+        // 基础板材墙：铜/铁/铝/钛/巨浪合金板，及各自 4 倍成本的 2×2 版本
+        TechNode copperPlateWallNode = node(wallNode, IronworksBlocks.copperPlateWall,
+            with(IronworksMaterials.copperPlate, 80, Items.copper, 120));
+        node(copperPlateWallNode, IronworksBlocks.copperPlateWallLarge,
+            with(IronworksMaterials.copperPlate, 320, Items.copper, 480));
+
+        TechNode ironPlateWallNode = node(wallNode, IronworksBlocks.ironPlateWall,
+            with(IronworksMaterials.ironPlate, 100, Items.copper, 150));
+        node(ironPlateWallNode, IronworksBlocks.ironPlateWallLarge,
+            with(IronworksMaterials.ironPlate, 400, Items.copper, 600));
+
+        TechNode aluminumPlateWallNode = node(wallNode, IronworksBlocks.aluminumPlateWall,
+            with(IronworksAluminum.aluminumSheet, 80, IronworksItems.steelPlate, 60));
+        node(aluminumPlateWallNode, IronworksBlocks.aluminumPlateWallLarge,
+            with(IronworksAluminum.aluminumSheet, 320, IronworksItems.steelPlate, 240));
+
+        TechNode titaniumPlateWallNode = node(wallNode, IronworksBlocks.titaniumPlateWall,
+            with(IronworksMaterials.titaniumPlate, 120, IronworksItems.steelPlate, 80));
+        node(titaniumPlateWallNode, IronworksBlocks.titaniumPlateWallLarge,
+            with(IronworksMaterials.titaniumPlate, 480, IronworksItems.steelPlate, 320));
+
+        TechNode surgePlateWallNode = node(wallNode, IronworksBlocks.surgePlateWall,
+            with(Items.surgeAlloy, 40, IronworksItems.steelPlate, 100));
+        node(surgePlateWallNode, IronworksBlocks.surgePlateWallLarge,
+            with(Items.surgeAlloy, 160, IronworksItems.steelPlate, 400));
+
+        TechNode graphiteNode = node(wallNode, IronworksBlocks.graphiteWall,
+            with(Items.graphite, 80, Items.copper, 120));
+        node(graphiteNode, IronworksBlocks.graphiteWallLarge,
+            with(Items.graphite, 320, Items.copper, 480));
+
+        TechNode leadNode = node(wallNode, IronworksBlocks.leadWall,
+            with(IronworksMaterials.leadPlate, 80, IronworksItems.steelPlate, 40));
+        node(leadNode, IronworksBlocks.leadWallLarge,
+            with(IronworksMaterials.leadPlate, 320, IronworksItems.steelPlate, 160));
+
+        // 陶瓷是中期通用元素墙；复合/相位/钨作为它的下游，
+        // 避免最高级墙体在钢板墙节点就直接暴露。
+        TechNode ceramicNode = node(wallNode, IronworksBlocks.ceramicWall,
+            with(IronworksMaterials.siliconCarbide, 80, Items.metaglass, 80, Items.graphite, 50));
+        node(ceramicNode, IronworksBlocks.ceramicWallLarge,
+            with(IronworksMaterials.siliconCarbide, 320, Items.metaglass, 320, Items.graphite, 200));
+
+        TechNode compositeNode = node(ceramicNode, IronworksBlocks.compositeWall,
+            with(IronworksItems.steelPlate, 150, IronworksMaterials.siliconCarbide, 100,
+                 IronworksAluminum.aluminumSheet, 60));
+        node(compositeNode, IronworksBlocks.compositeWallLarge,
+            with(IronworksItems.steelPlate, 600, IronworksMaterials.siliconCarbide, 400,
+                 IronworksAluminum.aluminumSheet, 240));
+
+        TechNode phaseNode = node(ceramicNode, IronworksBlocks.phaseWall,
+            with(Items.phaseFabric, 20, Items.silicon, 150, IronworksItems.steelPlate, 80));
+        node(phaseNode, IronworksBlocks.phaseWallLarge,
+            with(Items.phaseFabric, 80, Items.silicon, 600, IronworksItems.steelPlate, 320));
+
+        TechNode tungstenNode = node(ceramicNode, IronworksBlocks.tungstenWall,
+            with(Items.tungsten, 120, IronworksItems.steelPlate, 100));
+        node(tungstenNode, IronworksBlocks.tungstenWallLarge,
+            with(Items.tungsten, 480, IronworksItems.steelPlate, 400));
 
         // 大口径炮弹组装室 + 迫击炮
         TechNode shellAsm = node(asm, IronworksShells.shellAssembly,

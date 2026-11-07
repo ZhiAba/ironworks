@@ -62,6 +62,7 @@ public class IronworksMod extends Mod{
      */
     @Override
     public void init(){
+        Difficulty.init();       // 全局难度协议（T0-T7）
         IronworksBlockSearch.init(); // 建造菜单里的方块搜索（名称匹配，不带拼音表）
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁
@@ -72,6 +73,7 @@ public class IronworksMod extends Mod{
         IronworksFissionFx.init();         // 预加载二次爆燃重低音
         IronworksRbmkWindow.init();     // RBMK 黑色半透明弹出控制台
         IronworksSidebar.init();      // 左侧长条：点击打开日志
+        IronworksCampaignDifficulty.init(); // 战役星球界面的 T0-T7 难度页
         IronworksSettings.init();    // 设置 → 铁流工业
         IronworksDamageUI.init();    // 详情页弹药属性着色
     }

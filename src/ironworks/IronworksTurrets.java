@@ -40,7 +40,9 @@ public class IronworksTurrets{
         heavyBullet = new TypedBasicBulletType(DamageType.physical, 3.5f, 50){{
             width = 9f; height = 11f; lifetime = 38f;
             ammoMultiplier = 2f;
-            reloadMultiplier = 1.5f;   // 重弹头：更慢
+            // reloadMultiplier 是装填速度倍率，不是装填时间倍率；
+            // 重弹头必须 <1 才会更慢，之前写成 1.5 实际变成了 1.5 倍射速。
+            reloadMultiplier = 0.7f;   // 重弹头：更慢
             knockback = 3f;
             hitEffect = despawnEffect = Fx.hitBulletColor;
             hitColor = backColor = trailColor = c("787c84");

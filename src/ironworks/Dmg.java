@@ -237,8 +237,12 @@ public class Dmg{
         float armor = armorOf(target);
 
         // 2. 跳弹：护甲超过白值才按概率触发；能量形态不吃跳弹。
+        //    高难度对敌方目标追加跳弹系数（T2 起，T6 +0.05），封顶仍是 90%。
         if(allowExtremes && !f.bypassShields){
             lastRicochetChance = p.ricochetChance(armor);
+            if(Difficulty.isEnemyTarget(target)){
+                lastRicochetChance = Math.min(ArmorPen.maxRicochet, lastRicochetChance + Difficulty.ricochetBonus());
+            }
             if(lastRicochetChance > 0f){
                 float roll = ricochetRoll >= 0f ? ricochetRoll : Mathf.random();
                 if(roll < lastRicochetChance){
@@ -249,8 +253,10 @@ public class Dmg{
             }
         }
 
-        // 3. 过穿：动能形态且白值 >= 当前护甲 × 2；按动态保留率结算，跳过抗性/Combo/附着。
-        if(allowExtremes && f.kinetic && p.canOverpen(armor)){
+        // 3. 过穿：仅动能形态、仅单位目标、且白值 >= 当前护甲 × 2。
+        //    建筑是固定结构，弹丸命中即把能量交给墙体，不应像穿透薄皮单位那样只留 10%。
+        //    否则 0 甲墙（石墨/相位）反而对动能武器近乎免疫，和设计定位相反。
+        if(allowExtremes && f.kinetic && target instanceof Unit && p.canOverpen(armor)){
             lastOverpen = true;
             lastOverpenKeepRate = p.overpenKeepRate(armor);
             float dealt = incoming * lastOverpenKeepRate;
@@ -371,20 +377,34 @@ public class Dmg{
         return amount;
     }
 
-    /** 基础护甲（不含永久腐蚀）。 */
+    /** 基础护甲（不含永久腐蚀）。难度协议会把敌方护甲上浮、我方建筑护甲压成负数。 */
     public static float baseArmorOf(Healthc target){
         if(target instanceof Unit unit){
-            return Math.max(0f, unit.armorOverride() >= 0f ? unit.armorOverride() : unit.armor());
+            float armor = unit.armorOverride() >= 0f ? unit.armorOverride() : unit.armor();
+            if(Difficulty.isEnemyTarget(unit)) armor += Difficulty.enemyArmorBonus();
+            return armor;
         }
         if(target instanceof Building build && build.block != null){
-            return Math.max(0f, build.block.armor);
+            float armor = build.block.armor;
+            if(Difficulty.isPlayerTeam(build.team)){
+                armor += Difficulty.playerBlockArmorModifier();
+            }else if(Difficulty.isEnemyTarget(build)){
+                armor += Difficulty.enemyArmorBonus();
+            }
+            return armor;
         }
         return 0f;
     }
 
-    /** 当前有效护甲：基础护甲扣除永久腐蚀。 */
+    /** 当前有效护甲：基础护甲扣除永久腐蚀；只有难度造成的负建筑护甲保留负号。 */
     public static float armorOf(Healthc target){
-        return Math.max(0f, baseArmorOf(target) - Corrosion.reduction(target));
+        float base = baseArmorOf(target);
+        float armor = base - Corrosion.reduction(target);
+        // 普通腐蚀仍按旧规则钳到 0；只有我方建筑的难度负护甲允许进入易伤区。
+        if(base < 0f && target instanceof Building build && Difficulty.isPlayerTeam(build.team)){
+            return armor;
+        }
+        return Math.max(0f, armor);
     }
 
     /** 范围属性伤害：逐目标结算护甲/Combo，而不是用原版统一 armorMult。 */
@@ -431,6 +451,41 @@ public class Dmg{
                 float scaled = scaled(amount, b.dst(x, y), rr);
                 hit(b, scaled, t, true, showNumbers, p, false, f);
             });
+        }
+    }
+
+    /**
+     * 带目标过滤的范围伤害。用于迫击炮盲区：爆炸中心在盲区外时，
+     * 溅射仍可能覆盖盲区边缘，此时必须跳过盲区内的目标。
+     */
+    public static void areaFiltered(Team team, float x, float y, float radius, float amount, DamageType type,
+                                    boolean complete, boolean showNumbers, ArmorPen pen, DamageForm form,
+                                    arc.func.Boolf<Healthc> filter){
+        DamageType t = type == null ? DamageType.physical : type;
+        ArmorPen p = pen == null ? t.pen : pen;
+        DamageForm f = form == null ? t.defaultForm : form;
+        if(amount <= 0f || radius < 0f) return;
+
+        float rr = radius <= 0.00001f ? 0f : radius;
+        arc.func.Cons<Unit> unitHit = u -> {
+            if(filter != null && !filter.get(u)) return;
+            if(!u.hittable() || u.dead() || !u.within(x, y, radius + u.hitSize / 2f)) return;
+            float scaled = scaled(amount, u.dst(x, y) - u.hitSize / 2f, rr);
+            hit(u, scaled, t, true, showNumbers, p, false, f);
+        };
+        if(team == null){
+            Units.nearby(null, x, y, radius, unitHit);
+        }else{
+            Units.nearbyEnemies(team, x, y, radius, unitHit);
+        }
+
+        if(Vars.indexer != null){
+            Vars.indexer.eachBlock(null, x, y, radius,
+                b -> b != null && !b.dead() && (team == null || b.team != team) && (filter == null || filter.get(b)),
+                b -> {
+                    float scaled = scaled(amount, b.dst(x, y), rr);
+                    hit(b, scaled, t, true, showNumbers, p, false, f);
+                });
         }
     }
 

@@ -1,22 +1,25 @@
-# 铁流工业 v2.1.0.0 注册实体全量清单
+# 铁流工业 v3.3.3.0 注册实体全量清单
 
 运行时统计（`Vars.content` 中 `minfo.mod != null` 的内容，无头端 160.3 实测）：
 
 | 类型 | 数量 |
 |---|---|
 | 物品 | 73 |
-| 液体 | 18 |
-| 方块 | 85 |
+| 液体 | 19 |
+| 方块 | 115 |
 | 状态效果 | 9 |
 | 单位 | 0 |
 
-**合计 160 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
+**合计 216 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
 
 ## 方块
 
 | 分组 | 数量 | 内容 |
 |---|---|---|
-| 钢铁/冶炼 | 7 | `separator` 磁选机<br>`reducer` 氢还原炉<br>`blast-furnace` 高炉<br>`converter` 转炉<br>`caster` 连铸机<br>`arc-furnace` 电弧炉<br>`steel-wall` 钢墙 |
+| 钢铁/冶炼 | 7 | `separator` 磁选机<br>`reducer` 氢还原炉<br>`blast-furnace` 高炉<br>`converter` 转炉<br>`caster` 连铸机<br>`arc-furnace` 电弧炉<br>`steel-wall` 钢板墙 |
+| 基础板材墙（v3.3.3.0） | 5 | `copper-plate-wall` 铜板墙<br>`iron-plate-wall` 铁板墙<br>`aluminum-plate-wall` 铝板墙<br>`titanium-plate-wall` 钛板墙<br>`surge-plate-wall` 巨浪合金板材墙 |
+| 元素/复合墙（v3.3.3.0） | 6 | `graphite-wall` 石墨耐火墙<br>`lead-wall` 铅衬防蚀墙<br>`ceramic-wall` 陶瓷复合墙<br>`composite-wall` 复合装甲墙<br>`phase-wall` 相位屏障墙<br>`tungsten-wall` 钨合金墙 |
+| 2×2 大型墙（v3.3.3.0） | 12 | `steel-wall-large` 大型钢板墙<br>`copper-plate-wall-large` 大型铜板墙<br>`iron-plate-wall-large` 大型铁板墙<br>`aluminum-plate-wall-large` 大型铝板墙<br>`titanium-plate-wall-large` 大型钛板墙<br>`surge-plate-wall-large` 大型巨浪合金板材墙<br>`graphite-wall-large` 大型石墨耐火墙<br>`lead-wall-large` 大型铅衬防蚀墙<br>`ceramic-wall-large` 大型陶瓷复合墙<br>`composite-wall-large` 大型复合装甲墙<br>`phase-wall-large` 大型相位屏障墙<br>`tungsten-wall-large` 大型钨合金墙 |
 | 化工 | 7 | `electrolysis-plant` 电解车间<br>`air-separator` 空气分离机<br>`desulfurizer` 脱硫塔<br>`acid-plant` 制酸车间<br>`powder-mixer` 火药混合机<br>`precious-leach` 贵金属浸出车间<br>`chip-fab` 芯片车间 |
 | 石油化工 | 2 | `refinery` 炼油厂<br>`polymer-works` 聚合车间 |
 | 原版替代厂 | 8 | `silicon-furnace` 硅晶炉<br>`glass-kiln` 玻璃窑<br>`graphitizer` 石墨化炉<br>`polymerizer` 聚合釜<br>`phase-weaver` 相织机<br>`alloy-furnace` 合金炉<br>`pyro-works` 火工车间<br>`scrap-works` 废料分选厂 |
@@ -32,6 +35,8 @@
 | 跃迁（0.64.0） | 2 | `mct-item-node` 物品跃迁节点 1×1<br>`mct-liquid-node` 液体跃迁节点 1×1 |
 | 调试 | 2 | `liquid-monitor` 液体计量器<br>`verbose-logger` 全量日志器 |
 | 矿脉/环境 | 2 | `iron-ore` 铁矿脉<br>`bauxite-ore` 铝土矿脉 |
+
+墙体（12 面小墙 + 12 面 2×2 大型墙）的数值、抗性、优缺点、原版对标与炮塔克制见 [`WALLS.md`](WALLS.md)。
 
 隐藏方块（链接块）不出现在建造菜单，只由主块自动生成：拆除/被毁时连带清除，读档按相对坐标重新绑定。
 

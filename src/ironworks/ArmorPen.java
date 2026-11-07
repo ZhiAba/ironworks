@@ -67,15 +67,17 @@ public final class ArmorPen{
         return Mathf.clamp(rate - decay * over * over, 0f, rate);
     }
 
-    /** 穿透后仍然生效的护甲值 A_eff。 */
+    /** 穿透后仍然生效的护甲值 A_eff；负护甲保留负号，变成易伤。 */
     public float effectiveArmor(float armor){
-        return Math.max(0f, armor) * (1f - effective(armor));
+        return armor * (1f - effective(armor));
     }
 
-    /** 百分比减伤率 A_eff / (A_eff + K)。 */
+    /** 百分比减伤率 A_eff / (A_eff + K)；负护甲时为负，即伤害放大。 */
     public float armorReduction(float armor){
         float eff = effectiveArmor(armor);
-        return eff / (eff + armorConstant);
+        float reduction = eff / (eff + armorConstant);
+        // 极端负护甲兜底，避免分母穿零；正常难度最多到 -20 左右。
+        return Math.max(-0.50f, reduction);
     }
 
     /** 护甲过滤后的伤害（不含抗性/Combo/保底）。 */

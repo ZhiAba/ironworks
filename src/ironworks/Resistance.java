@@ -75,16 +75,21 @@ public final class Resistance{
 
     /** 图鉴文案；没有登记时显示“无”。 */
     public static String summary(UnitType type){
-        if(type == null) return Core.bundle.get("ironworks.combat.no-resistance", "无");
+        return type == null ? Core.bundle.get("ironworks.combat.no-resistance", "无") : summary(type.name);
+    }
+
+    /** 按内容名（单位/方块）生成抗性文案。 */
+    public static String summary(String key){
+        if(key == null) return Core.bundle.get("ironworks.combat.no-resistance", "无");
         StringBuilder sb = new StringBuilder();
         for(DamageType element : DamageType.values()){
-            float value = element(type, element);
+            float value = element(key, element);
             if(value <= 0.0001f) continue;
             if(sb.length() > 0) sb.append(" / ");
             sb.append(element.localizedName()).append(" ")
                 .append(Math.round(value * 100f)).append("%");
         }
-        float energyValue = energy(type);
+        float energyValue = energy(key);
         if(energyValue > 0.0001f){
             if(sb.length() > 0) sb.append(" / ");
             sb.append(Core.bundle.get("ironworks.combat.energy-resistance", "能量"))

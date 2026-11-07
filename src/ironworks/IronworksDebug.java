@@ -193,8 +193,8 @@ public class IronworksDebug{
             wallTile.setBlock(Blocks.thoriumWall, Team.crux);
             Building wall = wallTile.build;
             float wallBefore = wall.health;
-            Dmg.hit(wall, 50f, DamageType.physical, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), false, DamageForm.KINETIC);
-            building = wall.health < wallBefore;
+            Dmg.hit(wall, 50f, DamageType.physical, false, false, new ArmorPen(0.50f, 20f, 0.30f, 0f), true, DamageForm.KINETIC);
+            building = wall.health < wallBefore && !Dmg.lastOverpen;
             wallTile.setBlock(Blocks.air, Team.derelict);
         }
 

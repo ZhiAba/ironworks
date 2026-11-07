@@ -2,7 +2,11 @@ package ironworks;
 
 import arc.math.Mathf;
 import arc.struct.Seq;
+import mindustry.entities.Mover;
 import mindustry.entities.Units;
+import mindustry.entities.bullet.BulletType;
+import mindustry.graphics.Drawf;
+import mindustry.graphics.Pal;
 import mindustry.gen.Building;
 import mindustry.gen.Posc;
 import mindustry.gen.TimedKillc;
@@ -25,6 +29,43 @@ public class MortarTurret extends CoolantTurret{
     public class MortarBuild extends CoolantTurretBuild{
         private final Seq<Posc> candidates = new Seq<>();
         private final Seq<Posc> nearby = new Seq<>();
+
+        @Override
+        public void drawSelect(){
+            // 原版 TurretBuild 用 team.color 画盲区圈，玩家阵营下是红色，和“危险/不可攻击”语义冲突。
+            // 外圈保持阵营色；盲区固定用黄色，和建造预览的黄圈一致。
+            Drawf.dashCircle(x, y, range(), team.color);
+            if(drawMinRange){
+                Drawf.dashCircle(x, y, minRange(), Pal.accent);
+            }
+        }
+
+        private boolean aimInDeadZone(){
+            return Mathf.dst(x, y, targetPos.x, targetPos.y) < minRange();
+        }
+
+        @Override
+        protected void updateShooting(){
+            if(aimInDeadZone()) return;
+            super.updateShooting();
+        }
+
+        @Override
+        protected void shoot(BulletType type){
+            if(aimInDeadZone()) return;
+            super.shoot(type);
+        }
+
+        @Override
+        protected void bullet(BulletType type, float xOffset, float yOffset, float angleOffset, Mover mover){
+            // 已经排队的延迟弹（firstShotDelay/连发）也要在真正出膛前再检查一次，
+            // 否则瞄准点在这几 tick 内进入盲区仍会打出去。
+            if(aimInDeadZone()){
+                queuedBullets--;
+                return;
+            }
+            super.bullet(type, xOffset, yOffset, angleOffset, mover);
+        }
 
         @Override
         protected Posc findEnemy(float range){

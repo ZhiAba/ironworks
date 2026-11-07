@@ -1,10 +1,17 @@
 package ironworks;
 
+import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
+import arc.math.Mathf;
+import arc.util.Tmp;
+import mindustry.entities.Effect;
 import mindustry.entities.bullet.*;
 import mindustry.gen.Bullet;
 import mindustry.gen.Hitboxc;
 import mindustry.content.Fx;
 import mindustry.content.StatusEffects;
+import mindustry.graphics.Drawf;
+import mindustry.graphics.Layer;
 import mindustry.type.Liquid;
 
 /**
@@ -44,6 +51,107 @@ class TypedArtilleryBulletType extends ArtilleryBulletType implements TypedBulle
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
     @Override public void createSplashDamage(Bullet b, float x, float y){
         Dmg.splash(this, b, x, y, dtype, () -> super.createSplashDamage(b, x, y));
+    }
+}
+
+/** 迫击炮专用炮弹：盲区内不结算伤害，并绘制 2D 伪 3D 抛物线。 */
+class MortarShellBulletType extends TypedArtilleryBulletType{
+    /** 抛物线最高点相对真实弹道的屏幕高度（世界单位）。 */
+    public float arcHeight = 44f;
+
+    MortarShellBulletType(DamageType dtype, float speed, float damage){
+        super(dtype, speed, damage);
+    }
+
+    @Override public void hit(Bullet b, float x, float y, boolean createFrags){
+        if(MortarDeadZone.inside(b, x, y)){
+            // 盲区内只播放命中反馈，不生成破片/溅射/状态；否则近距离手动弹仍能造成伤害。
+            hitEffect.at(x, y, b.rotation(), hitColor);
+            if(hitSound != null) hitSound.at(x, y, hitSoundPitch + Mathf.range(hitSoundPitchRange), hitSoundVolume);
+            if(hitShake > 0f) Effect.shake(hitShake, hitShake, b);
+            return;
+        }
+        super.hit(b, x, y, createFrags);
+    }
+
+    @Override public void createSplashDamage(Bullet b, float x, float y){
+        MortarTurret.MortarBuild owner = MortarDeadZone.owner(b);
+        float damage = splashDamage;
+
+        // 先让 TypedArtillery 的 vanilla 通道处理状态/点燃/溅射特效，但不让它再打一次范围伤害。
+        splashDamage = 0f;
+        try{
+            super.createSplashDamage(b, x, y);
+        }finally{
+            splashDamage = damage;
+        }
+
+        if(damage <= 0f || b.absorbed) return;
+
+        if(owner == null){
+            Dmg.area(b.team, x, y, splashDamageRadius, damage * b.damageMultiplier(), dtype, false, true,
+                Dmg.penOf(this), Dmg.formOf(this));
+            return;
+        }
+
+        float min = owner.minRange();
+        Dmg.areaFiltered(b.team, x, y, splashDamageRadius, damage * b.damageMultiplier(), dtype, false, true,
+            Dmg.penOf(this), Dmg.formOf(this),
+            target -> Mathf.dst(owner.x, owner.y, target.getX(), target.getY()) >= min);
+    }
+
+    @Override public void draw(Bullet b){
+        float z = Draw.z();
+
+        // 地面拖尾和影子留在真实弹道位置；弹体本身按抛物线高度抬起。
+        drawTrail(b);
+        float fin = Mathf.clamp(b.fin());
+        float lift = Mathf.sin(fin * Mathf.pi) * arcHeight;
+
+        Drawf.shadow(b.x, b.y, width * 0.72f, 0.30f);
+
+        float shrink = shrinkInterp.apply(1f - fin);
+        float drawWidth = width * ((1f - shrinkX) + shrinkX * shrink);
+        float drawHeight = height * ((1f - shrinkY) + shrinkY * shrink);
+        float offset = -90f + (spin != 0f ? Mathf.randomSeed(b.id, 360f) + b.time * spin : 0f) + rotationOffset;
+        Color mix = Tmp.c1.set(mixColorFrom).lerp(mixColorTo, fin);
+        Draw.mixcol(mix, mix.a);
+        Draw.z(Layer.bullet);
+
+        if(backRegion != null && backRegion.found()){
+            Draw.color(backColor);
+            Draw.rect(backRegion, b.x, b.y + lift, drawWidth, drawHeight, b.rotation() + offset);
+        }
+        if(frontRegion != null && frontRegion.found()){
+            Draw.color(frontColor);
+            Draw.rect(frontRegion, b.x, b.y + lift, drawWidth, drawHeight, b.rotation() + offset);
+        }
+
+        Draw.reset();
+        Draw.z(z);
+    }
+}
+
+/** 迫击炮破片也遵守盲区：爆炸中心在盲区外时，飞进盲区的破片不能造成伤害。 */
+class MortarFragBulletType extends TypedBasicBulletType{
+    MortarFragBulletType(DamageType dtype, float speed, float damage){
+        super(dtype, speed, damage);
+    }
+
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){
+        if(MortarDeadZone.inside(b, entity.getX(), entity.getY())) return;
+        super.hitEntity(b, entity, health);
+    }
+}
+
+final class MortarDeadZone{
+    static MortarTurret.MortarBuild owner(Bullet b){
+        return b.owner instanceof MortarTurret.MortarBuild build ? build : null;
+    }
+
+    static boolean inside(Bullet b, float x, float y){
+        MortarTurret.MortarBuild owner = owner(b);
+        return owner != null && Mathf.dst(owner.x, owner.y, x, y) < owner.minRange();
     }
 }
 
