@@ -5,6 +5,7 @@ import arc.Events;
 import arc.graphics.Color;
 import arc.math.Mathf;
 import arc.struct.ObjectIntMap;
+import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.Log;
 import mindustry.Vars;
@@ -15,8 +16,12 @@ import mindustry.gen.Healthc;
 import mindustry.gen.Unit;
 import mindustry.type.Item;
 import mindustry.type.ItemStack;
+import mindustry.ctype.UnlockableContent;
 import mindustry.type.Planet;
 import mindustry.type.Sector;
+import mindustry.type.UnitType;
+import mindustry.world.Block;
+import mindustry.world.blocks.defense.turrets.Turret;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 
 import static mindustry.Vars.*;
@@ -67,22 +72,74 @@ public final class Difficulty{
     public static final String MOD_JERRY = "jerry-build";
     public static final String MOD_SCARCITY = "scarcity";
     public static final String MOD_HEAVY = "heavy-industry";
-    public static final String[] modIds = {MOD_FORCED, MOD_JERRY, MOD_SCARCITY, MOD_HEAVY};
-    /** 每个词条最多 III 级；不同等级可以同时启用，效果按已启用等级相加。 */
-    public static final int maxModifierLevel = 3;
+    public static final String MOD_ENEMY_ARMOR = "enemy-armor";
+    public static final String MOD_PRECISION = "precision-ammo";
+    public static final String MOD_LOW_ACCURACY = "low-accuracy";
+    public static final String MOD_ELITE = "elite-units";
+    public static final String MOD_RAID = "raid-offense";
+    public static final String MOD_GROUP = "group-offense";
+    public static final String[] modIds = {
+        MOD_FORCED, MOD_JERRY, MOD_SCARCITY, MOD_HEAVY,
+        MOD_ENEMY_ARMOR, MOD_PRECISION, MOD_LOW_ACCURACY,
+        MOD_ELITE, MOD_RAID, MOD_GROUP
+    };
+    /** 全局最多 IV 级；不同词条的实际上限由 {@link #modifierMaxLevel(String)} 决定。 */
+    public static final int maxModifierLevel = 4;
 
-    // 每级数值不相等，随等级提升而增大；例如资源匮乏 I/II/III = 15%/30%/50%。
+    // 旧词条：每级数值不相等，随等级提升而增大。
     private static final float[] forcedLossLevels = {0.20f, 0.35f, 0.50f};
     private static final float[] jerryHealthLevels = {0.06f, 0.15f, 0.26f};
     private static final float[] jerryArmorLevels = {1.0f, 2.5f, 4.5f};
     private static final float[] jerryBuildLevels = {0.08f, 0.18f, 0.30f};
-    private static final float[] scarcityPenaltyLevels = {0.15f, 0.30f, 0.50f};
-    private static final float[] scarcityRefundLevels = {0.05f, 0.10f, 0.20f};
     private static final float[] heavyCostLevels = {0.25f, 0.60f, 1.00f};
     private static final float[] heavyStatLevels = {0.10f, 0.25f, 0.40f};
 
+    // 资源匮乏：绝对值扣除，四级全开时 0.05+0.10+0.15+0.30 = 0.60。
+    private static final float[] scarcityPenaltyLevels = {0.05f, 0.10f, 0.15f, 0.30f};
+    private static final float[] scarcityEnemyRefundLevels = {0.05f, 0.10f, 0.15f, 0.30f};
+    private static final float[] scarcityPlayerRefundLevels = {0.05f, 0.05f, 0.10f, 0.20f};
+    private static final float recoveryConversion = 0.70f;
+
+    // 敌方精良装甲：护甲/穿甲抵抗是惩罚，减速和跳弹疲劳是可用“关闭收益”移除的补偿。
+    private static final float[] enemyArmorAddLevels = {5f, 10f, 17f, 26f};
+    private static final float[] enemySpeedSlowLevels = {0.03f, 0.05f, 0.08f, 0.12f};
+    private static final float[] enemyPenResistLevels = {0.04f, 0.07f, 0.11f, 0.17f};
+    private static final int[] fatigueThresholds = {1, 2, 4, 6, 8, 10};
+    private static final float[] fatiguePercentLevels = {0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f};
+
+    // 精尖弹药：消耗/射速是惩罚，伤害/穿甲/穿透是收益。
+    private static final float[] precisionAmmoLevels = {0.15f, 0.30f, 0.50f, 0.75f};
+    private static final float[] precisionRateLevels = {0.08f, 0.16f, 0.25f, 0.38f};
+    private static final float[] precisionDamageLevels = {0.12f, 0.25f, 0.40f, 0.60f};
+    private static final float[] precisionPenRateLevels = {0.04f, 0.08f, 0.13f, 0.20f};
+    private static final float[] precisionPenFlatLevels = {0.10f, 0.20f, 0.32f, 0.50f};
+
+    // 低精度射击：误差是惩罚，射速是收益。
+    private static final float[] lowAccuracyDegrees = {4f, 8f, 14f};
+    private static final float[] lowAccuracyRateLevels = {0.10f, 0.22f, 0.38f};
+
+    // 精锐部队：属性是惩罚，波次减量是收益。
+    private static final float[] eliteHealthLevels = {0.15f, 0.30f};
+    private static final float[] eliteDamageLevels = {0.12f, 0.25f};
+    private static final float[] eliteArmorLevels = {8f, 18f};
+    private static final float[] eliteResistanceLevels = {0.08f, 0.16f};
+    private static final float[] eliteWaveReductionLevels = {0.08f, 0.15f};
+
+    // 袭击式/团体式：数量与间隔按加法合并。
+    private static final float[] raidWaveReductionLevels = {0.05f, 0.15f, 0.20f};
+    private static final float[] raidSpacingReductionLevels = {0.10f, 0.20f, 0.30f};
+    private static final float[] groupWaveIncreaseLevels = {0.15f, 0.25f, 0.35f};
+    private static final float[] groupSpacingIncreaseLevels = {0.10f, 0.15f, 0.20f};
+
     private static int tier;
     private static final ObjectIntMap<String> modifiers = new ObjectIntMap<>();
+    /** 按 modIds 下标的收益关闭位图。 */
+    private static int benefitDisabledMask;
+    private static boolean benefitControlsVisible;
+    /** 记录开局拆除返还倍率，供关闭词条收益时恢复。 */
+    private static float baseDeconstructRefund = -1f;
+    private static final ObjectSet<mindustry.world.Tile> deconstructing = new ObjectSet<>();
+    private static final ObjectIntMap<Healthc> armorFatigue = new ObjectIntMap<>();
     private static float baseWaveSpacing = -1f, baseInitialWaveSpacing = -1f;
     private static Object rulesRef;
     private static boolean initialized;
@@ -97,14 +154,27 @@ public final class Difficulty{
 
         Events.on(EventType.WorldLoadEvent.class, e -> onWorldLoad());
         Events.on(EventType.WorldLoadEndEvent.class, e -> onWorldLoadEnd());
+        Events.on(EventType.UnitCreateEvent.class, e -> onUnitCreate(e.unit));
+        Events.on(EventType.UnitSpawnEvent.class, e -> onUnitCreate(e.unit));
         Events.on(EventType.UnitDestroyEvent.class, e -> onUnitDestroy(e.unit));
+        Events.on(EventType.BlockBuildEndEvent.class, e -> {
+            if(e.breaking){
+                deconstructing.add(e.tile);
+                convertDeconstruct(e.tile);
+            }
+        });
+        Events.on(EventType.BlockDestroyEvent.class, e -> onBlockDestroy(e.tile));
         // 无头/服务器可能在 mod init 之前就完成 world load；用 update 兜底，
         // 只在 rules 实例变化时应用一次，不会每帧重算。
         Events.run(EventType.Trigger.update, Difficulty::ensureApplied);
         Events.on(EventType.ResetEvent.class, e -> {
             rulesRef = null;
             baseWaveSpacing = baseInitialWaveSpacing = -1f;
+            baseDeconstructRefund = -1f;
+            armorFatigue.clear();
+            deconstructing.clear();
         });
+        IronworksTurretStats.apply();
     }
 
     // ────────────────────────── 对外查询 ──────────────────────────
@@ -117,30 +187,64 @@ public final class Difficulty{
     }
     public static Color tierColor(int value){ return tierColors[clampTier(value)]; }
 
-    public static float enemyHealthMul(){ return enemyHealth[tier]; }
-    public static float enemyDamageMul(){ return enemyDamage[tier]; }
-    public static float enemyArmorBonus(){ return enemyArmorBonus[tier]; }
-    public static float ricochetBonus(){ return ricochetBonus[tier]; }
-    public static float productionMultiplier(){
-        float value = production[tier];
-        if(tier == maxTier) value *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        // 主人指定的防死锁底线：产能/资源惩罚不低过 0.80。
-        return Math.max(0.80f, value);
+    public static float enemyHealthMul(){
+        float value = enemyHealth[tier];
+        if(tier == maxTier) value += modifierSum(MOD_ELITE, eliteHealthLevels);
+        return value;
     }
 
-    /**
-     * 资源/采掘倍率：T7 资源匮乏可把钻机/单位采矿压到 0.50。
-     * MultiCrafter 的产能仍单独遵守 0.80 底线。
-     */
+    public static float enemyDamageMul(){
+        float value = enemyDamage[tier];
+        if(tier == maxTier) value += modifierSum(MOD_ELITE, eliteDamageLevels);
+        return value;
+    }
+
+    public static float enemyArmorBonus(){
+        float value = enemyArmorBonus[tier];
+        if(tier == maxTier){
+            value += modifierSum(MOD_ENEMY_ARMOR, enemyArmorAddLevels);
+            value += modifierSum(MOD_ELITE, eliteArmorLevels);
+        }
+        return value;
+    }
+
+    public static float ricochetBonus(){ return ricochetBonus[tier]; }
+
+    /** 敌方元素抗性；精锐部队的“全元素抗性”是纯惩罚。 */
+    public static float enemyElementResistance(){
+        if(tier != maxTier) return 0f;
+        return Math.min(0.60f, modifierSum(MOD_ELITE, eliteResistanceLevels));
+    }
+
+    /** 敌方受到攻击时，穿透率被绝对值扣减；不作用于能量形态。 */
+    public static float enemyPenResistance(){
+        if(tier != maxTier) return 0f;
+        return Math.min(0.75f, modifierSum(MOD_ENEMY_ARMOR, enemyPenResistLevels));
+    }
+
+    /** 精良装甲的减速是收益，可用关闭收益移除。 */
+    public static float enemySpeedMultiplier(){
+        if(tier != maxTier || !benefitEnabled(MOD_ENEMY_ARMOR)) return 1f;
+        return Math.max(0.35f, 1f - modifierSum(MOD_ENEMY_ARMOR, enemySpeedSlowLevels));
+    }
+
+    public static float productionMultiplier(){
+        float value = production[tier];
+        if(tier == maxTier) value -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        // 资源匮乏 IV 全开时 T7: 0.80 - 0.60 = 0.20。
+        return Math.max(0.20f, value);
+    }
+
+    /** 采矿/钻机倍率；资源获取下限由旧 0.50 改为 0.20。 */
     public static float miningMultiplier(){
         float value = production[tier];
-        if(tier == maxTier) value *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        return Math.max(0.50f, value);
+        if(tier == maxTier) value -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        return Math.max(0.20f, value);
     }
 
     public static float buildSpeedMultiplier(){
         float value = playerBuildSpeed[tier];
-        if(tier == maxTier) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
+        if(tier == maxTier && benefitEnabled(MOD_JERRY)) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
         // 正向补偿有上限，避免“豆腐渣”叠加把建造速度刷成外挂。
         return Math.max(0.35f, Math.min(1.35f, value));
     }
@@ -162,16 +266,123 @@ public final class Difficulty{
     }
 
     public static float playerUnitStatMultiplier(){
-        return tier == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
+        return tier == maxTier && benefitEnabled(MOD_HEAVY) ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
     }
 
-    /** 击杀回收比例；T7 资源匮乏各级回收相加。 */
-    public static float killRefund(){
-        if(tier != maxTier) return 0f;
-        return Math.min(0.35f, modifierSum(MOD_SCARCITY, scarcityRefundLevels));
+    /** 敌方单位造价回收比例（资源匮乏）；关闭收益后为 0。 */
+    public static float enemyRefund(){
+        if(tier != maxTier || !benefitEnabled(MOD_SCARCITY)) return 0f;
+        return Math.min(0.60f, modifierSum(MOD_SCARCITY, scarcityEnemyRefundLevels));
     }
 
-    /** 迫降损失的开局资源比例；仅 T7 且本局尚未应用。 */
+    /** 我方单位造价回收比例（资源匮乏）；关闭收益后为 0。 */
+    public static float playerRefund(){
+        if(tier != maxTier || !benefitEnabled(MOD_SCARCITY)) return 0f;
+        return Math.min(0.40f, modifierSum(MOD_SCARCITY, scarcityPlayerRefundLevels));
+    }
+
+    /** 兼容旧调用：默认指敌方回收。 */
+    public static float killRefund(){ return enemyRefund(); }
+
+    /** 拆除全额返还是资源匮乏的收益，关闭后恢复原版倍率。 */
+    public static boolean fullDeconstructRefund(){
+        return tier == maxTier && modifierMask(MOD_SCARCITY) != 0 && benefitEnabled(MOD_SCARCITY);
+    }
+
+    /** 回收物资转化为上一级材料的比例；关闭收益后为 0。 */
+    public static float recoveryConversion(){
+        return tier == maxTier && modifierMask(MOD_SCARCITY) != 0 && benefitEnabled(MOD_SCARCITY) ? recoveryConversion : 0f;
+    }
+
+    /** 波次数量倍率：精英/袭击减量，团体增量，全部按加法合并。 */
+    public static float waveCountMultiplier(){
+        if(tier != maxTier) return 1f;
+        float value = 1f;
+        if(benefitEnabled(MOD_ELITE)) value -= modifierSum(MOD_ELITE, eliteWaveReductionLevels);
+        if(benefitEnabled(MOD_RAID)) value -= modifierSum(MOD_RAID, raidWaveReductionLevels);
+        value += modifierSum(MOD_GROUP, groupWaveIncreaseLevels);
+        return Math.max(0.10f, Math.min(5f, value));
+    }
+
+    /** 波次间隔：袭击缩短、团体延长，全部按加法合并。 */
+    public static float waveSpacingMultiplier(){
+        float value = waveSpacing[tier];
+        if(tier == maxTier){
+            float bonus = benefitEnabled(MOD_GROUP) ? modifierSum(MOD_GROUP, groupSpacingIncreaseLevels) : 0f;
+            float penalty = modifierSum(MOD_RAID, raidSpacingReductionLevels);
+            value *= Math.max(0.20f, Math.min(3f, 1f + bonus - penalty));
+        }
+        return value;
+    }
+
+    /** 炮塔每发弹药倍率（精尖弹药惩罚）。 */
+    public static float turretAmmoMultiplier(){
+        if(tier != maxTier) return 1f;
+        return 1f + modifierSum(MOD_PRECISION, precisionAmmoLevels);
+    }
+
+    /** 炮塔射速倍率：精尖降低，低精度射击提高；用于装填时间倒数。 */
+    public static float turretFireRateMultiplier(){
+        if(tier != maxTier) return 1f;
+        float value = 1f - modifierSum(MOD_PRECISION, precisionRateLevels);
+        if(benefitEnabled(MOD_LOW_ACCURACY)) value += modifierSum(MOD_LOW_ACCURACY, lowAccuracyRateLevels);
+        return Math.max(0.10f, Math.min(3f, value));
+    }
+
+    public static float turretInaccuracyBonus(){
+        return tier == maxTier ? modifierSum(MOD_LOW_ACCURACY, lowAccuracyDegrees) : 0f;
+    }
+
+    /** 精尖弹药的伤害收益；关闭收益后为 1。 */
+    public static float precisionDamageMultiplier(){
+        return tier == maxTier && benefitEnabled(MOD_PRECISION) ? 1f + modifierSum(MOD_PRECISION, precisionDamageLevels) : 1f;
+    }
+
+    public static float precisionPenRate(){
+        return tier == maxTier && benefitEnabled(MOD_PRECISION) ? modifierSum(MOD_PRECISION, precisionPenRateLevels) : 0f;
+    }
+
+    public static float precisionPenFlatMultiplier(){
+        return tier == maxTier && benefitEnabled(MOD_PRECISION) ? 1f + modifierSum(MOD_PRECISION, precisionPenFlatLevels) : 1f;
+    }
+
+    /** 给玩家炮塔弹体叠加穿甲收益；返回原对象以外的唯一新对象。 */
+    public static ArmorPen precisionPen(ArmorPen source){
+        if(source == null || (precisionPenRate() <= 0f && precisionPenFlatMultiplier() <= 1f)) return source;
+        return new ArmorPen(Math.min(1f, source.rate + precisionPenRate()),
+            source.flat * precisionPenFlatMultiplier(), source.decay, source.ricochet);
+    }
+
+    /** 精良装甲的跳弹疲劳：总等级决定最大层数，层数决定护甲百分比削减。 */
+    public static int enemyArmorFatigueMaxStacks(){
+        if(tier != maxTier || !benefitEnabled(MOD_ENEMY_ARMOR)) return 0;
+        int total = modifierTotalLevel(MOD_ENEMY_ARMOR);
+        int stacks = 0;
+        for(int threshold : fatigueThresholds) if(total >= threshold) stacks++;
+        return stacks;
+    }
+
+    public static int enemyArmorFatigueStacks(Healthc target){
+        return target == null ? 0 : armorFatigue.get(target, 0);
+    }
+
+    public static float enemyArmorFatiguePercent(Healthc target){
+        if(enemyArmorFatigueMaxStacks() <= 0) return 0f;
+        int stacks = Math.min(enemyArmorFatigueStacks(target), Math.min(enemyArmorFatigueMaxStacks(), fatiguePercentLevels.length));
+        float sum = 0f;
+        for(int i = 0; i < stacks; i++) sum += fatiguePercentLevels[i];
+        return sum;
+    }
+
+    public static void onEnemyRicochet(Healthc target){
+        if(target == null || tier != maxTier || !benefitEnabled(MOD_ENEMY_ARMOR)) return;
+        int max = enemyArmorFatigueMaxStacks();
+        if(max <= 0) return;
+        int stacks = armorFatigue.get(target, 0);
+        if(stacks < max) armorFatigue.put(target, stacks + 1);
+    }
+
+    /** 迫降损失的开局资源比例；仅 T7 且本局尚未应用。 */    /** 迫降损失的开局资源比例；仅 T7 且本局尚未应用。 */
     public static float forcedLandingLoss(){
         if(tier != maxTier) return 0f;
         return Math.min(0.90f, modifierSum(MOD_FORCED, forcedLossLevels));
@@ -190,18 +401,50 @@ public final class Difficulty{
     public static String describe(int value){
         value = clampTier(value);
         int forced = value == maxTier ? Math.round(forcedLandingLoss() * 100f) : 0;
-        int refund = value == maxTier ? Math.round(killRefund() * 100f) : 0;
-        return Core.bundle.format("ironworks.difficulty.detail",
-            num(enemyHealth[value]), num(enemyDamage[value]), String.valueOf((int)enemyArmorBonus[value]),
-            num(ricochetBonus[value]), num(waveSpacing[value]),
+        int refund = value == maxTier ? Math.round(enemyRefund() * 100f) : 0;
+        String base = Core.bundle.format("ironworks.difficulty.detail",
+            num(enemyHealthFor(value)), num(enemyDamageFor(value)), String.valueOf((int)enemyArmorFor(value)),
+            num(ricochetBonus[value]), num(waveSpacingFor(value)),
             num(buildSpeedFor(value)), num(blockHealthFor(value)), num(armorFor(value)),
             num(unitCostFor(value)), num(unitStatFor(value)), num(productionFor(value)), num(miningFor(value)),
             String.valueOf(forced), String.valueOf(refund), activeModifierSummary(value));
+        String extra = Core.bundle.format("ironworks.difficulty.detail.extra",
+            Math.round(enemyArmorFatigueMaxPercent() * 100f), enemyArmorFatigueMaxStacks(),
+            Math.round((1f - enemySpeedMultiplier()) * 100f), Math.round(enemyPenResistance() * 100f),
+            Math.round(enemyElementResistance() * 100f), num(waveCountFor(value)), num(waveSpacingFor(value)),
+            num(turretAmmoMultiplier()), num(turretFireRateMultiplier()), Math.round(turretInaccuracyBonus()),
+            num(precisionDamageMultiplier()), Math.round(precisionPenRate() * 100f),
+            num(precisionPenFlatMultiplier()),
+            Math.round((value == maxTier ? enemyRefund() : 0f) * 100f),
+            Math.round((value == maxTier ? playerRefund() : 0f) * 100f),
+            fullDeconstructRefund() ? "100%" : "原版",
+            Math.round(recoveryConversion() * 100f), benefitState());
+        return base + "\n" + extra;
+    }
+
+    private static float enemyHealthFor(int value){
+        return value == maxTier ? enemyHealthMul() : enemyHealth[value];
+    }
+
+    private static float enemyDamageFor(int value){
+        return value == maxTier ? enemyDamageMul() : enemyDamage[value];
+    }
+
+    private static float enemyArmorFor(int value){
+        return value == maxTier ? enemyArmorBonus() : enemyArmorBonus[value];
+    }
+
+    private static float waveCountFor(int value){
+        return value == maxTier ? waveCountMultiplier() : 1f;
+    }
+
+    private static float waveSpacingFor(int value){
+        return value == maxTier ? waveSpacingMultiplier() : waveSpacing[value];
     }
 
     private static float miningFor(int value){
         float result = value == maxTier ? miningMultiplier() : production[value];
-        return value == maxTier ? result : Math.max(0.80f, result);
+        return Math.max(0.20f, result);
     }
 
     private static float unitCostFor(int value){
@@ -209,7 +452,7 @@ public final class Difficulty{
     }
 
     private static float unitStatFor(int value){
-        return value == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
+        return value == maxTier && benefitEnabled(MOD_HEAVY) ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
     }
 
     private static String activeModifierSummary(int value){
@@ -218,13 +461,13 @@ public final class Difficulty{
 
     private static float productionFor(int value){
         float result = production[value];
-        if(value == maxTier) result *= 1f - modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        return Math.max(0.80f, result);
+        if(value == maxTier) result -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        return Math.max(0.20f, result);
     }
 
     private static float buildSpeedFor(int value){
         float result = playerBuildSpeed[value];
-        if(value == maxTier) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
+        if(value == maxTier && benefitEnabled(MOD_JERRY)) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
         return Math.max(0.35f, Math.min(1.35f, result));
     }
 
@@ -240,8 +483,102 @@ public final class Difficulty{
         return result;
     }
 
+    /** 疲劳总值的预览上限；实际按目标已叠层数计算。 */
+    public static float enemyArmorFatigueMaxPercent(){
+        if(tier != maxTier || !benefitEnabled(MOD_ENEMY_ARMOR)) return 0f;
+        int stacks = enemyArmorFatigueMaxStacks();
+        float sum = 0f;
+        for(int i = 0; i < stacks && i < fatiguePercentLevels.length; i++) sum += fatiguePercentLevels[i];
+        return sum;
+    }
+
+    /** 当前收益开关状态，供详情页显示。 */
+    public static String benefitState(){
+        if(!benefitControlsVisible) return Core.bundle == null ? "默认" : Core.bundle.get("ironworks.difficulty.benefit.default", "默认");
+        int selected = 0, disabled = 0;
+        for(String id : modIds){
+            if(modifierMask(id) == 0 || !hasBenefit(id)) continue;
+            selected++;
+            if(!benefitEnabled(id)) disabled++;
+        }
+        if(disabled == 0) return Core.bundle == null ? "全开" : Core.bundle.get("ironworks.difficulty.benefit.all-on", "全开");
+        if(disabled == selected) return Core.bundle == null ? "全关" : Core.bundle.get("ironworks.difficulty.benefit.all-off", "全关");
+        return Core.bundle == null ? "部分关闭" : Core.bundle.get("ironworks.difficulty.benefit.partial", "部分关闭");
+    }
+
     private static int maskBits(){
         return (1 << maxModifierLevel) - 1;
+    }
+
+    /** 每个词条自己的等级上限；旧词条保持 3 级，新词条按需求到 4 级或 2 级。 */
+    public static int modifierMaxLevel(String id){
+        if(MOD_ENEMY_ARMOR.equals(id) || MOD_SCARCITY.equals(id) || MOD_PRECISION.equals(id)) return 4;
+        if(MOD_ELITE.equals(id)) return 2;
+        return 3;
+    }
+
+    /** 已启用等级的代数和；精良装甲疲劳按这个总等级计算。 */
+    public static int modifierTotalLevel(String id){
+        int mask = modifierMask(id), total = 0;
+        for(int i = 1; i <= modifierMaxLevel(id); i++){
+            if((mask & (1 << (i - 1))) != 0) total += i;
+        }
+        return total;
+    }
+
+    private static int modIndex(String id){
+        for(int i = 0; i < modIds.length; i++) if(modIds[i].equals(id)) return i;
+        return -1;
+    }
+
+    /** 这个词条是否拥有“可关闭的收益”。 */
+    public static boolean hasBenefit(String id){
+        return !MOD_FORCED.equals(id);
+    }
+
+    public static boolean benefitControlsVisible(){
+        return benefitControlsVisible;
+    }
+
+    public static boolean benefitEnabled(String id){
+        if(id == null || !hasBenefit(id) || !benefitControlsVisible) return true;
+        int index = modIndex(id);
+        return index < 0 || (benefitDisabledMask & (1 << index)) == 0;
+    }
+
+    /** 开启/恢复某个词条的收益；只影响该词条。 */
+    public static void setBenefitEnabled(String id, boolean enabled){
+        int index = modIndex(id);
+        if(index < 0 || !hasBenefit(id)) return;
+        int bit = 1 << index;
+        if(enabled) benefitDisabledMask &= ~bit;
+        else benefitDisabledMask |= bit;
+        savePrefs();
+        syncTags();
+        applyRules();
+        IronworksTurretStats.apply();
+    }
+
+    public static void setBenefitControlsVisible(boolean visible){
+        benefitControlsVisible = visible;
+        savePrefs();
+        syncTags();
+    }
+
+    /** “关闭词条收益”：开启后把当前所有可选收益关闭，并显示逐词条开关。 */
+    public static void disableAllBenefits(){
+        benefitControlsVisible = true;
+        benefitDisabledMask = 0;
+        for(String id : modIds){
+            if(modifierMask(id) != 0 && hasBenefit(id)){
+                int index = modIndex(id);
+                if(index >= 0) benefitDisabledMask |= 1 << index;
+            }
+        }
+        savePrefs();
+        syncTags();
+        applyRules();
+        IronworksTurretStats.apply();
     }
 
     /** 已启用等级的位掩码；第 1 级是 bit0。 */
@@ -250,7 +587,7 @@ public final class Difficulty{
     }
 
     public static boolean hasModifierLevel(String id, int level){
-        return level > 0 && level <= maxModifierLevel && (modifierMask(id) & (1 << (level - 1))) != 0;
+        return level > 0 && level <= modifierMaxLevel(id) && (modifierMask(id) & (1 << (level - 1))) != 0;
     }
 
     /** 兼容查询：返回已启用的最高等级。 */
@@ -260,12 +597,18 @@ public final class Difficulty{
     }
 
     public static void toggleModifierLevel(String id, int level){
-        if(tier != maxTier || id == null || level <= 0 || level > maxModifierLevel) return;
+        if(tier != maxTier || id == null || level <= 0 || level > modifierMaxLevel(id)) return;
         int mask = modifierMask(id);
         int bit = 1 << (level - 1);
+        boolean wasEmpty = mask == 0;
         mask ^= bit;
         if(mask == 0) modifiers.remove(id);
         else modifiers.put(id, mask);
+        // 已开启“关闭词条收益”时，新选中的词条默认关闭收益；给同一词条补等级不重置原开关。
+        if(wasEmpty && benefitControlsVisible && hasBenefit(id)){
+            int index = modIndex(id);
+            if(index >= 0) benefitDisabledMask |= 1 << index;
+        }
         setModifiersFromUi();
     }
 
@@ -277,7 +620,7 @@ public final class Difficulty{
             if(sb.length() > 0) sb.append(" / ");
             sb.append(modName(id)).append(' ');
             boolean first = true;
-            for(int i = 1; i <= maxModifierLevel; i++){
+            for(int i = 1; i <= modifierMaxLevel(id); i++){
                 if((mask & (1 << (i - 1))) == 0) continue;
                 if(!first) sb.append('+');
                 sb.append(romanLevel(i));
@@ -292,6 +635,7 @@ public final class Difficulty{
             case 1 -> "I";
             case 2 -> "II";
             case 3 -> "III";
+            case 4 -> "IV";
             default -> String.valueOf(value);
         };
     }
@@ -327,6 +671,7 @@ public final class Difficulty{
         savePrefs();
         applyRules();
         IronworksDrills.apply();
+        IronworksTurretStats.apply();
     }
 
     public static void setModifiersFromUi(){
@@ -334,15 +679,21 @@ public final class Difficulty{
         syncTags();
         applyRules();
         IronworksDrills.apply();
+        IronworksTurretStats.apply();
     }
 
     public static void addModifier(String id){
         if(tier != maxTier || id == null) return;
         int mask = modifierMask(id);
-        for(int level = 1; level <= maxModifierLevel; level++){
+        for(int level = 1; level <= modifierMaxLevel(id); level++){
             int bit = 1 << (level - 1);
             if((mask & bit) == 0){
+                boolean wasEmpty = mask == 0;
                 modifiers.put(id, mask | bit);
+                if(wasEmpty && benefitControlsVisible && hasBenefit(id)){
+                    int index = modIndex(id);
+                    if(index >= 0) benefitDisabledMask |= 1 << index;
+                }
                 setModifiersFromUi();
                 return;
             }
@@ -352,7 +703,7 @@ public final class Difficulty{
     /** 只启用指定等级；0 表示移除该词条。独立按钮应使用 toggleModifierLevel。 */
     public static void setModifierLevel(String id, int level){
         if(tier != maxTier || id == null) return;
-        if(level <= 0 || level > maxModifierLevel) modifiers.remove(id);
+        if(level <= 0 || level > modifierMaxLevel(id)) modifiers.remove(id);
         else modifiers.put(id, 1 << (level - 1));
         setModifiersFromUi();
     }
@@ -366,12 +717,16 @@ public final class Difficulty{
         if(Core.settings == null) return;
         tier = clampTier(Core.settings.getInt("ironworks.difficulty.tier", 1));
         parseModifiers(Core.settings.getString("ironworks.difficulty.mods", ""));
+        benefitDisabledMask = Core.settings.getInt("ironworks.difficulty.benefit-disabled", 0);
+        benefitControlsVisible = Core.settings.getBool("ironworks.difficulty.benefit-controls", false);
     }
 
     private static void savePrefs(){
         if(Core.settings == null) return;
         Core.settings.putInt("ironworks.difficulty.tier", tier);
         Core.settings.put("ironworks.difficulty.mods", modifierString());
+        Core.settings.putInt("ironworks.difficulty.benefit-disabled", benefitDisabledMask);
+        Core.settings.put("ironworks.difficulty.benefit-controls", benefitControlsVisible);
     }
 
     /** 兜底：WorldLoadEvent 注册晚于世界加载时，下一 tick 补应用。 */
@@ -389,6 +744,9 @@ public final class Difficulty{
             rulesRef = state.rules;
             baseWaveSpacing = -1f;
             baseInitialWaveSpacing = -1f;
+            baseDeconstructRefund = -1f;
+            armorFatigue.clear();
+            deconstructing.clear();
         }
 
         String savedTier = state.rules.tags.get("ironworks.difficulty");
@@ -398,6 +756,12 @@ public final class Difficulty{
 
         String savedMods = state.rules.tags.get("ironworks.difficulty.mods");
         if(savedMods != null) parseModifiers(savedMods);
+        String savedBenefits = state.rules.tags.get("ironworks.difficulty.benefit-disabled");
+        if(savedBenefits != null){
+            try{ benefitDisabledMask = Integer.parseInt(savedBenefits); }catch(Exception ignored){}
+        }
+        String savedBenefitControls = state.rules.tags.get("ironworks.difficulty.benefit-controls");
+        if(savedBenefitControls != null) benefitControlsVisible = Boolean.parseBoolean(savedBenefitControls);
 
         String base = state.rules.tags.get("ironworks.base-wave-spacing");
         if(base != null && baseWaveSpacing <= 0f){
@@ -410,6 +774,16 @@ public final class Difficulty{
         if(baseInitialWaveSpacing <= 0f){
             baseInitialWaveSpacing = Math.max(0f, state.rules.initialWaveSpacing);
             state.rules.tags.put("ironworks.base-initial-wave", String.valueOf(baseInitialWaveSpacing));
+        }
+        String baseDec = state.rules.tags.get("ironworks.base-deconstruct-refund");
+        if(baseDec != null){
+            try{ baseDeconstructRefund = Float.parseFloat(baseDec); }catch(Exception ignored){}
+        }
+        if(baseDeconstructRefund < 0f){
+            // 旧存档可能已经被“满额返还”写成 1；没有基础值标签时按原版 0.5 处理。
+            baseDeconstructRefund = Math.abs(state.rules.deconstructRefundMultiplier - 1f) < 0.001f
+                ? 0.5f : state.rules.deconstructRefundMultiplier;
+            state.rules.tags.put("ironworks.base-deconstruct-refund", String.valueOf(baseDeconstructRefund));
         }
 
         applyRules();
@@ -462,20 +836,45 @@ public final class Difficulty{
         }
 
         if(baseWaveSpacing > 0f){
-            state.rules.waveSpacing = Math.max(20f, baseWaveSpacing * waveSpacing[tier]);
+            state.rules.waveSpacing = Math.max(20f, baseWaveSpacing * waveSpacingMultiplier());
         }
         if(baseInitialWaveSpacing > 0f){
-            state.rules.initialWaveSpacing = baseInitialWaveSpacing * waveSpacing[tier];
+            state.rules.initialWaveSpacing = baseInitialWaveSpacing * waveSpacingMultiplier();
         }
+
+        if(baseDeconstructRefund < 0f){
+            baseDeconstructRefund = state.rules.deconstructRefundMultiplier;
+        }
+        state.rules.deconstructRefundMultiplier = fullDeconstructRefund() ? 1f : baseDeconstructRefund;
 
         syncTags();
         IronworksDrills.apply();
+        IronworksTurretStats.apply();
+        wrapSpawnGroups();
+        updateEnemySlowEffect();
+    }
+
+    /** 把本局 SpawnGroup 换成累计小数版本；数量词条关闭时也保持原行为。 */
+    private static void wrapSpawnGroups(){
+        if(state == null || !state.isGame() || state.rules == null || state.rules.spawns == null) return;
+        if(waveCountMultiplier() == 1f) return;
+        for(int i = 0; i < state.rules.spawns.size; i++){
+            var group = state.rules.spawns.get(i);
+            if(group != null && (!(group instanceof DifficultySpawnGroup wrapper) || !wrapper.hasOriginal())){
+                state.rules.spawns.set(i, new DifficultySpawnGroup(group));
+            }
+        }
     }
 
     private static void syncTags(){
         if(state == null || state.rules == null) return;
         state.rules.tags.put("ironworks.difficulty", String.valueOf(tier));
         state.rules.tags.put("ironworks.difficulty.mods", modifierString());
+        state.rules.tags.put("ironworks.difficulty.benefit-disabled", String.valueOf(benefitDisabledMask));
+        state.rules.tags.put("ironworks.difficulty.benefit-controls", String.valueOf(benefitControlsVisible));
+        if(baseDeconstructRefund >= 0f){
+            state.rules.tags.put("ironworks.base-deconstruct-refund", String.valueOf(baseDeconstructRefund));
+        }
     }
 
     private static void applyForcedLanding(){
@@ -497,11 +896,37 @@ public final class Difficulty{
         syncTags();
     }
 
+    private static void onUnitCreate(Unit unit){
+        if(unit == null || state == null || !state.isGame() || state.rules == null) return;
+        if(!isEnemyTarget(unit)) return;
+        if(enemySpeedMultiplier() < 0.999f && IronworksStatus.enemyArmorSlow != null
+            && !unit.hasEffect(IronworksStatus.enemyArmorSlow)){
+            unit.apply(IronworksStatus.enemyArmorSlow, 999999f);
+        }
+    }
+
+    /** 只给敌方单位施加减速状态；状态倍率动态读取当前词条，关闭收益后自动恢复。 */
+    public static void updateEnemySlowEffect(){
+        if(IronworksStatus.enemyArmorSlow != null){
+            IronworksStatus.enemyArmorSlow.speedMultiplier = enemySpeedMultiplier();
+        }
+        if(state == null || !state.isGame() || state.rules == null) return;
+        for(Unit unit : mindustry.gen.Groups.unit){
+            if(isEnemyTarget(unit) && enemySpeedMultiplier() < 0.999f
+                && IronworksStatus.enemyArmorSlow != null
+                && !unit.hasEffect(IronworksStatus.enemyArmorSlow)){
+                unit.apply(IronworksStatus.enemyArmorSlow, 999999f);
+            }
+        }
+    }
+
     private static void onUnitDestroy(Unit unit){
-        if(unit == null || tier != maxTier || state == null || !state.isGame() || state.rules == null) return;
+        if(unit == null) return;
+        armorFatigue.remove(unit);
+        if(tier != maxTier || state == null || !state.isGame() || state.rules == null) return;
         Team player = state.rules.defaultTeam, enemy = state.rules.waveTeam;
-        if(player == null || enemy == null || player == enemy || unit.team != enemy) return;
-        float refund = killRefund();
+        if(player == null || enemy == null || player == enemy) return;
+        float refund = unit.team == enemy ? enemyRefund() : unit.team == player ? playerRefund() : 0f;
         if(refund <= 0f) return;
         ItemStack[] req = unit.type == null ? null : unit.type.getTotalRequirements();
         if(req == null || req.length == 0) return;
@@ -509,8 +934,66 @@ public final class Difficulty{
         if(core == null) return;
         for(ItemStack stack : req){
             int amount = (int)Math.ceil(stack.amount * refund);
-            if(amount > 0) core.items.add(stack.item, amount);
+            if(amount > 0) IronworksRecovery.recover(core, stack.item, amount);
         }
+    }
+
+    /** 原版拆除已经按 100% 返还；这里只把核心中返还物的 70% 换成上一级材料，不重复给资源。 */
+    private static void convertDeconstruct(mindustry.world.Tile tile){
+        if(tile == null || tier != maxTier || !fullDeconstructRefund() || state == null || !state.isGame() || state.rules == null) return;
+        if(!isPlayerTeam(tile.team())) return;
+        if(!(tile.build instanceof mindustry.world.blocks.ConstructBlock.ConstructBuild cb)) return;
+        if(cb.current == null || cb.current.requirements == null || state.rules.defaultTeam == null) return;
+        CoreBuild core = state.rules.defaultTeam.core();
+        if(core == null) return;
+        float cost = Math.max(0f, state.rules.buildCostMultiplier);
+        for(ItemStack stack : cb.current.requirements){
+            int expected = Math.round(stack.amount * cost);
+            if(expected > 0) IronworksRecovery.convertInCore(core, stack.item, expected);
+        }
+    }
+
+    private static void onBlockDestroy(mindustry.world.Tile tile){
+        if(tile == null) return;
+        Healthc build = tile.build;
+        if(build != null) armorFatigue.remove(build);
+        // 拆除由原版 deconstructRefundMultiplier 全额返还，不能再算一次战损回收。
+        if(deconstructing.remove(tile)) return;
+        if(tier != maxTier || state == null || !state.isGame() || state.rules == null) return;
+        Team player = state.rules.defaultTeam, enemy = state.rules.waveTeam;
+        Building building = tile.build;
+        if(player == null || enemy == null || player == enemy || building == null || building.block == null) return;
+        float refund = tile.team() == enemy ? enemyRefund() : tile.team() == player ? playerRefund() : 0f;
+        if(refund <= 0f) return;
+        CoreBuild core = player.core();
+        if(core == null || building.block.requirements == null) return;
+        float cost = Math.max(0f, state.rules.buildCostMultiplier);
+        for(ItemStack stack : building.block.requirements){
+            int amount = (int)Math.ceil(stack.amount * cost * refund);
+            if(amount > 0) IronworksRecovery.recover(core, stack.item, amount);
+        }
+    }
+
+    /** 建筑/单位详情页的实时总值；返回空串表示没有额外内容。 */
+    public static String contentDetail(UnlockableContent content){
+        if(content instanceof UnitType unit){
+            return Core.bundle.format("ironworks.difficulty.content.unit",
+                num(unit.health * playerUnitStatMultiplier()), num(unit.health * enemyHealthMul()),
+                num(unit.armor + enemyArmorBonus()), Math.round(enemyElementResistance() * 100f));
+        }
+        if(content instanceof Turret turret){
+            return Core.bundle.format("ironworks.difficulty.content.turret",
+                turret.ammoPerShot, num(turret.reload / 60f), Math.round(turret.inaccuracy),
+                num(precisionDamageMultiplier()), Math.round(precisionPenRate() * 100f),
+                num(precisionPenFlatMultiplier()));
+        }
+        if(content instanceof Block block){
+            return Core.bundle.format("ironworks.difficulty.content.block",
+                num(block.health * playerBlockHealthMultiplier()),
+                num(block.armor + playerBlockArmorModifier()), num(buildSpeedMultiplier()),
+                fullDeconstructRefund() ? "100%" : "原版");
+        }
+        return "";
     }
 
     // ────────────────────────── 受袭区块 ──────────────────────────

@@ -25,8 +25,13 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         extra.margin(8f);
         Label label = new Label("", Styles.outlineLabel);
         label.setWrap(true);
-        extra.add(label).width(560f).left();
+        extra.add(label).width(560f).left().row();
+
+        Label specific = new Label("", Styles.outlineLabel);
+        specific.setWrap(true);
+        extra.add(specific).width(560f).left();
         label.update(() -> label.setText(Difficulty.describe(Difficulty.tier())));
+        specific.update(() -> specific.setText(Difficulty.contentDetail(content)));
 
         cont.row();
         cont.add(extra).growX().pad(8f).row();

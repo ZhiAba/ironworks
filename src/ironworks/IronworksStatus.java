@@ -20,6 +20,8 @@ import mindustry.type.StatusEffect;
 public class IronworksStatus{
 
     public static StatusEffect corrosion, nanoArmor, jadeShatter, critical, reactiveArmor, compositeArmor, naniteArmor, overload;
+    /** 精良装甲的敌方减速；倍率由 Difficulty 动态写入。 */
+    public static StatusEffect enemyArmorSlow;
     /** RBMK 熔毁后的辐射：持续真实伤害 + 减速，靠 IronworksRBMK.meltdown() 施加。 */
     public static StatusEffect radiation;
 
@@ -29,6 +31,13 @@ public class IronworksStatus{
     private static boolean registered = false;
 
     public static void load(){
+        // 零、精良装甲减速：常驻，实际倍率由难度词条写入。
+        enemyArmorSlow = new StatusEffect("enemy-armor-slow"){{
+            color = Color.valueOf("9aa4c8");
+            speedMultiplier = 1f;
+            effect = Fx.none;
+        }};
+
         // 一、腐蚀：硫化物侵蚀。破甲持续伤害 + 迟缓 + 装填下降
         corrosion = new StatusEffect("corrosion"){{
             color = Color.valueOf("8fbf5a");

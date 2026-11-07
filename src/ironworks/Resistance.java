@@ -28,7 +28,12 @@ public final class Resistance{
 
     public static float element(Healthc target, DamageType type){
         if(target == null || type == null) return 0f;
-        return element(key(target), type);
+        float value = element(key(target), type);
+        // 精锐部队的“全元素抗性”是纯惩罚，直接加到敌方当前抗性上。
+        if(Difficulty.isEnemyTarget(target)){
+            value += Difficulty.enemyElementResistance();
+        }
+        return clamp(value);
     }
 
     public static float element(UnitType type, DamageType element){

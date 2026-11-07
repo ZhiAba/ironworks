@@ -247,6 +247,7 @@ public class Dmg{
                 float roll = ricochetRoll >= 0f ? ricochetRoll : Mathf.random();
                 if(roll < lastRicochetChance){
                     lastRicochet = true;
+                    Difficulty.onEnemyRicochet(target);
                     if(numbers) DamageNumbers.showRicochet(target);
                     return 0f;
                 }
@@ -278,9 +279,14 @@ public class Dmg{
             lastArmorReduction = 0f;
         }else{
             effectivePierce = p.effective(armor);
-            afterArmor = p.damageAfterArmor(incoming, armor);
+            if(Difficulty.isEnemyTarget(target)){
+                effectivePierce = Math.max(0f, effectivePierce - Difficulty.enemyPenResistance());
+            }
+            float effectiveArmor = armor * (1f - effectivePierce);
+            float reduction = Math.max(-0.50f, effectiveArmor / (effectiveArmor + ArmorPen.armorConstant));
+            afterArmor = incoming * (1f - reduction);
             lastArmorAbsorbed = Math.max(0f, incoming - afterArmor);
-            lastArmorReduction = p.armorReduction(armor);
+            lastArmorReduction = reduction;
         }
         lastEffectivePierce = effectivePierce;
 
@@ -327,6 +333,14 @@ public class Dmg{
     }
 
     /** 把最终伤害打到本体，绕开已经单独处理的力场盾；返回实际生命损失。 */
+    /** 玩家炮塔弹体判定：伤害/穿甲收益只作用于玩家炮塔，不作用于单位/敌方炮塔。 */
+    private static boolean isPlayerTurretShot(Bullet bullet){
+        return bullet != null && Vars.state != null && Vars.state.isGame() && Vars.state.rules != null
+            && bullet.team == Vars.state.rules.defaultTeam
+            && bullet.owner instanceof Building build
+            && build.block instanceof Turret;
+    }
+
     private static float applyBody(Healthc target, float amount, float shieldToRestore){
         if(target == null || amount <= 0f) return 0f;
         float before = target.health();
@@ -404,7 +418,12 @@ public class Dmg{
         if(base < 0f && target instanceof Building build && Difficulty.isPlayerTeam(build.team)){
             return armor;
         }
-        return Math.max(0f, armor);
+        armor = Math.max(0f, armor);
+        // 精良装甲的跳弹疲劳按敌方当前护甲的百分比削减。
+        if(Difficulty.isEnemyTarget(target)){
+            armor *= Math.max(0f, 1f - Difficulty.enemyArmorFatiguePercent(target));
+        }
+        return armor;
     }
 
     /** 范围属性伤害：逐目标结算护甲/Combo，而不是用原版统一 armorMult。 */
@@ -552,7 +571,13 @@ public class Dmg{
         }
 
         if(damage > 0f){
-            area(bullet.team, x, y, type.splashDamageRadius, damage * bullet.damageMultiplier(), dtype, false, true, penOf(type), formOf(type));
+            float splash = damage * bullet.damageMultiplier();
+            ArmorPen pen = penOf(type);
+            if(isPlayerTurretShot(bullet)){
+                splash *= Difficulty.precisionDamageMultiplier();
+                pen = Difficulty.precisionPen(pen);
+            }
+            area(bullet.team, x, y, type.splashDamageRadius, splash, dtype, false, true, pen, formOf(type));
         }
     }
 
@@ -578,8 +603,13 @@ public class Dmg{
             }
 
             DamageForm form = formOf(type);
+            ArmorPen pen = penOf(type);
+            if(isPlayerTurretShot(bullet)){
+                amount *= Difficulty.precisionDamageMultiplier();
+                pen = Difficulty.precisionPen(pen);
+            }
             hit(target, amount, type instanceof TypedBullet tb ? tb.dtype() : typeOf(bullet), true, true,
-                penOf(type), true, form);
+                pen, true, form);
             if(lastOverpen){
                 bullet.data = overpenMarker;
             }else if(lastRicochet){

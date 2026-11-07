@@ -124,10 +124,11 @@ public class IronworksDifficultyDialog{
             Table group = new Table();
             group.left();
 
-            // 所有等级一次性显示；每个等级是独立开关，可同时启用 I/II/III。
+            // 各词条上限不同：资源匮乏/精良装甲/精尖弹药到 IV，精锐部队到 II。
             Table levels = new Table();
             levels.left();
-            for(int level = 1; level <= Difficulty.maxModifierLevel; level++){
+            int maxLevel = Difficulty.modifierMaxLevel(id);
+            for(int level = 1; level <= maxLevel; level++){
                 final int value = level;
                 boolean selected = Difficulty.hasModifierLevel(id, level);
                 String label = Difficulty.modName(id) + roman(level) + (selected ? "●" : "○");
@@ -135,22 +136,57 @@ public class IronworksDifficultyDialog{
                     Difficulty.toggleModifierLevel(id, value);
                     summary.setText(Difficulty.modifierSummary());
                     postModifierRows(list, summary);
-                }).width(175f).pad(2f);
+                }).width(150f).pad(2f);
+                if(level % 2 == 0) levels.row();
             }
-            group.add(levels).left().row();
+
+            Table header = new Table();
+            header.left();
+            header.add(levels).left().growX();
+            if(Difficulty.benefitControlsVisible() && Difficulty.hasBenefit(id)){
+                boolean enabled = Difficulty.benefitEnabled(id);
+                header.button(Core.bundle.get(enabled ? "ironworks.difficulty.benefit.off" : "ironworks.difficulty.benefit.on",
+                        enabled ? "关闭收益" : "恢复收益"), Styles.defaultt, () -> {
+                    Difficulty.setBenefitEnabled(id, !enabled);
+                    summary.setText(Difficulty.modifierSummary());
+                    postModifierRows(list, summary);
+                }).width(112f).pad(2f).right();
+            }
+            group.add(header).growX().row();
             group.add(Difficulty.modDesc(id)).left().wrap().width(520f)
                 .color(Color.lightGray).padTop(2f).row();
             list.add(group).growX().pad(4f).row();
         }
 
         Table footer = new Table();
+        footer.left();
+        footer.button(Core.bundle.get("ironworks.difficulty.benefit.close", "关闭词条收益○"),
+            Styles.defaultt, () -> showBenefitConfirm(list, summary)).width(190f).pad(2f);
         footer.button(Core.bundle.get("ironworks.difficulty.mods.clear", "清空词条"),
             Styles.defaultt, () -> {
                 Difficulty.clearModifiers();
                 summary.setText(Difficulty.modifierSummary());
                 postModifierRows(list, summary);
-            }).width(120f);
+            }).width(120f).pad(2f);
         list.add(footer).left().padTop(8f).row();
+    }
+
+    private static void showBenefitConfirm(Table list, Label summary){
+        BaseDialog confirm = new BaseDialog(Core.bundle.get("ironworks.difficulty.benefit.title", "关闭词条收益"));
+        confirm.cont.add(Core.bundle.get("ironworks.difficulty.benefit.text",
+            "开启此选项后可关闭词条带来的副收益，可能带来不可预知的平衡性灾难，确认开启吗？"))
+            .wrap().width(500f).pad(16f).row();
+        confirm.buttons.button(Core.bundle.get("cancel", "取消"), Styles.defaultt, confirm::hide).width(120f);
+        confirm.buttons.button(Core.bundle.get("ironworks.difficulty.benefit.confirm", "确认开启"),
+            Styles.defaultt, () -> {
+                Difficulty.disableAllBenefits();
+                summary.setText(Difficulty.modifierSummary());
+                Core.app.post(() -> {
+                    confirm.hide();
+                    postModifierRows(list, summary);
+                });
+            }).width(160f);
+        confirm.show();
     }
 
     private static void postModifierRows(Table list, Label summary){
