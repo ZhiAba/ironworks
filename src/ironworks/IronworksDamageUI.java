@@ -12,7 +12,6 @@ import mindustry.ctype.UnlockableContent;
 import mindustry.entities.bullet.BulletType;
 import mindustry.type.UnitType;
 import mindustry.ui.Styles;
-import mindustry.ui.dialogs.ContentInfoDialog;
 import mindustry.world.blocks.defense.turrets.Turret;
 import mindustry.world.meta.Stat;
 
@@ -27,7 +26,7 @@ import mindustry.world.meta.Stat;
  *
  * 这样原版海啸/蓝瑟/魔灵和模组炮塔都能统一显示，不需要为每门炮写 setStats。
  */
-public class IronworksDamageUI extends ContentInfoDialog{
+public class IronworksDamageUI extends IronworksContentInfoDialog{
 
     public static void init(){
         if(Vars.headless || Vars.ui == null) return;

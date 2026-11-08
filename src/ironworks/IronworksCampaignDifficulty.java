@@ -31,10 +31,14 @@ public final class IronworksCampaignDifficulty{
             Log.err("IronworksCampaignDifficulty: 安装战役难度页失败", t);
         }
         try{
-            Vars.ui.content = new IronworksContentInfoDialog();
-            Log.info("[IRONWORKS] content difficulty stats installed");
+            // 同一个子类同时负责属性伤害着色和难度实时属性；不要再让两个
+            // ContentInfoDialog 子类互相覆盖（后安装的会丢掉前者的功能）。
+            if(!(Vars.ui.content instanceof IronworksDamageUI)){
+                Vars.ui.content = new IronworksDamageUI();
+            }
+            Log.info("[IRONWORKS] content detail UI installed (damage + difficulty stats)");
         }catch(Throwable t){
-            Log.err("IronworksCampaignDifficulty: 安装建筑/单位详情难度状态失败", t);
+            Log.err("IronworksCampaignDifficulty: 安装建筑/单位详情 UI 失败", t);
         }
         installed = true;
     }

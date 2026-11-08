@@ -22,7 +22,9 @@ import mindustry.type.Sector;
 import mindustry.type.UnitType;
 import mindustry.world.Block;
 import mindustry.world.blocks.defense.turrets.Turret;
+import mindustry.world.blocks.production.Drill;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
+import ironworks.multicraft.MultiCrafter;
 
 import static mindustry.Vars.*;
 
@@ -651,10 +653,12 @@ public final class Difficulty{
     /** 当前是否应把目标视为“敌方”，用于护甲上浮/跳弹加成。 */
     public static boolean isEnemyTarget(Healthc target){
         if(state == null || !state.isGame() || state.rules == null) return false;
-        Team enemy = state.rules.waveTeam, player = state.rules.defaultTeam;
-        if(enemy == null || player == null || enemy == player) return false;
-        if(target instanceof Unit unit) return unit.team == enemy && unit.team != player;
-        if(target instanceof Building build) return build.team == enemy && build.team != player;
+        Team player = state.rules.defaultTeam;
+        if(player == null) return false;
+        // 不只看 waveTeam：玩家可以把自己的单位切换成红队，或其他阵营的
+        // 单位也可能出现在地图上；只要不是默认玩家队伍，就按敌方处理。
+        if(target instanceof Unit unit) return unit.team != null && unit.team != player;
+        if(target instanceof Building build) return build.team != null && build.team != player;
         return false;
     }
 
@@ -924,9 +928,12 @@ public final class Difficulty{
         if(unit == null) return;
         armorFatigue.remove(unit);
         if(tier != maxTier || state == null || !state.isGame() || state.rules == null) return;
-        Team player = state.rules.defaultTeam, enemy = state.rules.waveTeam;
-        if(player == null || enemy == null || player == enemy) return;
-        float refund = unit.team == enemy ? enemyRefund() : unit.team == player ? playerRefund() : 0f;
+        Team player = state.rules.defaultTeam;
+        if(player == null || unit.team == null) return;
+        // 任何非默认玩家队伍都视为敌方。这样玩家把“尖刀”切成红队后，
+        // 被黄队炮塔击杀时仍能按敌方单位回收，不会因为红队不是当前
+        // waveTeam 而漏掉资源。
+        float refund = unit.team == player ? playerRefund() : enemyRefund();
         if(refund <= 0f) return;
         ItemStack[] req = unit.type == null ? null : unit.type.getTotalRequirements();
         if(req == null || req.length == 0) return;
@@ -960,10 +967,11 @@ public final class Difficulty{
         // 拆除由原版 deconstructRefundMultiplier 全额返还，不能再算一次战损回收。
         if(deconstructing.remove(tile)) return;
         if(tier != maxTier || state == null || !state.isGame() || state.rules == null) return;
-        Team player = state.rules.defaultTeam, enemy = state.rules.waveTeam;
+        Team player = state.rules.defaultTeam;
         Building building = tile.build;
-        if(player == null || enemy == null || player == enemy || building == null || building.block == null) return;
-        float refund = tile.team() == enemy ? enemyRefund() : tile.team() == player ? playerRefund() : 0f;
+        if(player == null || building == null || building.block == null) return;
+        // 与单位回收一致：非玩家队伍都按敌方回收，兼容换队实验/额外阵营。
+        float refund = tile.team() == player ? playerRefund() : enemyRefund();
         if(refund <= 0f) return;
         CoreBuild core = player.core();
         if(core == null || building.block.requirements == null) return;
@@ -977,23 +985,63 @@ public final class Difficulty{
     /** 建筑/单位详情页的实时总值；返回空串表示没有额外内容。 */
     public static String contentDetail(UnlockableContent content){
         if(content instanceof UnitType unit){
+            float baseHealth = unit.health;
             return Core.bundle.format("ironworks.difficulty.content.unit",
-                num(unit.health * playerUnitStatMultiplier()), num(unit.health * enemyHealthMul()),
-                num(unit.armor + enemyArmorBonus()), Math.round(enemyElementResistance() * 100f));
-        }
-        if(content instanceof Turret turret){
-            return Core.bundle.format("ironworks.difficulty.content.turret",
-                turret.ammoPerShot, num(turret.reload / 60f), Math.round(turret.inaccuracy),
-                num(precisionDamageMultiplier()), Math.round(precisionPenRate() * 100f),
-                num(precisionPenFlatMultiplier()));
+                num(baseHealth), num(baseHealth * playerUnitStatMultiplier()),
+                num(playerUnitStatMultiplier()), num(baseHealth * enemyHealthMul()), num(enemyHealthMul()),
+                num(unit.armor), num(unit.armor + enemyArmorBonus()),
+                Math.round(enemyElementResistance() * 100f),
+                num(playerUnitStatMultiplier()), num(enemyDamageMul()),
+                num(playerUnitCostMultiplier()));
         }
         if(content instanceof Block block){
-            return Core.bundle.format("ironworks.difficulty.content.block",
-                num(block.health * playerBlockHealthMultiplier()),
-                num(block.armor + playerBlockArmorModifier()), num(buildSpeedMultiplier()),
-                fullDeconstructRefund() ? "100%" : "原版");
+            StringBuilder result = new StringBuilder(Core.bundle.format(
+                "ironworks.difficulty.content.block",
+                num(block.health), num(block.health * playerBlockHealthMultiplier()),
+                num(playerBlockHealthMultiplier()),
+                num(block.armor), num(block.armor + playerBlockArmorModifier()),
+                num(buildSpeedMultiplier()), fullDeconstructRefund() ? "100%" : "原版"));
+
+            if(block instanceof Turret turret){
+                result.append('\n').append(turretDetail(turret));
+            }
+            if(block instanceof Drill drill){
+                result.append('\n').append(Core.bundle.format("ironworks.difficulty.content.drill",
+                    num(miningMultiplier()),
+                    num(60f / Math.max(0.0001f, drill.drillTime) * drill.size * drill.size)));
+            }else if(block instanceof MultiCrafter || block instanceof DifficultyCrafter){
+                result.append('\n').append(Core.bundle.format("ironworks.difficulty.content.factory",
+                    num(productionMultiplier())));
+            }
+            return result.toString();
         }
         return "";
+    }
+
+    private static String turretDetail(Turret turret){
+        float reloadSeconds = turret.reload / 60f;
+        float shotsPerSecond = turret.reload > 0f ? 60f / turret.reload : 0f;
+        String result = Core.bundle.format("ironworks.difficulty.content.turret",
+            turret.ammoPerShot, num(reloadSeconds), num(shotsPerSecond),
+            Math.round(turret.inaccuracy), num(precisionDamageMultiplier()),
+            Math.round(precisionPenRate() * 100f), num(precisionPenFlatMultiplier()));
+        String damage = turretDamageDetail(turret);
+        if(!damage.isEmpty()){
+            result += "\n" + Core.bundle.format("ironworks.difficulty.content.turret.damage", damage);
+        }
+        return result;
+    }
+
+    private static String turretDamageDetail(Turret turret){
+        StringBuilder result = new StringBuilder();
+        for(var bullet : Dmg.ammoTypes(turret)){
+            if(bullet == null || bullet.damage <= 0f) continue;
+            if(result.length() > 0) result.append(" / ");
+            result.append(num(bullet.damage)).append(" → ")
+                .append(num(bullet.damage * precisionDamageMultiplier()));
+            if(result.length() > 90) break;
+        }
+        return result.toString();
     }
 
     // ────────────────────────── 受袭区块 ──────────────────────────
