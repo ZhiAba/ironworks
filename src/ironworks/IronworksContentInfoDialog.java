@@ -32,14 +32,14 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         UnitType unit = content instanceof UnitType u ? u : null;
         DifficultyCrafter crafter = block instanceof DifficultyCrafter c ? c : null;
 
-        int baseHealth = block == null ? 0 : block.health;
         float baseArmor = block == null ? 0f : block.armor;
         float baseBuildTime = block == null ? 0f : block.buildTime;
         float baseUnitHealth = unit == null ? 0f : unit.health;
         float baseUnitArmor = unit == null ? 0f : unit.armor;
         float baseCraftTime = crafter == null ? 0f : crafter.craftTime;
 
-        float actualHealth = block == null ? 0f : baseHealth * Difficulty.playerBlockHealthMultiplier();
+        // 建筑 TeamRule.blockHealthMultiplier 是“受到伤害的除数”，不是最大生命值；
+        // 实际放置后的最大生命仍是 block.health，因此这里不能把生命值乘上倍率。
         float actualArmor = block == null ? 0f : Math.max(0f, baseArmor + Difficulty.playerBlockArmorModifier());
         float actualBuildTime = block == null || baseBuildTime <= 0f ? 0f
             : baseBuildTime / Math.max(0.05f, Difficulty.buildSpeedMultiplier());
@@ -50,9 +50,8 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
 
         try{
             if(block != null){
-                // 生命值/建造时间随后会把原版数值标签改成实际的小数值；
+                // 生命值保持原版最大生命；只把建造时间换成实际值。
                 // 护甲隐藏标准行，统一放到“基础”栏，实际护甲下限 0。
-                block.health = Math.max(1, Math.round(actualHealth));
                 block.armor = 0f;
                 if(actualBuildTime > 0f){
                     block.buildTime = Math.max(0.01f, actualBuildTime);
@@ -69,7 +68,6 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
             super.show(content);
         }finally{
             if(block != null){
-                block.health = baseHealth;
                 block.armor = baseArmor;
                 block.buildTime = baseBuildTime;
             }
@@ -86,7 +84,6 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         if(root == null) return;
 
         if(block != null){
-            overrideStatValue(root, Stat.health, fmt(actualHealth));
             if(actualBuildTime > 0f){
                 overrideStatValue(root, Stat.buildTime, fmt(actualBuildTime));
             }

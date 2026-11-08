@@ -1,6 +1,6 @@
 # 全局难度协议 T0 - T7
 
-> 实装版本：**3.5.0.4**。
+> 实装版本：**3.5.0.5**。
 > 设计目标：难度不是单纯堆怪，而是重写护甲、跳弹、产能和开局资源规则。
 > **默认档位是 T1（苏醒）**，与原版基线一致；T0 是可选的低压档。
 
@@ -113,7 +113,7 @@
 - `src/ironworks/IronworksCampaignRulesDialog.java`：替换原版星球难度页，保留其它战役选项并同步原版 `CampaignRules.difficulty = normal`；
 - `src/ironworks/IronworksCampaignDifficulty.java`：客户端安装/替换 `ui.campaignRules` 与 `ui.content`；
 - `src/ironworks/IronworksDrills.java`：缩放原版/模组钻头 `drillTime`，同步实际产量和详情页；
-- `src/ironworks/IronworksContentInfoDialog.java`：详情页不再单开“实时属性”表；直接改写原版“基础”栏的生命/护甲/建造时间，并在生命（建筑）或护甲（单位）行后补护甲、特殊抗性、敌方生命/护甲、材质与弱点等实际值。只显示计算结果，不显示基础值或倍率。
+- `src/ironworks/IronworksContentInfoDialog.java`：详情页不再单开“实时属性”表；直接改写原版“基础”栏的护甲/建造时间，并在生命（建筑）或护甲（单位）行后补护甲、特殊抗性、敌方生命/护甲、材质与弱点等实际值。建筑生命保持 `block.health` 实际最大生命；`blockHealthMultiplier` 是受伤除数，不乘到生命值上。只显示计算结果，不显示基础值或倍率。
 - `src/ironworks/IronworksDamageUI.java`：继承同一个详情 UI，弹药面板显示按精尖弹药修正后的实际伤害；穿甲行叠加实际穿透率/穿甲值收益，关闭详情后恢复弹体字段。
 - `src/ironworks/DifficultySpawnGroup.java`：波次数量的累计小数分配；`SaveWriteEvent` 前由 `Difficulty` 临时换回原版 `SpawnGroup`，避免自定义类名写入存档。
 - `src/ironworks/IronworksTurretStats.java`：全炮塔弹药/射速/误差字段修正。
@@ -124,7 +124,8 @@
 - 默认 T1：玩家建造/有效血量/敌方血量/伤害/波次均为基线；
 - T6：敌方血量 2.40、伤害 2.10、护甲 +45、跳弹 +0.05、波次间隔 ×0.58；
 - T7：建筑护甲修正 -10，但实际护甲下限 0；同时启用豆腐渣 I+II 后有效建筑血量约 0.46，护甲仍为 0；资源匮乏 I+II+III+IV 全开时产能/采矿 0.20（单开 IV 为 0.50）、敌方回收 60%/我方 40%，回收物 70% 转化；
-- 负甲实伤回归：T7 钢板墙 100 点物理伤害不再被负甲放大，护甲按 0 结算，只受有效建筑血量倍率影响；
+- 负甲实伤回归：T7 钢板墙 100 点物理伤害不再被负甲放大，护甲按 0 结算，仍受建筑受伤除数影响；
+- 建筑生命回归：铜墙 `block.health` / `Building.maxHealth` 为 320，`blockHealthMultiplier` 只作为受伤除数，不再参与详情生命显示；
 - 敌方单位 T7 护甲 +50；玩家建筑护甲修正可为负，但实际护甲不会低于 0；
 - 迫降词条在新局正确扣除 20% 开局资源（无头实测铜 100→80），结算后自动消耗；已开局世界不会追溯扣资源（世界加载时已打标记）；
 - T7 豆腐渣 I+II+III 建造倍率约 1.25（仍受 1.35 上限保护）；资源匮乏 I+II+III+IV 全开时采矿/钻机可压到 0.20（单开 IV 为 0.50）；精尖弹药 I 全炮塔弹药/射速/误差字段发生变化；精锐/袭击/团体波次累积测试通过（5 基础 ×1.75 → 8/9/9/9/8）。
