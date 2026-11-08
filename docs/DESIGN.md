@@ -2481,5 +2481,5 @@ T1–T61 全过。
 # 全局难度协议（T0 - T7）
 
 难度系统的完整数值表、护甲/跳弹/产能机制、T7 词条池与切换拦截见
-[`DIFFICULTY.md`](DIFFICULTY.md)。默认档位为 T1（与原版基线一致），
+[`DIFFICULTY.md`](DIFFICULTY.md)。默认档位为 T1（比原版略宽松，T2 为基准），
 RBMK 核电站专用逻辑未改动。

@@ -143,5 +143,6 @@
 200	T200 category=liquid configured=true straight=true side=true split=true l=50 r=50 ok=true
 201	T201 category=liquid selectedSide=true otherStraight=true split=true l=50 r=50 ok=true
 202	T202 flow=true dst=[1-9][0-9]* ok=true
-203	T203 steelBase=0 steel=0 tungsten=14 dmg0=100 dmgNeg=100 ok=true
-204	T204 base=320 max=137\.[0-9]+ detail=137\.[0-9]+ dm=1(\.0)? ok=true
+203	T203 steelBase=0 steel=0 tungsten=12 dmg0=100 dmgNeg=100 ok=true
+204	T204 base=320 max=142\.[0-9]+ detail=142\.[0-9]+ dm=1(\.0)? ok=true
+205	T205 h0=0\.700 h1=0\.850 h7=2\.600 d7=2\.350 a0=-15\.000 b0=1\.500 bh7=0\.600 pa7=-12\.000 ws7=0\.700 ric7=0\.030 prod0=1\.300 ok=true

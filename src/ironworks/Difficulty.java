@@ -47,7 +47,7 @@ public final class Difficulty{
     public static final int maxTier = 7;
 
     public static final String[] tierIds = {"t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7"};
-    public static final String[] tierNames = {"安逸", "苏醒", "整备", "警戒", "失谐", "共振", "梦魇", "凝视深空"};
+    public static final String[] tierNames = {"安逸", "苏醒", "整备", "警戒", "失谐", "共振", "梦魇", "凝视深渊"};
 
     /** 难度色：低难绿，高难红/深红，T7 故障紫黑。 */
     public static final Color[] tierColors = {
@@ -57,18 +57,18 @@ public final class Difficulty{
     };
 
     // ── 数值表：T0..T7 ──
-    private static final float[] enemyHealth = {0.80f, 1.00f, 1.20f, 1.45f, 1.70f, 1.95f, 2.40f, 2.40f};
-    private static final float[] enemyDamage = {0.80f, 1.00f, 1.15f, 1.30f, 1.50f, 1.75f, 2.10f, 2.20f};
+    private static final float[] enemyHealth = {0.70f, 0.85f, 1.00f, 1.25f, 1.45f, 1.95f, 2.40f, 2.60f};
+    private static final float[] enemyDamage = {0.70f, 0.85f, 1.00f, 1.15f, 1.35f, 1.75f, 2.10f, 2.35f};
     /** 波次间隔倍率；越小越密集。 */
-    private static final float[] waveSpacing = {1.25f, 1.00f, 0.92f, 0.84f, 0.76f, 0.68f, 0.58f, 0.55f};
-    private static final float[] playerBuildSpeed = {1.05f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
+    private static final float[] waveSpacing = {1.35f, 1.15f, 1.00f, 0.90f, 0.75f, 0.70f, 0.70f, 0.70f};
+    private static final float[] playerBuildSpeed = {1.50f, 1.15f, 1.00f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
     /** 建筑生命上限倍率（直接缩放 Building.maxHealth）。 */
-    private static final float[] playerBlockHealth = {1.05f, 1.00f, 0.94f, 0.86f, 0.78f, 0.70f, 0.62f, 0.58f};
-    private static final float[] playerBlockArmor = {1.0f, 0.0f, -1.0f, -2.0f, -3.0f, -5.0f, -8.0f, -10.0f};
-    private static final float[] production = {1.02f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
-    private static final float[] ricochetBonus = {0.00f, 0.00f, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f};
-    /** 敌方单位绝对护甲上浮。T6 = +45，T7 = +50。 */
-    private static final float[] enemyArmorBonus = {0f, 0f, 6f, 14f, 24f, 34f, 45f, 50f};
+    private static final float[] playerBlockHealth = {1.35f, 1.20f, 1.00f, 0.85f, 0.75f, 0.65f, 0.60f, 0.60f};
+    private static final float[] playerBlockArmor = {15.0f, 5.0f, 0.0f, -1.0f, -2.0f, -4.0f, -8.0f, -12.0f};
+    private static final float[] production = {1.30f, 1.10f, 1.00f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
+    private static final float[] ricochetBonus = {0.00f, 0.00f, 0.00f, 0.01f, 0.015f, 0.02f, 0.025f, 0.03f};
+    /** 敌方单位/建筑绝对护甲修正；T0/T1 为负值，实际护甲仍下限 0。 */
+    private static final float[] enemyArmorBonus = {-15f, -5f, 0f, 8f, 18f, 28f, 36f, 50f};
 
     // ── T7 词条 ──
     public static final String MOD_FORCED = "forced-landing";
@@ -258,8 +258,8 @@ public final class Difficulty{
     public static float buildSpeedMultiplier(){
         float value = playerBuildSpeed[tier];
         if(tier == maxTier && benefitEnabled(MOD_JERRY)) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
-        // 正向补偿有上限，避免“豆腐渣”叠加把建造速度刷成外挂。
-        return Math.max(0.35f, Math.min(1.35f, value));
+        // 新的 T0 基础值就是 1.5，不能再套旧的 1.35 正向上限。
+        return Math.max(0.35f, value);
     }
 
     public static float playerBlockHealthMultiplier(){
@@ -416,7 +416,7 @@ public final class Difficulty{
         int forced = value == maxTier ? Math.round(forcedLandingLoss() * 100f) : 0;
         int refund = value == maxTier ? Math.round(enemyRefund() * 100f) : 0;
         String base = Core.bundle.format("ironworks.difficulty.detail",
-            num(enemyHealthFor(value)), num(enemyDamageFor(value)), String.valueOf((int)enemyArmorFor(value)),
+            num(enemyHealthFor(value)), num(enemyDamageFor(value)), signed((int)enemyArmorFor(value)),
             num(ricochetBonus[value]), num4(waveSpacingFor(value)),
             num3(buildSpeedFor(value)), num3(blockHealthFor(value)), num(armorFor(value)),
             num(unitCostFor(value)), num(unitStatFor(value)), num(productionFor(value)), num(miningFor(value)),
@@ -481,7 +481,7 @@ public final class Difficulty{
     private static float buildSpeedFor(int value){
         float result = playerBuildSpeed[value];
         if(value == maxTier && benefitEnabled(MOD_JERRY)) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
-        return Math.max(0.35f, Math.min(1.35f, result));
+        return Math.max(0.35f, result);
     }
 
     private static float blockHealthFor(int value){
@@ -1163,6 +1163,10 @@ public final class Difficulty{
 
     private static String num4(float value){
         return String.format(java.util.Locale.US, "%.4f", value);
+    }
+
+    private static String signed(int value){
+        return value >= 0 ? "+" + value : String.valueOf(value);
     }
 
     private static String modifierString(){
