@@ -1020,7 +1020,7 @@ public final class Difficulty{
             return Core.bundle.format("ironworks.difficulty.content.unit",
                 num(baseHealth * playerUnitStatMultiplier()), num(playerUnitStatMultiplier()),
                 num(baseHealth * enemyHealthMul()), num(enemyHealthMul()),
-                num(unit.armor), num(unit.armor + enemyArmorBonus()),
+                num(unit.armor), num(Math.max(0f, unit.armor + enemyArmorBonus())),
                 num(playerUnitStatMultiplier()), num(enemyDamageMul()),
                 Math.round(enemyElementResistance() * 100f), num(playerUnitCostMultiplier()));
         }
@@ -1029,7 +1029,7 @@ public final class Difficulty{
                 "ironworks.difficulty.content.block",
                 num(block.health), num(block.health * playerBlockHealthMultiplier()),
                 num3(playerBlockHealthMultiplier()),
-                num(block.armor), num(block.armor + playerBlockArmorModifier()),
+                num(block.armor), num(Math.max(0f, block.armor + playerBlockArmorModifier())),
                 num3(buildSpeedMultiplier()), fullDeconstructRefund() ? "100%" : "原版"));
 
             if(block instanceof Turret turret){

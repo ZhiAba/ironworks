@@ -283,7 +283,7 @@ public class Dmg{
                 effectivePierce = Math.max(0f, effectivePierce - Difficulty.enemyPenResistance());
             }
             float effectiveArmor = armor * (1f - effectivePierce);
-            float reduction = Math.max(-0.50f, effectiveArmor / (effectiveArmor + ArmorPen.armorConstant));
+            float reduction = Math.max(0f, effectiveArmor / (effectiveArmor + ArmorPen.armorConstant));
             afterArmor = incoming * (1f - reduction);
             lastArmorAbsorbed = Math.max(0f, incoming - afterArmor);
             lastArmorReduction = reduction;
@@ -391,12 +391,12 @@ public class Dmg{
         return amount;
     }
 
-    /** 基础护甲（不含永久腐蚀）。难度协议会把敌方护甲上浮、我方建筑护甲压成负数。 */
+    /** 基础护甲（不含永久腐蚀）。敌方护甲上浮、我方建筑护甲修正都会在 0 处截断。 */
     public static float baseArmorOf(Healthc target){
         if(target instanceof Unit unit){
             float armor = unit.armorOverride() >= 0f ? unit.armorOverride() : unit.armor();
             if(Difficulty.isEnemyTarget(unit)) armor += Difficulty.enemyArmorBonus();
-            return armor;
+            return Math.max(0f, armor);
         }
         if(target instanceof Building build && build.block != null){
             float armor = build.block.armor;
@@ -405,20 +405,14 @@ public class Dmg{
             }else if(Difficulty.isEnemyTarget(build)){
                 armor += Difficulty.enemyArmorBonus();
             }
-            return armor;
+            return Math.max(0f, armor);
         }
         return 0f;
     }
 
-    /** 当前有效护甲：基础护甲扣除永久腐蚀；只有难度造成的负建筑护甲保留负号。 */
+    /** 当前有效护甲：基础护甲扣除永久腐蚀，下限 0；负护甲不会放大伤害。 */
     public static float armorOf(Healthc target){
-        float base = baseArmorOf(target);
-        float armor = base - Corrosion.reduction(target);
-        // 普通腐蚀仍按旧规则钳到 0；只有我方建筑的难度负护甲允许进入易伤区。
-        if(base < 0f && target instanceof Building build && Difficulty.isPlayerTeam(build.team)){
-            return armor;
-        }
-        armor = Math.max(0f, armor);
+        float armor = Math.max(0f, baseArmorOf(target) - Corrosion.reduction(target));
         // 精良装甲的跳弹疲劳按敌方当前护甲的百分比削减。
         if(Difficulty.isEnemyTarget(target)){
             armor *= Math.max(0f, 1f - Difficulty.enemyArmorFatiguePercent(target));

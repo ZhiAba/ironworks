@@ -40,18 +40,18 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         float baseCraftTime = crafter == null ? 0f : crafter.craftTime;
 
         float actualHealth = block == null ? 0f : baseHealth * Difficulty.playerBlockHealthMultiplier();
-        float actualArmor = block == null ? 0f : baseArmor + Difficulty.playerBlockArmorModifier();
+        float actualArmor = block == null ? 0f : Math.max(0f, baseArmor + Difficulty.playerBlockArmorModifier());
         float actualBuildTime = block == null || baseBuildTime <= 0f ? 0f
             : baseBuildTime / Math.max(0.05f, Difficulty.buildSpeedMultiplier());
         float actualUnitHealth = unit == null ? 0f : baseUnitHealth * Difficulty.playerUnitStatMultiplier();
-        float actualUnitArmor = unit == null ? 0f : baseUnitArmor;
+        float actualUnitArmor = unit == null ? 0f : Math.max(0f, baseUnitArmor);
         float enemyUnitHealth = unit == null ? 0f : baseUnitHealth * Difficulty.enemyHealthMul();
-        float enemyUnitArmor = unit == null ? 0f : baseUnitArmor + Difficulty.enemyArmorBonus();
+        float enemyUnitArmor = unit == null ? 0f : Math.max(0f, baseUnitArmor + Difficulty.enemyArmorBonus());
 
         try{
             if(block != null){
                 // 生命值/建造时间随后会把原版数值标签改成实际的小数值；
-                // 护甲隐藏标准行，统一放到“基础”末尾的实时行里，负护甲也能显示。
+                // 护甲隐藏标准行，统一放到“基础”栏，实际护甲下限 0。
                 block.health = Math.max(1, Math.round(actualHealth));
                 block.armor = 0f;
                 if(actualBuildTime > 0f){
