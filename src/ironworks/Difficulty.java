@@ -34,9 +34,9 @@ import static mindustry.Vars.*;
  *
  * <p>这是“物理法则重写器”，不是简单的数值开关：</p>
  * <ul>
- *   <li>敌方单位：血量/伤害/波次间隔；高难度额外绝对护甲（T6 +45）。</li>
+ *   <li>敌方单位：血量/伤害/波次间隔；低难度可减甲（T0/T1），高难度加甲（T6 +36、T7 +50），实际护甲下限 0。</li>
  *   <li>我方：建造速度、建筑生命上限、建筑护甲（可为负）、产能/采矿。</li>
- *   <li>跳弹：T2 起给敌方目标额外跳弹率，T6 +0.05。</li>
+ *   <li>跳弹：T3 起给敌方目标额外跳弹率，T7 +0.03。</li>
  *   <li>T7 词条：迫降、豆腐渣工程、资源匮乏、重工业；可重复叠加，只加难度。</li>
  * </ul>
  *
@@ -248,18 +248,18 @@ public final class Difficulty{
         return Math.max(0.20f, value);
     }
 
-    /** 采矿/钻机倍率；资源获取下限由旧 0.50 改为 0.20。 */
+    /** 采矿/钻机倍率；下限按数值表为 0.05。 */
     public static float miningMultiplier(){
         float value = production[tier];
         if(tier == maxTier) value -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        return Math.max(0.20f, value);
+        return Math.max(0.05f, value);
     }
 
     public static float buildSpeedMultiplier(){
         float value = playerBuildSpeed[tier];
         if(tier == maxTier && benefitEnabled(MOD_JERRY)) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
-        // 新的 T0 基础值就是 1.5，不能再套旧的 1.35 正向上限。
-        return Math.max(0.35f, value);
+        // 新的 T0 基础值就是 1.5，不能再套旧的 1.35 正向上限；下限按数值表为 0.25。
+        return Math.max(0.25f, value);
     }
 
     public static float playerBlockHealthMultiplier(){
@@ -317,7 +317,7 @@ public final class Difficulty{
         return Math.max(0.10f, Math.min(5f, value));
     }
 
-    /** 波次间隔：袭击缩短、团体延长，全部按加法合并。 */
+    /** 波次间隔：袭击缩短、团体延长，全部按加法合并；下限按数值表为 0.4。 */
     public static float waveSpacingMultiplier(){
         float value = waveSpacing[tier];
         if(tier == maxTier){
@@ -325,7 +325,7 @@ public final class Difficulty{
             float penalty = modifierSum(MOD_RAID, raidSpacingReductionLevels);
             value *= Math.max(0.20f, Math.min(3f, 1f + bonus - penalty));
         }
-        return value;
+        return Math.max(0.4f, value);
     }
 
     /** 炮塔每发弹药倍率（精尖弹药惩罚）。 */
@@ -481,7 +481,7 @@ public final class Difficulty{
     private static float buildSpeedFor(int value){
         float result = playerBuildSpeed[value];
         if(value == maxTier && benefitEnabled(MOD_JERRY)) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
-        return Math.max(0.35f, result);
+        return Math.max(0.25f, result);
     }
 
     private static float blockHealthFor(int value){
