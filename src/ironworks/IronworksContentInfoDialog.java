@@ -38,8 +38,9 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         float baseUnitArmor = unit == null ? 0f : unit.armor;
         float baseCraftTime = crafter == null ? 0f : crafter.craftTime;
 
-        // 建筑 TeamRule.blockHealthMultiplier 是“受到伤害的除数”，不是最大生命值；
-        // 实际放置后的最大生命仍是 block.health，因此这里不能把生命值乘上倍率。
+        // 建筑生命现在直接缩放 Building.maxHealth；详情页显示同一个实际上限。
+        // 不再通过 blockHealthMultiplier 受伤除数实现，避免“上限缩小 + 伤害放大”双重惩罚。
+        float actualHealth = block == null ? 0f : Math.max(1f, block.health * Difficulty.playerBlockHealthMultiplier());
         float actualArmor = block == null ? 0f : Math.max(0f, baseArmor + Difficulty.playerBlockArmorModifier());
         float actualBuildTime = block == null || baseBuildTime <= 0f ? 0f
             : baseBuildTime / Math.max(0.05f, Difficulty.buildSpeedMultiplier());
@@ -50,7 +51,7 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
 
         try{
             if(block != null){
-                // 生命值保持原版最大生命；只把建造时间换成实际值。
+                // 生命字段保持基础值；显示层改为实际最大生命（与 Building.maxHealth 同步）。
                 // 护甲隐藏标准行，统一放到“基础”栏，实际护甲下限 0。
                 block.armor = 0f;
                 if(actualBuildTime > 0f){
@@ -84,6 +85,7 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         if(root == null) return;
 
         if(block != null){
+            overrideStatValue(root, Stat.health, fmt(actualHealth));
             if(actualBuildTime > 0f){
                 overrideStatValue(root, Stat.buildTime, fmt(actualBuildTime));
             }

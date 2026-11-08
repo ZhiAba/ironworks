@@ -21,6 +21,7 @@ import mindustry.type.Planet;
 import mindustry.type.Sector;
 import mindustry.type.UnitType;
 import mindustry.world.Block;
+import mindustry.world.Tile;
 import mindustry.world.blocks.defense.turrets.Turret;
 import mindustry.world.blocks.production.Drill;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
@@ -34,7 +35,7 @@ import static mindustry.Vars.*;
  * <p>这是“物理法则重写器”，不是简单的数值开关：</p>
  * <ul>
  *   <li>敌方单位：血量/伤害/波次间隔；高难度额外绝对护甲（T6 +45）。</li>
- *   <li>我方：建造速度、有效建筑血量、建筑护甲（可为负）、产能/采矿。</li>
+ *   <li>我方：建造速度、建筑生命上限、建筑护甲（可为负）、产能/采矿。</li>
  *   <li>跳弹：T2 起给敌方目标额外跳弹率，T6 +0.05。</li>
  *   <li>T7 词条：迫降、豆腐渣工程、资源匮乏、重工业；可重复叠加，只加难度。</li>
  * </ul>
@@ -61,7 +62,7 @@ public final class Difficulty{
     /** 波次间隔倍率；越小越密集。 */
     private static final float[] waveSpacing = {1.25f, 1.00f, 0.92f, 0.84f, 0.76f, 0.68f, 0.58f, 0.55f};
     private static final float[] playerBuildSpeed = {1.05f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
-    /** 有效建筑血量倍率（参与受到伤害的除法）。 */
+    /** 建筑生命上限倍率（直接缩放 Building.maxHealth）。 */
     private static final float[] playerBlockHealth = {1.05f, 1.00f, 0.94f, 0.86f, 0.78f, 0.70f, 0.62f, 0.58f};
     private static final float[] playerBlockArmor = {1.0f, 0.0f, -1.0f, -2.0f, -3.0f, -5.0f, -8.0f, -10.0f};
     private static final float[] production = {1.02f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.80f, 0.80f};
@@ -165,6 +166,8 @@ public final class Difficulty{
             if(e.breaking){
                 deconstructing.add(e.tile);
                 convertDeconstruct(e.tile);
+            }else{
+                applyPlayerBlockHealth(e.tile.build);
             }
         });
         Events.on(EventType.BlockDestroyEvent.class, e -> onBlockDestroy(e.tile));
@@ -832,7 +835,9 @@ public final class Difficulty{
             r.buildSpeedMultiplier = buildSpeedMultiplier();
             r.unitBuildSpeedMultiplier = buildSpeedMultiplier();
             r.unitMineSpeedMultiplier = miningMultiplier();
-            r.blockHealthMultiplier = playerBlockHealthMultiplier();
+            // 建筑生命改为直接缩放 Building.maxHealth；不能再用 TeamRule 的受伤除数，
+            // 否则会同时缩小上限又放大伤害，形成双重惩罚。
+            r.blockHealthMultiplier = 1f;
             r.unitCostMultiplier = playerUnitCostMultiplier();
             if(tier == maxTier && modifierLevel(MOD_HEAVY) > 0){
                 r.unitHealthMultiplier = playerUnitStatMultiplier();
@@ -864,11 +869,40 @@ public final class Difficulty{
         }
         state.rules.deconstructRefundMultiplier = fullDeconstructRefund() ? 1f : baseDeconstructRefund;
 
+        applyPlayerBlockHealth();
         syncTags();
         IronworksDrills.apply();
         IronworksTurretStats.apply();
         wrapSpawnGroups();
         updateEnemySlowEffect();
+    }
+
+    /** 扫描所有玩家建筑，把最大生命同步到当前难度的实际值。 */
+    private static void applyPlayerBlockHealth(){
+        if(state == null || state.rules == null || world == null) return;
+        Team player = state.rules.defaultTeam;
+        if(player == null) return;
+
+        // Groups.build 只包含 update=true 的建筑，墙/传送带等静态建筑不在里面，
+        // 因此这里直接扫描世界格子，按 Building 去重（多格建筑会出现在多个格子上）。
+        ObjectSet<Building> seen = new ObjectSet<>();
+        for(Tile tile : world.tiles){
+            Building build = tile.build;
+            if(build == null || build.team != player || !seen.add(build)) continue;
+            applyPlayerBlockHealth(build);
+        }
+    }
+
+    private static void applyPlayerBlockHealth(Building build){
+        if(state == null || state.rules == null || build == null || build.block == null) return;
+        if(build.team != state.rules.defaultTeam) return;
+
+        float target = Math.max(1f, build.block.health * playerBlockHealthMultiplier());
+        float oldMax = build.maxHealth();
+        float oldHealth = build.health();
+        build.maxHealth(target);
+        float ratio = oldMax > 0f ? Math.max(0f, oldHealth / oldMax) : 1f;
+        build.health(Math.min(target, target * ratio));
     }
 
     /** 把本局 SpawnGroup 换成累计小数版本；数量词条关闭时也保持原行为。 */
