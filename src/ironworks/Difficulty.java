@@ -145,6 +145,8 @@ public final class Difficulty{
     private static float baseWaveSpacing = -1f, baseInitialWaveSpacing = -1f;
     private static Object rulesRef;
     private static boolean initialized;
+    /** SaveIO 写入前临时剥掉 DifficultySpawnGroup，避免 Json 解析模组类名失败。 */
+    private static boolean spawnWrappersStripped;
 
     private Difficulty(){
     }
@@ -166,6 +168,11 @@ public final class Difficulty{
             }
         });
         Events.on(EventType.BlockDestroyEvent.class, e -> onBlockDestroy(e.tile));
+        // SaveIO.write 在序列化 Rules.spawns 前触发；自定义 SpawnGroup 子类
+        // 会被 Json 写成 "ironworks.DifficultySpawnGroup"，而保存加载器不一定
+        // 能解析模组类名（自定义地图退出保存即 ClassNotFound）。保存前换回
+        // 原始 SpawnGroup，下一 tick 再重新包装。
+        Events.on(EventType.SaveWriteEvent.class, e -> stripSpawnGroupsForSave());
         // 无头/服务器可能在 mod init 之前就完成 world load；用 update 兜底，
         // 只在 rules 实例变化时应用一次，不会每帧重算。
         Events.run(EventType.Trigger.update, Difficulty::ensureApplied);
@@ -173,6 +180,7 @@ public final class Difficulty{
             rulesRef = null;
             baseWaveSpacing = baseInitialWaveSpacing = -1f;
             baseDeconstructRefund = -1f;
+            spawnWrappersStripped = false;
             armorFatigue.clear();
             deconstructing.clear();
         });
@@ -406,14 +414,14 @@ public final class Difficulty{
         int refund = value == maxTier ? Math.round(enemyRefund() * 100f) : 0;
         String base = Core.bundle.format("ironworks.difficulty.detail",
             num(enemyHealthFor(value)), num(enemyDamageFor(value)), String.valueOf((int)enemyArmorFor(value)),
-            num(ricochetBonus[value]), num(waveSpacingFor(value)),
-            num(buildSpeedFor(value)), num(blockHealthFor(value)), num(armorFor(value)),
+            num(ricochetBonus[value]), num4(waveSpacingFor(value)),
+            num3(buildSpeedFor(value)), num3(blockHealthFor(value)), num(armorFor(value)),
             num(unitCostFor(value)), num(unitStatFor(value)), num(productionFor(value)), num(miningFor(value)),
             String.valueOf(forced), String.valueOf(refund), activeModifierSummary(value));
         String extra = Core.bundle.format("ironworks.difficulty.detail.extra",
             Math.round(enemyArmorFatigueMaxPercent() * 100f), enemyArmorFatigueMaxStacks(),
             Math.round((1f - enemySpeedMultiplier()) * 100f), Math.round(enemyPenResistance() * 100f),
-            Math.round(enemyElementResistance() * 100f), num(waveCountFor(value)), num(waveSpacingFor(value)),
+            Math.round(enemyElementResistance() * 100f), num(waveCountFor(value)), num4(waveSpacingFor(value)),
             num(turretAmmoMultiplier()), num(turretFireRateMultiplier()), Math.round(turretInaccuracyBonus()),
             num(precisionDamageMultiplier()), Math.round(precisionPenRate() * 100f),
             num(precisionPenFlatMultiplier()),
@@ -739,6 +747,10 @@ public final class Difficulty{
         if(rulesRef != state.rules){
             onWorldLoad();
         }
+        if(spawnWrappersStripped){
+            spawnWrappersStripped = false;
+            wrapSpawnGroups();
+        }
         applyForcedLanding();
     }
 
@@ -749,6 +761,7 @@ public final class Difficulty{
             baseWaveSpacing = -1f;
             baseInitialWaveSpacing = -1f;
             baseDeconstructRefund = -1f;
+            spawnWrappersStripped = false;
             armorFatigue.clear();
             deconstructing.clear();
         }
@@ -870,6 +883,24 @@ public final class Difficulty{
         }
     }
 
+    /**
+     * SaveIO 写出 Rules 前执行：把自定义 SpawnGroup 子类换回原版基类。
+     * 否则自定义地图保存会把 "ironworks.DifficultySpawnGroup" 写入 JSON，
+     * 读取端用系统 ClassLoader 解析时得到 ClassNotFound。
+     */
+    private static void stripSpawnGroupsForSave(){
+        if(state == null || state.rules == null || state.rules.spawns == null) return;
+        boolean changed = false;
+        for(int i = 0; i < state.rules.spawns.size; i++){
+            var group = state.rules.spawns.get(i);
+            if(group instanceof DifficultySpawnGroup wrapper && wrapper.hasOriginal()){
+                state.rules.spawns.set(i, wrapper.original());
+                changed = true;
+            }
+        }
+        if(changed) spawnWrappersStripped = true;
+    }
+
     private static void syncTags(){
         if(state == null || state.rules == null) return;
         state.rules.tags.put("ironworks.difficulty", String.valueOf(tier));
@@ -987,20 +1018,19 @@ public final class Difficulty{
         if(content instanceof UnitType unit){
             float baseHealth = unit.health;
             return Core.bundle.format("ironworks.difficulty.content.unit",
-                num(baseHealth), num(baseHealth * playerUnitStatMultiplier()),
-                num(playerUnitStatMultiplier()), num(baseHealth * enemyHealthMul()), num(enemyHealthMul()),
+                num(baseHealth * playerUnitStatMultiplier()), num(playerUnitStatMultiplier()),
+                num(baseHealth * enemyHealthMul()), num(enemyHealthMul()),
                 num(unit.armor), num(unit.armor + enemyArmorBonus()),
-                Math.round(enemyElementResistance() * 100f),
                 num(playerUnitStatMultiplier()), num(enemyDamageMul()),
-                num(playerUnitCostMultiplier()));
+                Math.round(enemyElementResistance() * 100f), num(playerUnitCostMultiplier()));
         }
         if(content instanceof Block block){
             StringBuilder result = new StringBuilder(Core.bundle.format(
                 "ironworks.difficulty.content.block",
                 num(block.health), num(block.health * playerBlockHealthMultiplier()),
-                num(playerBlockHealthMultiplier()),
+                num3(playerBlockHealthMultiplier()),
                 num(block.armor), num(block.armor + playerBlockArmorModifier()),
-                num(buildSpeedMultiplier()), fullDeconstructRefund() ? "100%" : "原版"));
+                num3(buildSpeedMultiplier()), fullDeconstructRefund() ? "100%" : "原版"));
 
             if(block instanceof Turret turret){
                 result.append('\n').append(turretDetail(turret));
@@ -1019,10 +1049,9 @@ public final class Difficulty{
     }
 
     private static String turretDetail(Turret turret){
-        float reloadSeconds = turret.reload / 60f;
-        float shotsPerSecond = turret.reload > 0f ? 60f / turret.reload : 0f;
         String result = Core.bundle.format("ironworks.difficulty.content.turret",
-            turret.ammoPerShot, num(reloadSeconds), num(shotsPerSecond),
+            turret.ammoPerShot, num(turretAmmoMultiplier()),
+            num(turret.reload / 60f), num(turretFireRateMultiplier()),
             Math.round(turret.inaccuracy), num(precisionDamageMultiplier()),
             Math.round(precisionPenRate() * 100f), num(precisionPenFlatMultiplier()));
         String damage = turretDamageDetail(turret);
@@ -1092,6 +1121,14 @@ public final class Difficulty{
 
     private static String num(float value){
         return String.format(java.util.Locale.US, "%.2f", value);
+    }
+
+    private static String num3(float value){
+        return String.format(java.util.Locale.US, "%.3f", value);
+    }
+
+    private static String num4(float value){
+        return String.format(java.util.Locale.US, "%.4f", value);
     }
 
     private static String modifierString(){

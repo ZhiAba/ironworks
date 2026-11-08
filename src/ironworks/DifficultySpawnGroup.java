@@ -40,6 +40,11 @@ public class DifficultySpawnGroup extends SpawnGroup{
         return original != null;
     }
 
+    /** 保存前把包装器换回原始 SpawnGroup，避免 Json 尝试加载模组专属类名。 */
+    public SpawnGroup original(){
+        return original;
+    }
+
     @Override
     public int getSpawned(int wave){
         if(original == null) return super.getSpawned(wave);

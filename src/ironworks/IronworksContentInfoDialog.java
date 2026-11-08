@@ -58,22 +58,17 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         extra.margin(8f);
         extra.add("[accent]铁流工业实时属性[]").left().row();
 
-        // 先显示这个内容的实际值，再显示当前难度的全局汇总。把它放进
-        // ScrollPane 的内容表里，避免以前附加到 cont 底部后超出可视区域。
+        // 只显示当前内容自己的实时值；全局难度汇总留在难度详情里，
+        // 避免详情页被两段长文本挤满。
         Label specific = new Label("", Styles.outlineLabel);
         specific.setWrap(true);
-        extra.add(specific).width(560f).left().row();
-
-        Label label = new Label("", Styles.outlineLabel);
-        label.setWrap(true);
-        extra.add(label).width(560f).left().top();
+        extra.add(specific).width(520f).left();
 
         Table target = findScrollContent(cont);
         if(target == null) target = cont;
         addAtTop(target, extra);
 
         specific.update(() -> specific.setText(Difficulty.contentDetail(content)));
-        label.update(() -> label.setText(Difficulty.describe(Difficulty.tier())));
     }
 
     /** 找到 ContentInfoDialog 内部的滚动内容表，把实时属性放到可滚动区域顶部。 */

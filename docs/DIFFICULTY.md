@@ -1,6 +1,6 @@
 # 全局难度协议 T0 - T7
 
-> 实装版本：**3.5.0.1**。
+> 实装版本：**3.5.0.2**。
 > 设计目标：难度不是单纯堆怪，而是重写护甲、跳弹、产能和开局资源规则。
 > **默认档位是 T1（苏醒）**，与原版基线一致；T0 是可选的低压档。
 
@@ -113,9 +113,9 @@
 - `src/ironworks/IronworksCampaignRulesDialog.java`：替换原版星球难度页，保留其它战役选项并同步原版 `CampaignRules.difficulty = normal`；
 - `src/ironworks/IronworksCampaignDifficulty.java`：客户端安装/替换 `ui.campaignRules` 与 `ui.content`；
 - `src/ironworks/IronworksDrills.java`：缩放原版/模组钻头 `drillTime`，同步实际产量和详情页；
-- `src/ironworks/IronworksContentInfoDialog.java`：在建筑/单位/核心数据库详情顶部显示实时“敌方/我方/资源/词条”与当前内容总值；建筑标准生命/护甲行也临时显示实际有效值。
+- `src/ironworks/IronworksContentInfoDialog.java`：在建筑/单位/核心数据库详情顶部用分行小表显示当前内容的实时生命、护甲、建造/产能/采矿、炮塔和单位属性；建筑标准生命/护甲行也临时显示实际有效值。
 - `src/ironworks/IronworksDamageUI.java`：继承同一个详情 UI，保留属性伤害着色，避免两个子类互相覆盖。
-- `src/ironworks/DifficultySpawnGroup.java`：波次数量的累计小数分配。
+- `src/ironworks/DifficultySpawnGroup.java`：波次数量的累计小数分配；`SaveWriteEvent` 前由 `Difficulty` 临时换回原版 `SpawnGroup`，避免自定义类名写入存档。
 - `src/ironworks/IronworksTurretStats.java`：全炮塔弹药/射速/误差字段修正。
 - `src/ironworks/IronworksRecovery.java`：回收物资的 70% 上一级材料转化。
 
