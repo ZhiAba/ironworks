@@ -6,27 +6,25 @@ import arc.scene.Element;
 import arc.scene.Group;
 import arc.scene.ui.Label;
 import arc.scene.ui.layout.Table;
+import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import mindustry.Vars;
 import mindustry.ctype.UnlockableContent;
 import mindustry.entities.bullet.BulletType;
-import mindustry.type.UnitType;
 import mindustry.ui.Styles;
 import mindustry.world.blocks.defense.turrets.Turret;
 import mindustry.world.meta.Stat;
 
 /**
- * 详情页属性伤害着色（客户端）。
+ * 详情页属性伤害着色与实时弹药数值（客户端）。
  *
- * 原版弹药统计由 StatValues.ammo 直接生成 "[stat]12[lightgray] 伤害"，
- * 没有按弹种改字体的钩子。这里替换掉 Vars.ui.content，
- * 在 dialog.show() 之后遍历弹药面板的 Label，把伤害行改成：
- *   [stat]12[lightgray] [#5aa9ff]水[]元素伤害
- * 同时处理范围伤害行。
- *
- * 这样原版海啸/蓝瑟/魔灵和模组炮塔都能统一显示，不需要为每门炮写 setStats。
+ * <p>原版弹药统计由 StatValues.ammo 直接读取 BulletType.damage / splashDamage，
+ * 没有按难度缩放的钩子。这里只在详情页 show() 期间临时替换弹体字段，让原版
+ * 弹药面板本身显示当前实际伤害，返回后立刻恢复；穿甲收益则补在弹药面板末尾。</p>
  */
 public class IronworksDamageUI extends IronworksContentInfoDialog{
+    /** 详情页打开期间临时改写的弹体；show() 结束后必须恢复。 */
+    private static final ObjectMap<BulletType, float[]> previewed = new ObjectMap<>();
 
     public static void init(){
         if(Vars.headless || Vars.ui == null) return;
@@ -36,12 +34,37 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
 
     @Override
     public void show(UnlockableContent content){
-        super.show(content);
-        if(content instanceof Turret turret){
-            decorate(cont, turret);
-        }else if(content instanceof UnitType unit){
-            decorateUnit(cont, unit);
+        Turret turret = content instanceof Turret t ? t : null;
+        if(turret != null) pushBulletPreview(turret);
+        try{
+            super.show(content);
+            if(turret != null){
+                decorate(cont, turret);
+            }
+        }finally{
+            if(turret != null) popBulletPreview();
         }
+    }
+
+    private static void pushBulletPreview(Turret turret){
+        previewed.clear();
+        float multiplier = Difficulty.precisionDamageMultiplier();
+        if(multiplier == 1f) return;
+
+        for(BulletType bullet : Dmg.ammoTypes(turret)){
+            if(bullet == null || previewed.containsKey(bullet)) continue;
+            previewed.put(bullet, new float[]{bullet.damage, bullet.splashDamage});
+            bullet.damage *= multiplier;
+            bullet.splashDamage *= multiplier;
+        }
+    }
+
+    private static void popBulletPreview(){
+        for(ObjectMap.Entry<BulletType, float[]> entry : previewed){
+            entry.key.damage = entry.value[0];
+            entry.key.splashDamage = entry.value[1];
+        }
+        previewed.clear();
     }
 
     private static void decorate(Table root, Turret turret){
@@ -90,7 +113,12 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
             String text = label.getText().toString();
 
             if(areaWord != null && text.contains(areaWord)){
-                label.setText(text.replace(areaWord, type.coloredName() + type.separator() + type.areaSuffix()));
+                String next = text.replace(areaWord, type.coloredName() + type.separator() + type.areaSuffix());
+                // 原版范围伤害按整数显示；这里换成临时缩放后的实际值，仍保留半径。
+                if(bullet.splashDamage > 0f){
+                    next = next.replaceFirst("\\[stat\\][^\\[]*", "[stat]" + trim(bullet.splashDamage));
+                }
+                label.setText(next);
                 changed = true;
             }else if(directSuffix != null && text.contains(directSuffix)){
                 label.setText(text.replace(directSuffix, "[lightgray] " + type.coloredName() + type.separator() + type.damageSuffix()));
@@ -104,7 +132,8 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
             panel.add("[lightgray]" + type.coloredName() + type.separator() + type.damageSuffix()).left();
         }
 
-        ArmorPen pen = Dmg.penOf(bullet, turret);
+        // 详情页里显示的是玩家炮塔的实际穿透收益，和 Dmg.bulletHit 的结算保持一致。
+        ArmorPen pen = Difficulty.precisionPen(Dmg.penOf(bullet, turret));
         DamageForm form = Dmg.formOf(bullet, turret);
         panel.row();
         panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.form", "形态") + ":[] "
@@ -130,23 +159,6 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
             panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.ricochet-short"))
                 .left().wrap();
         }
-    }
-
-    private static void decorateUnit(Table root, UnitType unit){
-        root.row();
-        root.table(Styles.grayPanel, t -> {
-            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.armor", "护甲") + ":[] "
-                + Mathf.round(unit.armor)).left();
-            t.row();
-            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.material", "材质") + ":[] "
-                + TargetMaterial.name(unit)).left();
-            t.row();
-            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.weakness", "弱点") + ":[] "
-                + ElementCombo.weaknessName(unit)).left().wrap();
-            t.row();
-            t.add("[lightgray]" + Core.bundle.get("ironworks.combat.resistance", "抗性") + ":[] "
-                + Resistance.summary(unit)).left().wrap();
-        }).growX().padTop(6f);
     }
 
     private static String trim(float value){

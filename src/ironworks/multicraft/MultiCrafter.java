@@ -140,14 +140,14 @@ public class MultiCrafter extends Block{
             // 工时条（循环填充，纯视觉，对应原库的 Bar）
             Table time = new Table();
             final float[] dur = {0f};
-            float ct = Math.max(r.craftTime, 1f);
-            String ctLabel = String.format("%.2f", r.craftTime / 60f);
+            final float[] actual = {Math.max(1f, r.craftTime / Math.max(0.05f, Difficulty.productionMultiplier()))};
             time.update(() -> {
+                actual[0] = Math.max(1f, r.craftTime / Math.max(0.05f, Difficulty.productionMultiplier()));
                 dur[0] += Time.delta;
-                if(dur[0] > ct) dur[0] = 0f;
+                if(dur[0] > actual[0]) dur[0] = 0f;
             });
-            time.add(new mindustry.ui.Bar(() -> ctLabel, () -> Pal.accent,
-                () -> arc.math.Interp.smooth.apply(dur[0] / ct)))
+            time.add(new mindustry.ui.Bar(() -> String.format("%.2f", actual[0] / 60f), () -> Pal.accent,
+                () -> arc.math.Interp.smooth.apply(dur[0] / actual[0])))
                 .height(30f).width(Vars.mobile ? 80f : 130f);
             row.add(time).pad(6f);
 
@@ -173,7 +173,8 @@ public class MultiCrafter extends Block{
         for(LiquidStack stack : (input ? r.liquidInputs : r.liquidOutputs)){
             Table liq = new Table();
             liq.add(StatValues.displayLiquid(stack.liquid, stack.amount, false)).left();
-            float rate = stack.amount * 60f / Math.max(r.craftTime, 1f);
+            // 液体消耗/产出速度也按实际产能缩放，避免详情页继续显示注册工时。
+            float rate = stack.amount * 60f / Math.max(1f, r.craftTime / Math.max(0.05f, Difficulty.productionMultiplier()));
             liq.add("[lightgray]" + arc.util.Strings.autoFixed(rate, 1) + "/秒").padLeft(3f);
             t.add(liq).left().pad(1f).row();
         }

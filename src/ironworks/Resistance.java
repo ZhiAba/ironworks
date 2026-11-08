@@ -83,12 +83,23 @@ public final class Resistance{
         return type == null ? Core.bundle.get("ironworks.combat.no-resistance", "无") : summary(type.name);
     }
 
-    /** 按内容名（单位/方块）生成抗性文案。 */
+    /** 按内容名（单位/方块）生成基础抗性文案。 */
     public static String summary(String key){
+        return summary(key, false);
+    }
+
+    /** 单位作为敌方目标时的实际抗性，包含精锐的“全元素抗性”惩罚。 */
+    public static String summaryEnemy(UnitType type){
+        return type == null ? Core.bundle.get("ironworks.combat.no-resistance", "无") : summary(type.name, true);
+    }
+
+    private static String summary(String key, boolean enemy){
         if(key == null) return Core.bundle.get("ironworks.combat.no-resistance", "无");
         StringBuilder sb = new StringBuilder();
         for(DamageType element : DamageType.values()){
             float value = element(key, element);
+            if(enemy) value += Difficulty.enemyElementResistance();
+            value = clamp(value);
             if(value <= 0.0001f) continue;
             if(sb.length() > 0) sb.append(" / ");
             sb.append(element.localizedName()).append(" ")
