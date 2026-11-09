@@ -43,6 +43,9 @@ public class Dmg{
     public static final ObjectMap<BulletType, ArmorPen> bulletPens = new ObjectMap<>();
     /** 内容 -> 伤害形态覆盖；没有覆盖时用属性默认形态。 */
     public static final ObjectMap<Object, DamageForm> formRegistry = new ObjectMap<>();
+    /** 逐个弹体的属性形态覆盖：同一物品在不同炮塔里可以是不同属性/形态。 */
+    public static final ObjectMap<BulletType, DamageType> bulletTypeOverrides = new ObjectMap<>();
+    public static final ObjectMap<BulletType, DamageForm> bulletFormOverrides = new ObjectMap<>();
 
     /** 最近一次 hit 的结算细节，供飘字/UI 读取；游戏逻辑单线程调用。 */
     public static float lastEffectivePierce, lastArmorAbsorbed, lastDealt, lastComboMultiplier = 1f;
@@ -131,6 +134,18 @@ public class Dmg{
     /** 给某个内容/弹种设置形态。 */
     public static void form(Object key, DamageForm form){
         if(key != null && form != null) formRegistry.put(key, form);
+    }
+
+    /**
+     * 给某个具体弹体指定属性/形态；在 Dmg.load() 前调用。
+     *
+     * <p>原版同一物品可能被多个炮塔使用，例如巨浪合金在蜂群/气旋里是雷霆·动能，
+     * 在厄兆里是物理·动能，不能只按物品全局映射。</p>
+     */
+    public static void overrideBullet(BulletType bullet, DamageType type, DamageForm form){
+        if(bullet == null) return;
+        if(type != null) bulletTypeOverrides.put(bullet, type);
+        if(form != null) bulletFormOverrides.put(bullet, form);
     }
 
     /** 弹种穿甲覆盖；没有覆盖时回退到属性默认曲线。 */
@@ -652,25 +667,32 @@ public class Dmg{
     public static BulletType copy(BulletType source, DamageType type, DamageForm form){
         if(source == null || source instanceof TypedBullet) return source;
 
+        // 具体弹体的覆盖优先；同一物品在不同炮塔可以有不同属性/形态。
+        DamageType actualType = bulletTypeOverrides.get(source, type);
+        DamageForm actualForm = bulletFormOverrides.get(source, form);
+        if(actualType == null) actualType = type;
+        if(actualForm == null) actualForm = form;
+        if(actualType == null) actualType = DamageType.physical;
+
         BulletType target;
         if(source instanceof FlakBulletType){
-            target = new TypedFlakBulletType(type);
+            target = new TypedFlakBulletType(actualType);
         }else if(source instanceof ArtilleryBulletType){
-            target = new TypedArtilleryBulletType(type, source.speed, source.damage);
+            target = new TypedArtilleryBulletType(actualType, source.speed, source.damage);
         }else if(source instanceof LiquidBulletType liquid){
-            target = new TypedLiquidBulletType(type, liquid.liquid);
+            target = new TypedLiquidBulletType(actualType, liquid.liquid);
         }else if(source instanceof LightningBulletType){
-            target = new TypedLightningBulletType(type, source.damage);
+            target = new TypedLightningBulletType(actualType, source.damage);
         }else if(source instanceof ContinuousLaserBulletType){
-            target = new TypedContinuousLaserBulletType(type, source.damage);
+            target = new TypedContinuousLaserBulletType(actualType, source.damage);
         }else if(source instanceof ShrapnelBulletType){
-            target = new TypedShrapnelBulletType(type);
+            target = new TypedShrapnelBulletType(actualType);
         }else if(source instanceof RailBulletType){
-            target = new TypedRailBulletType(type);
+            target = new TypedRailBulletType(actualType);
         }else if(source instanceof LaserBulletType){
-            target = new TypedLaserBulletType(type, source.damage);
+            target = new TypedLaserBulletType(actualType, source.damage);
         }else if(source instanceof BasicBulletType){
-            target = new TypedBasicBulletType(type, source.speed, source.damage);
+            target = new TypedBasicBulletType(actualType, source.speed, source.damage);
         }else{
             // 未知基类（连续激光/闪电/轨道弹等）不要伪装成普通子弹，否则会破坏原行为。
             return source;
@@ -680,11 +702,15 @@ public class Dmg{
         // 建筑碰撞也由 Dmg 自己结算，不能再让引擎套一层旧 armorMult
         target.armorMultiplier = 1f;
         // 能量形态必须不被原版力场投影器吸收；否则伤害还没进 Dmg 就被力场墙拦掉了。
-        if((form == null ? type.defaultForm : form) == DamageForm.ENERGY) target.absorbable = false;
-        if(form != null) formRegistry.put(target, form);
+        DamageForm effectiveForm = actualForm == null ? actualType.defaultForm : actualForm;
+        if(effectiveForm == DamageForm.ENERGY) target.absorbable = false;
+        if(actualForm != null) formRegistry.put(target, actualForm);
+        // 穿透曲线跟着具体弹体复制；否则表里的穿透率只留在原版旧弹体上。
+        ArmorPen pen = bulletPens.get(source);
+        if(pen != null) bulletPens.put(target, pen);
 
         if(target instanceof TypedLightningBulletType lightning){
-            BulletType chunk = new TypedBulletType(type, 0.0001f, 0f);
+            BulletType chunk = new TypedBulletType(actualType, 0.0001f, 0f);
             chunk.hittable = false;
             chunk.lifetime = Fx.lightning.lifetime;
             chunk.hitEffect = Fx.hitLancer;
@@ -692,17 +718,17 @@ public class Dmg{
             chunk.status = StatusEffects.shocked;
             chunk.statusDuration = 10f;
             chunk.armorMultiplier = 1f;
-            if((form == null ? type.defaultForm : form) == DamageForm.ENERGY) chunk.absorbable = false;
-            formRegistry.put(chunk, form == null ? type.defaultForm : form);
+            if(effectiveForm == DamageForm.ENERGY) chunk.absorbable = false;
+            formRegistry.put(chunk, effectiveForm);
             lightning.lightningType = chunk;
         }
-        target.fragBullet = retype(source.fragBullet, type, form);
-        target.intervalBullet = retype(source.intervalBullet, type, form);
+        target.fragBullet = retype(source.fragBullet, actualType, actualForm);
+        target.intervalBullet = retype(source.intervalBullet, actualType, actualForm);
 
         if(source.spawnBullets != null && source.spawnBullets.size > 0){
             target.spawnBullets = new Seq<>();
             for(BulletType bullet : source.spawnBullets){
-                target.spawnBullets.add(retype(bullet, type, form));
+                target.spawnBullets.add(retype(bullet, actualType, actualForm));
             }
         }
         return target;

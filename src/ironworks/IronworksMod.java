@@ -44,6 +44,9 @@ public class IronworksMod extends Mod{
             }
         }
 
+        // 炮塔数值表必须在科技树生成前写入，科技节点记录的是当时的造价。
+        IronworksTurretBalance.load();
+
         IronworksTech.load();
 
         // 普通管道（钢化玻璃）拒收熔融金属，必须用耐高温管道。

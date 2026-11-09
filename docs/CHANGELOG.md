@@ -48,6 +48,19 @@
 
 ## 3.6.x
 
+### 3.6.2.0 — 炮塔数值表、读档血量/预建造丢失、建造时间显示与难度滑块同步
+
+- **炮塔数值表落地**：新增 `IronworksTurretBalance`，在内容创建后、`Dmg.load()` 重定型前统一改写原版与本模组炮塔的 range、reload、对空/对地、造价；蜂群按用户确认的“文件优先”规则实现 35 格 / 2.35 次每秒 / 三弹药伤害、爆炸半径、状态、追踪、射速×0.7、雷霆·动能与 0.75/36 穿透。原版常规炮塔的弹药伤害/穿透/溅射/状态也按 `数值_炮塔.txt` 写入；磁轨穿刺炮按用户确认保留现有 5×270 能量束机制，不按文档后半部分回退。
+- **重进地图异常掉血（根因）**：读档时原版 `BuildingComp.readBase` 先把存档绝对血量按方块基础血量 clamp；`Difficulty.applyPlayerBlockHealth` 又按“旧上限比例”缩一次。T7 的 60% 满血会在重进后变成 36%。现在读档后的第一次应用只修正上限并夹紧绝对血量，不再乘比例；正常切档/新放置仍按当前血量比例缩放。T228 用 48/96 → 48/96 与 80/160 验证。
+- **预建造保留丢失（算力集群）**：`LinkPlaceholder.PlaceholderBuild` 原来只存 Block 基类字段，`hostX/hostY/hostBlock` 读档后归零，更新时把自己当成无主占位块删除，重进区块后算力集群的链接位/施工占位部分消失。现在写入 v1 的 host 坐标与目标方块；旧 v0 存档按占位块类型恢复目标，并在附近重新寻找宿主。T230 覆盖 v1 写读与 v0 兜底。
+- **日志器真正仅沙盒**：`requirements(Category, ItemStack)` 会把 `buildVisibility` 覆盖成 `shown`，所以先前在构造函数里先设 `sandboxOnly` 再调 requirements 是无效的。改为三参数 `requirements(..., BuildVisibility.sandboxOnly, empty)`；液体计量器/全量日志器现在 `sandboxOnly`、`hideDatabase=true`、无科技节点、非默认解锁。T231 验证。
+- **算力集群预放置体积**：删除预放置时额外铺的黄色半透明链接格；`drawPlace`/`drawPlanRegion` 改为主图标 + `unionRect` 完整包围盒轮廓。4×4 核心 + 底排两个 2×2 = 4×6，高级模块 2×3；T229 直接断言尺寸文案。
+- **建造时间显示**：详情页此前把 `Block.buildTime` 的 tick 当秒显示（石墨压缩机 58.5“秒”）；改为 `/60f` 后 T2 实际 0.97 秒，T226 断言。
+- **难度界面/设置滑块同步**：难度协议与战役规则页的滑块只在创建时取一次档位；现在监听 `Difficulty.tier()` 的实际变化，外部切换后同步滑块和预览，拖动中不抢手。拖动期间的预览仍只走本地 `preview`，不会被旧档位回写。
+- **160.7 兼容性审计**：对比 `Mindustry-160.7` 源码，Turret/Turret 子类零改动；差异集中在 `BulletType` 追踪优先 `aimTile.build`、`Mods.loadModPatches()`、`Block.addLiquidBar` 的 `liquidCapacity > 0` 条件等，当前 mod 未依赖被移除的 API，按 160.1 编译、160.3 无头运行保持兼容；详见 `docs/COMPAT-160.7.md`。
+- **验证**：T226–T232 新增并通过；T203–T232 定向 **30/30**。全量回归仍需按发布清单复跑，本版不宣称全量通过。
+- **版本**：3.6.2.0。
+
 ### 3.6.1.0 — 磁轨炮雷光化、魔灵崩溃修复、分类器图标与缺失液体图标
 
 - **液体分类器/反向分类器的黑色图标（根因）**：`liquid-sorter`/`liquid-inverted-sorter` 的**建筑本体图中心本来就是透明镂空**，用来让下面的液体流动层透出来；但缺少 `-full` 图时，`UnlockableContent.loadIcon()` 会退回这张镂空图，建造菜单、手持、蓝图/放置预览（`getPlanRegion()` 返回 `fullIcon`）就只看到深色底，表现为黑方块。修复不是改液体层，而是补 `liquid-sorter-full.png` / `liquid-inverted-sorter-full.png`：中心不透明并画一个液体水滴，专门供 UI/手持/放置预览使用；世界内仍用原镂空图，液体层继续在建筑下方透出。`icons()` 也优先返回 `fullIcon`。

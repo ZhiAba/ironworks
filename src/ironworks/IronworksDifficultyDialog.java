@@ -46,6 +46,18 @@ public class IronworksDifficultyDialog{
             slider.setSnapToValues(stops, 0.30f);
             slider.moved(v -> preview[0] = Mathf.clamp((int)Math.round(v), 0, Difficulty.maxTier));
             root.add(slider).growX().pad(8f).row();
+            // 设置页外面的难度按钮/战役规则页改了档位时，滑块和预览要跟着实际档位走；
+            // 只跟踪“实际档位变化”，避免点击 T 按钮时被旧档位立刻回写。
+            int[] lastActualTier = {Difficulty.tier()};
+            slider.update(() -> {
+                if(slider.isDragging()) return;
+                int actual = Difficulty.tier();
+                if(actual != lastActualTier[0]){
+                    lastActualTier[0] = actual;
+                    preview[0] = actual;
+                    slider.setValue(actual);
+                }
+            });
 
             Table ticks = new Table();
             for(int i = 0; i <= Difficulty.maxTier; i++){

@@ -112,7 +112,9 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         if(block != null){
             overrideStatValue(root, Stat.health, fmt(actualHealth));
             if(actualBuildTime > 0f){
-                overrideStatValue(root, Stat.buildTime, fmt(actualBuildTime));
+                // buildTime 字段的单位是 tick；原版 Stat.buildTime 显示时除以 60。
+                // 这里覆盖的是已格式化的文本，必须自己换算成秒，不能把 tick 当秒显示。
+                overrideStatValue(root, Stat.buildTime, fmt(actualBuildTime / 60f));
             }
         }else if(unit != null){
             overrideStatValue(root, Stat.health, fmt(actualUnitHealth));

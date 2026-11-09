@@ -150,6 +150,11 @@ public final class Difficulty{
     private static boolean initialized;
     /** SaveIO 写入前临时剥掉 DifficultySpawnGroup，避免 Json 解析模组类名失败。 */
     private static boolean spawnWrappersStripped;
+    /**
+     * 读档后首次应用难度规则。存档里的 health 是绝对血量（且已被原版按方块基础
+     * 血量 clamp 过），此时不能再按“当前最大血量的比例”缩放，否则会二次掉血。
+     */
+    private static boolean loadingWorld;
 
     private Difficulty(){
     }
@@ -774,7 +779,12 @@ public final class Difficulty{
             state.rules.tags.put("ironworks.base-deconstruct-refund", String.valueOf(baseDeconstructRefund));
         }
 
-        applyRules();
+        loadingWorld = true;
+        try{
+            applyRules();
+        }finally{
+            loadingWorld = false;
+        }
         // 没有迫降词条时立刻标记“开局结算已过”，避免中途加 T7 词条时倒扣已有资源。
         if(forcedLandingLoss() <= 0f){
             state.rules.tags.put("ironworks.forced-landing-applied", "1");
@@ -783,7 +793,13 @@ public final class Difficulty{
 
     private static void onWorldLoadEnd(){
         if(state == null || state.rules == null) return;
-        applyRules();
+        // 此时地图里已经读回了所有建筑，health 是存档里的绝对血量。
+        loadingWorld = true;
+        try{
+            applyRules();
+        }finally{
+            loadingWorld = false;
+        }
         applyForcedLanding();
     }
 
@@ -871,8 +887,14 @@ public final class Difficulty{
         float oldMax = build.maxHealth();
         float oldHealth = build.health();
         build.maxHealth(target);
-        float ratio = oldMax > 0f ? Math.max(0f, oldHealth / oldMax) : 1f;
-        build.health(Math.min(target, target * ratio));
+        if(loadingWorld){
+            // 读档：health 已经是绝对值。只修上限并夹紧，不再乘比例，否则存档里
+            // 按 T0-T7 存档的 60% 满血会在重进时变成 36%。
+            build.health(Math.min(target, oldHealth));
+        }else{
+            float ratio = oldMax > 0f ? Math.max(0f, oldHealth / oldMax) : 1f;
+            build.health(Math.min(target, target * ratio));
+        }
     }
 
     /** 把本局 SpawnGroup 换成累计小数版本；数量词条关闭时也保持原行为。 */

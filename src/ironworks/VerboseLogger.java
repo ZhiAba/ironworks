@@ -23,9 +23,11 @@ public class VerboseLogger extends Block{
         update = true;
         solid = false;
         size = 1;
-        alwaysUnlocked = true;
-        buildVisibility = BuildVisibility.shown;
-        requirements(Category.effect, ItemStack.empty);
+        // 调试方块：只在沙盒/无限资源模式可放，科技树与核心数据库不显示。
+        // requirements(cat, stacks) 会把 buildVisibility 覆盖成 shown，必须用三参数版本。
+        alwaysUnlocked = false;
+        hideDatabase = true;
+        requirements(Category.effect, BuildVisibility.sandboxOnly, ItemStack.empty);
     }
 
     public class VerboseLoggerBuild extends Building{

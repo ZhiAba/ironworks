@@ -69,7 +69,11 @@ public class IronworksCompute{
     /** 4/tick = 240/秒。 */
     public static final float coolantUse = 4f;
 
-    /** 4×6：核心 4×4 + 底排两个 2×2（相对核心锚点）。 */
+    /**
+     * 4×6：核心 4×4 + 底排两个 2×2（相对核心锚点）。
+     * unionRect 里 core 占 x -1..2 / y -1..2；链接块 2×2 的 lo=0，
+     * 锚点 x=-1/1、y=-3 正好补齐底排，并集为 4×6。
+     */
     public static final int[][] CLUSTER_LAYOUT = {{-1, -3, 2}, {1, -3, 2}};
     /** 2×3：核心 2×2 + 底排两个 1×1。 */
     public static final int[][] ADVANCED_LAYOUT = {{0, -1, 1}, {1, -1, 1}};
@@ -451,16 +455,48 @@ public class IronworksCompute{
 
             @Override
             public void updateTile(){
-                Tile host = Vars.world.tile(hostX, hostY);
-                if(host == null || host.build == null){
-                    tile.remove();
-                    return;
+                Building host = hostAt(hostX, hostY);
+                if(host == null || !isHost(host)){
+                    // 旧版存档没有保存 hostX/hostY/hostBlock；在附近找正在施工或
+                    // 已完成的目标主块并重新绑定，避免占位块被当成“无主”清掉。
+                    host = findHost();
+                    if(host == null){
+                        tile.remove();
+                        return;
+                    }
+                    hostX = host.tileX();
+                    hostY = host.tileY();
                 }
+            }
 
-                boolean constructing = host.build instanceof ConstructBlock.ConstructBuild c
-                    && (hostBlock == null || c.block == hostBlock);
-                boolean done = hostBlock != null && host.block() == hostBlock;
-                if(!constructing && !done) tile.remove();
+            Building hostAt(int x, int y){
+                Tile t = Vars.world.tile(x, y);
+                return t == null ? null : t.build;
+            }
+
+            boolean isHost(Building b){
+                if(b == null || hostBlock == null) return false;
+                if(b.block == hostBlock) return true;
+                return b instanceof ConstructBlock.ConstructBuild c && c.current == hostBlock;
+            }
+
+            /** 旧存档兜底：占位块一定紧贴主块，最近的有效主块就是宿主。 */
+            Building findHost(){
+                if(hostBlock == null) return null;
+                Building best = null;
+                float bestDst = Float.MAX_VALUE;
+                for(int dx = -6; dx <= 6; dx++){
+                    for(int dy = -6; dy <= 6; dy++){
+                        Building b = hostAt(tile.x + dx, tile.y + dy);
+                        if(!isHost(b) || b == this) continue;
+                        float dst = dx * dx + dy * dy;
+                        if(dst < bestDst){
+                            bestDst = dst;
+                            best = b;
+                        }
+                    }
+                }
+                return best;
             }
 
             @Override
@@ -470,6 +506,39 @@ public class IronworksCompute{
             @Override
             public float handleDamage(float amount){
                 return 0f;
+            }
+
+            @Override
+            public byte version(){
+                return 1;
+            }
+
+            /**
+             * 占位块必须在存档里记住自己属于哪个主块。旧实现只存 Block 基类字段，
+             * 读档后 hostX/hostY 归零，updateTile 找不到主块就把自己删掉——
+             * 表现就是“区块重进后预建造的一部分链接位丢失”。
+             */
+            @Override
+            public void write(Writes write){
+                super.write(write);
+                write.i(hostX);
+                write.i(hostY);
+                write.i(hostBlock == null ? -1 : hostBlock.id);
+            }
+
+            @Override
+            public void read(Reads read, byte revision){
+                super.read(read, revision);
+                if(revision >= 1){
+                    hostX = read.i();
+                    hostY = read.i();
+                    int id = read.i();
+                    hostBlock = id < 0 ? null : Vars.content.block(id);
+                }else{
+                    // v0 只存了 Block 基类字段；按占位块类型恢复目标主块，
+                    // 再由 updateTile 的 findHost 重新绑定坐标。
+                    hostBlock = block == clusterPlaceholder ? cluster : block == modulePlaceholder ? advanced : null;
+                }
             }
         }
     }
@@ -699,21 +768,19 @@ public class IronworksCompute{
                 return;
             }
             drawPotentialLinks(x, y);
-            //只把链接块那一圈用淡紫色格子标出来（白色 2px 外框已按用户要求删除）
-            Draw.color(Pal.accent, 0.25f);
-            for(int[] l : linkLayout){
-                int ls = l[2], lo = (ls - 1) / 2;
-                int ax = x + rotX(l[0], l[1], rotation) - lo, ay = y + rotY(l[0], l[1], rotation) - lo;
-                arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
-            }
-            Draw.color();
+            // 放置预览只画完整包围盒轮廓，不再给链接格铺半透明黄色色块。
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, rotation, r);
+            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            // 只画 2×2 核心图标；完整链接区等建造完成后再画，避免预放置时
-            // 在核心下方多出一块半透明的区域贴图。
+            // 核心图标 + 完整 4×6/2×3 包围盒轮廓；不铺额外色块。
             Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
+            int[] r = new int[4];
+            unionRect(plan.x, plan.y, size, linkLayout, plan.rotation, r);
+            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override
@@ -866,21 +933,19 @@ public class IronworksCompute{
             //幽灵贴图由 drawPlan -> drawPlanRegion 统一绘制（半透明 + 原版闪白），
             //这里不能再画一份不透明的，否则会盖住地块选择标线。
             drawPotentialLinks(x, y);
-            //只把链接块那一圈用淡紫色格子标出来（白色 2px 外框已按用户要求删除）
-            Draw.color(Pal.accent, 0.25f);
-            for(int[] l : linkLayout){
-                int ls = l[2], lo = (ls - 1) / 2;
-                int ax = x + rotX(l[0], l[1], rotation) - lo, ay = y + rotY(l[0], l[1], rotation) - lo;
-                arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
-            }
-            Draw.color();
+            // 只画 4×6 完整包围盒轮廓；去掉之前多出来的黄色半透明链接格。
+            int[] r = new int[4];
+            unionRect(x, y, size, linkLayout, rotation, r);
+            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            // 预放置只画 4×4 核心图标；完整 4×6 区域贴图等链接块就位后再画，
-            // 否则会在放置位置下方多出一块半透明“影子”。
+            // 主 4×4 图标 + 4×6 完整包围盒轮廓，预放置阶段就能看出真实体积。
             Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
+            int[] r = new int[4];
+            unionRect(plan.x, plan.y, size, linkLayout, plan.rotation, r);
+            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override

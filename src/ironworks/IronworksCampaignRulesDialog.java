@@ -147,6 +147,16 @@ public class IronworksCampaignRulesDialog extends CampaignRulesDialog{
                     // 拖动时只更新预览，绝不回写滑块，否则手指会“粘不住”。
                     preview[0] = Mathf.clamp((int)Math.round(v), 0, Difficulty.maxTier);
                 });
+                int[] lastActualTier = {Difficulty.tier()};
+                slider.update(() -> {
+                    if(slider.isDragging() || prompting) return;
+                    int actual = Difficulty.tier();
+                    if(actual != lastActualTier[0]){
+                        lastActualTier[0] = actual;
+                        preview[0] = actual;
+                        slider.setValue(actual);
+                    }
+                });
                 int[] sliderPointer = {-1};
                 slider.addListener(new InputListener(){
                     @Override

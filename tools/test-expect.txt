@@ -166,3 +166,10 @@
 223	T223 h0=[0-9]+ h4=[0-9]+ h5=10000 ok=true
 224	T224 hp=[0-9]+ shield=1000 dead=false ok=true
 225	T225 eval=300 aura=null ok=true
+226	T226 pressBuildTime=58\.5 actual=0\.9[0-9] rules=1(\.0)? team=1(\.0)? ok=true
+227	T227 range=280 reload=[0-9.]+ cost=.* blast=12/40/33\.599998.* surgeType=thunder surgeForm=KINETIC pen=0\.75/36 surgeReloadMul=0\.[0-9]+ ok=true
+228	T228 loadHealth=48\.00/96\.00 normal=80\.00/160\.00 ok=true
+229	T229 cluster=4×6 advanced=2×3 ok=true
+230	T230 host=123,456 block=ironworks-compute-cluster v0=ironworks-compute-cluster ok=true
+231	T231 monitor=true/true/true verbose=true/true/true ok=true
+232	T232 duo=9/.* scatter=33/24 fuse=-1 fore=3276.* lancer=140 arc=11 ok=true
