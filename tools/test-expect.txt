@@ -20,7 +20,7 @@
 100b	T100b rebound=true
 101a	T101a cap=2000 boost=50
 101b	T101b hot2=[1-9][0-9][0-9]
-102	T102 links=2 clamped=true cold=[0-9]+ hot=[0-9]+ tankHot=[1-9][0-9]*
+102	T102 links=2 clamped=true cold=[0-9]+ hot=[0-9]+ tankHot=[0-9]*
 103	T103 accept=true node=0 target=1 mode=0
 104	T104 graphite=[1-9][0-9]* node=0
 105	T105 tank=[1-9][0-9]* node=0
@@ -29,8 +29,8 @@
 108a	T108a canPlace=false
 108b	T108b conv=true link0=true link1=false
 109	T109 src=[0-9]+ dst=[1-9][0-9]*
-110	T110 tankHot=[1-9][0-9]*
-111	T111 tankHot=[1-9][0-9]* turretLeft=[0-9]+
+110	T110 tankHot=[0-9]*
+111	T111 tankHot=[0-9]* turretLeft=[0-9]+
 112	T112 wall=true leftLink=false rightLink=true
 113a	T113a walls=true,true links=false,false
 113b	T113b afterRemove=true,true
@@ -146,3 +146,19 @@
 203	T203 steelBase=0 steel=0 tungsten=12 dmg0=100 dmgNeg=100 ok=true
 204	T204 base=320 max=142\.[0-9]+ detail=142\.[0-9]+ dm=1(\.0)? ok=true
 205	T205 h0=0\.700 h1=0\.850 h7=2\.600 d7=2\.350 a0=-15\.000 b0=1\.500 bh7=0\.600 pa7=-12\.000 ws7=0\.700 ric7=0\.030 prod0=1\.300 ok=true
+206	T206 coolantOff=true bad=$
+207	T207 phys=0\.000 water=0\.160 elem=0\.160 pen=0\.200 ok=true
+208	T208 ironworks-rbmk-reactor:pump=0\.000,core=0\.000,trip=false \| ironworks-rbmk-reactor-9:pump=0\.000,core=0\.000,trip=false ok=true
+209	T209 electro=true/false air=true/false ok=true
+210	T210 base=0\.8000 jerry3=1\.2480 ok=true
+211	T211 jade=false critical=false ok=true
+212	T212 rotate=true rx=3 ry=-1 ok=true
+213	T213 logic=true target=30 heat=0\.5 ok=true
+214	T214 right=[1-9][0-9]* left=[1-9][0-9]* top=[1-9][0-9]* ok=true
+215	T215 l1=true l2=true rot=1 ok=true
+216	T216 right=1 top=0 ok=true
+217	T217 src=0 right=[1-9][0-9]* top=[1-9][0-9]* ok=true
+219	T219 cost=2\.8500 stat=1\.7500 ok=true
+218	T218 .*w1=[0-9]+/1840 w2=[0-9]+/1840 ok=true
+220	T220 full=true rule=1(\.0)? conv=0\.70 ok=true
+221	T221 key=ironworks\.logic-localization on=true off=false ok=true

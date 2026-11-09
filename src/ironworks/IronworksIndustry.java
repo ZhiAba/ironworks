@@ -69,6 +69,11 @@ public class IronworksIndustry{
             liquidCapacity = 60f;
             // 氢气走右侧、氧气走左侧：两种产物必须分口，否则会混进同一根管道
             liquidOutputDirections = new int[]{0, 2};
+            // 与原版电解机一样可旋转；转动后 dumpLiquid 会自动补偿方向。
+            rotate = true;
+            invertFlip = true;
+            // 不再自绘一对方向箭头，保持电解机式外观。
+            showLiquidOutputArrows = false;
             recipes = new Recipe[]{
                 new Recipe("water-split", 60f)
                     .liquids(new LiquidStack(Liquids.water, 6f))
@@ -130,6 +135,9 @@ public class IronworksIndustry{
             liquidCapacity = 60f;
             // 氮气走右侧、氧气走左侧
             liquidOutputDirections = new int[]{0, 2};
+            rotate = true;
+            invertFlip = true;
+            showLiquidOutputArrows = false;
             recipes = new Recipe[]{
                 new Recipe("air-separation", 60f)
                     .power(6f)

@@ -97,13 +97,17 @@ public class LiquidSorter extends Block{
 
         @Override
         public void draw(){
-            // 先画方块本体，再把液体颜色/图标盖在中心，配置变化时才能看见。
-            super.draw();
-            if(sortLiquid == null){
-                if(cross != null) Draw.rect(cross, x, y);
-            }else if(!headless && renderer != null){
-                // 和液体源一样使用动态液体帧，中心会流动而不是静态色块。
+            float z = Draw.z();
+            // 液体流动层必须在建筑贴图下面：先把液体画在 block 层下方，
+            // 再画方块本体。这样未配置时不会再出现“整块发黑、选液后才亮”的遮挡。
+            if(sortLiquid != null && !headless && renderer != null){
+                Draw.z(mindustry.graphics.Layer.block - 0.5f);
                 LiquidBlock.drawTiledFrames(size, x, y, 1.5f, sortLiquid, 1f);
+                Draw.z(z);
+            }
+            super.draw();
+            if(sortLiquid == null && cross != null){
+                Draw.rect(cross, x, y);
             }
         }
 

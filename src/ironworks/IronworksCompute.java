@@ -137,11 +137,34 @@ public class IronworksCompute{
 
     /** 方块（含链接块）在 tile 坐标下的包围盒，写入 out = {x1, y1, x2, y2}。 */
     public static void rectOf(Building b, int[] out){
-        unionRect(b.tileX(), b.tileY(), b.block.size, layoutOf(b.block), out);
+        unionRect(b.tileX(), b.tileY(), b.block.size, layoutOf(b.block), b.rotation, out);
     }
 
-    /** 按锚点 tile 计算含链接块的包围盒（不需要 Building 实例，画幽灵/蓝图时用）。 */
+    /** 相对核心中心的偏移按方块旋转（0=右 1=上 2=左 3=下，逆时针 90°）。 */
+    public static int rotX(int x, int y, int rotation){
+        return switch(rotation & 3){
+            case 1 -> -y;
+            case 2 -> -x;
+            case 3 -> y;
+            default -> x;
+        };
+    }
+
+    public static int rotY(int x, int y, int rotation){
+        return switch(rotation & 3){
+            case 1 -> x;
+            case 2 -> -y;
+            case 3 -> -x;
+            default -> y;
+        };
+    }
+
+    /** 按锚点 tile 计算含链接块的包围盒（旧调用默认 rotation 0）。 */
     public static void unionRect(int tx, int ty, int size, int[][] layout, int[] out){
+        unionRect(tx, ty, size, layout, 0, out);
+    }
+
+    public static void unionRect(int tx, int ty, int size, int[][] layout, int rotation, int[] out){
         int off = (size - 1) / 2;
         int x1 = tx - off, y1 = ty - off;
         int x2 = x1 + size - 1, y2 = y1 + size - 1;
@@ -149,7 +172,8 @@ public class IronworksCompute{
         if(layout != null){
             for(int[] l : layout){
                 int ls = l[2], lo = (ls - 1) / 2;
-                int ax = tx + l[0] - lo, ay = ty + l[1] - lo;
+                int ax = tx + rotX(l[0], l[1], rotation) - lo;
+                int ay = ty + rotY(l[0], l[1], rotation) - lo;
                 x1 = Math.min(x1, ax);
                 y1 = Math.min(y1, ay);
                 x2 = Math.max(x2, ax + ls - 1);
@@ -223,10 +247,15 @@ public class IronworksCompute{
 
     /** 链接块占用的 tile 是否都空着（放置前校验）。 */
     public static boolean fitsExtra(int tx, int ty, int[][] layout){
+        return fitsExtra(tx, ty, layout, 0);
+    }
+
+    public static boolean fitsExtra(int tx, int ty, int[][] layout, int rotation){
         if(layout == null) return true;
         for(int[] l : layout){
             int ls = l[2], lo = (ls - 1) / 2;
-            int ax = tx + l[0] - lo, ay = ty + l[1] - lo;
+            int ax = tx + rotX(l[0], l[1], rotation) - lo;
+            int ay = ty + rotY(l[0], l[1], rotation) - lo;
             for(int x = ax; x < ax + ls; x++){
                 for(int y = ay; y < ay + ls; y++){
                     Tile t = Vars.world.tile(x, y);
@@ -243,9 +272,11 @@ public class IronworksCompute{
     /** 放置开始时用占位块占住链接区，避免施工期间别人把链接格建掉。 */
     public static void placePlaceholders(Tile tile, int[][] layout, Block placeholder, Block host){
         if(layout == null || placeholder == null || tile == null || tile.build == null || Vars.net.client()) return;
+        int rotation = tile.build.rotation;
 
         for(int[] l : layout){
-            int ax = tile.x + l[0], ay = tile.y + l[1];
+            int ax = tile.x + rotX(l[0], l[1], rotation);
+            int ay = tile.y + rotY(l[0], l[1], rotation);
             Tile t = Vars.world.tile(ax, ay);
             if(t == null) continue;
             if(!t.block().isAir() && !t.block().alwaysReplace) continue;
@@ -273,9 +304,11 @@ public class IronworksCompute{
      */
     public static void ensureLinks(Building host, int[][] layout, Block linkBlock, boolean log){
         if(layout == null || linkBlock == null || Vars.net.client()) return;
+        int rotation = host.rotation;
 
         for(int[] l : layout){
-            int ax = host.tileX() + l[0], ay = host.tileY() + l[1];
+            int ax = host.tileX() + rotX(l[0], l[1], rotation);
+            int ay = host.tileY() + rotY(l[0], l[1], rotation);
             Tile t = Vars.world.tile(ax, ay);
             if(t == null) continue;
             if(t.block() == linkBlock) continue;
@@ -329,7 +362,9 @@ public class IronworksCompute{
     public static boolean linksComplete(Building host, int[][] layout, Block linkBlock){
         if(layout == null) return true;
         for(int[] l : layout){
-            Tile t = Vars.world.tile(host.tileX() + l[0], host.tileY() + l[1]);
+            int x = host.tileX() + rotX(l[0], l[1], host.rotation);
+            int y = host.tileY() + rotY(l[0], l[1], host.rotation);
+            Tile t = Vars.world.tile(x, y);
             if(t == null || t.block() != linkBlock) return false;
         }
         return true;
@@ -340,7 +375,9 @@ public class IronworksCompute{
         if(layout == null || linkBlock == null || Vars.net.client()) return;
 
         for(int[] l : layout){
-            Tile t = Vars.world.tile(host.tileX() + l[0], host.tileY() + l[1]);
+            int x = host.tileX() + rotX(l[0], l[1], host.rotation);
+            int y = host.tileY() + rotY(l[0], l[1], host.rotation);
+            Tile t = Vars.world.tile(x, y);
             if(t != null && t.block() == linkBlock){
                 t.remove();
             }
@@ -666,7 +703,7 @@ public class IronworksCompute{
             Draw.color(Pal.accent, 0.25f);
             for(int[] l : linkLayout){
                 int ls = l[2], lo = (ls - 1) / 2;
-                int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                int ax = x + rotX(l[0], l[1], rotation) - lo, ay = y + rotY(l[0], l[1], rotation) - lo;
                 arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
             }
             Draw.color();
@@ -674,14 +711,14 @@ public class IronworksCompute{
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            int[] r = new int[4];
-            unionRect(plan.x, plan.y, size, linkLayout, r);
-            Draw.rect(region, centerX(r), centerY(r));
+            // 只画 2×2 核心图标；完整链接区等建造完成后再画，避免预放置时
+            // 在核心下方多出一块半透明的区域贴图。
+            Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
         }
 
         @Override
         public boolean canPlaceOn(Tile tile, Team team, int rotation){
-            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
+            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout, rotation);
         }
 
         @Override
@@ -803,7 +840,7 @@ public class IronworksCompute{
             this.linkLayout = linkLayout;
             this.linkBlock = linkBlock;
             buildType = ComputeClusterBuild::new;
-            rotate = false;
+            rotate = true;
             update = true;
         }
 
@@ -815,7 +852,7 @@ public class IronworksCompute{
 
         @Override
         public boolean canPlaceOn(Tile tile, Team team, int rotation){
-            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout);
+            return super.canPlaceOn(tile, team, rotation) && fitsExtra(tile.x, tile.y, linkLayout, rotation);
         }
 
         @Override
@@ -833,7 +870,7 @@ public class IronworksCompute{
             Draw.color(Pal.accent, 0.25f);
             for(int[] l : linkLayout){
                 int ls = l[2], lo = (ls - 1) / 2;
-                int ax = x + l[0] - lo, ay = y + l[1] - lo;
+                int ax = x + rotX(l[0], l[1], rotation) - lo, ay = y + rotY(l[0], l[1], rotation) - lo;
                 arc.graphics.g2d.Fill.rect(ax * 8f - 4f, ay * 8f - 4f, ls * 8f, ls * 8f);
             }
             Draw.color();
@@ -841,9 +878,9 @@ public class IronworksCompute{
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            int[] r = new int[4];
-            unionRect(plan.x, plan.y, size, linkLayout, r);
-            Draw.rect(region, centerX(r), centerY(r));
+            // 预放置只画 4×4 核心图标；完整 4×6 区域贴图等链接块就位后再画，
+            // 否则会在放置位置下方多出一块半透明“影子”。
+            Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
         }
 
         @Override
@@ -904,6 +941,9 @@ public class IronworksCompute{
             public float moduleBonus, modulePower;
             public float appliedBoost;
             float applyTimer, tickTimer;
+            /** 最近一次冷液来自哪一侧（0右/1上/2左/3下，-1未知）；排热液时避开它。 */
+            int coldInputDir = -1;
+            float coldInputAge;
 
             void recalcModules(){
                 int[] hr = new int[4];
@@ -937,6 +977,8 @@ public class IronworksCompute{
             @Override
             public void updateTile(){
                 tickTimer += delta();
+                coldInputAge += delta();
+                if(coldInputAge > 600f) coldInputDir = -1;
                 boolean due = tickTimer >= 10f;
                 if(due) tickTimer = 0f;
                 ensureLinks(this, linkLayout, linkBlock, due);
@@ -971,14 +1013,37 @@ public class IronworksCompute{
             }
 
             @Override
+            public void handleLiquid(Building source, Liquid liquid, float amount){
+                if(liquid == IronworksLiquids.grapheneCoolant && source != null){
+                    coldInputDir = dirTo(source);
+                    coldInputAge = 0f;
+                }
+                super.handleLiquid(source, liquid, amount);
+            }
+
+            @Override
             public boolean acceptLiquid(Building source, Liquid liquid){
                 return super.acceptLiquid(source, liquid) && LiquidKit.hasSpace(this, liquid);
             }
 
+            int dirTo(Building source){
+                int dx = source.tileX() - tileX();
+                int dy = source.tileY() - tileY();
+                if(Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 0 : dx < 0 ? 2 : -1;
+                return dy > 0 ? 1 : 3;
+            }
+
+            int sideOf(int x, int y, int[] r){
+                if(x == r[0] - 1) return 2;
+                if(x == r[2] + 1) return 0;
+                if(y == r[1] - 1) return 3;
+                if(y == r[3] + 1) return 1;
+                return -1;
+            }
+
             /**
-             * 热冷却液只从**底部**排出。
-             * 原因：导管一次只能装一种液体，如果热液也往四周排，会把进液的导管堵成热液，
-             * 冷液就再也进不来了（实测 condCur=hot-coolant）。固定底部出口就能和进液管分开。
+             * 热冷却液从所有可用边缘排出，只避开最近一次进冷液的那一侧。
+             * 这样既不只限底部，也不会把进液管堵成热液。
              */
             void dumpHotFromBorder(){
                 int[] r = new int[4];
@@ -986,16 +1051,9 @@ public class IronworksCompute{
                 float fract = liquids.get(IronworksLiquids.hotCoolant) / block.liquidCapacity;
                 if(fract <= 0.0001f) return;
 
-                //底边
-                for(int x = r[0]; x <= r[2]; x++){
-                    dumpHotTo(Vars.world.build(x, r[1] - 1), fract);
-                }
-                //已经装着热液的邻格（比如热液管线接在别的边）继续排，避免断供
                 forEachBorder(r, (x, y) -> {
-                    Building b = Vars.world.build(x, y);
-                    if(b != null && b.liquids != null && b.liquids.get(IronworksLiquids.hotCoolant) > 0.01f){
-                        dumpHotTo(b, fract);
-                    }
+                    if(sideOf(x, y, r) == coldInputDir) return;
+                    dumpHotTo(Vars.world.build(x, y), fract);
                 });
             }
 
@@ -1028,7 +1086,7 @@ public class IronworksCompute{
                 if(linksComplete(this, linkLayout, linkBlock)){
                     int[] r = new int[4];
                     rectOf(this, r);
-                    Draw.rect(block.region, centerX(r), centerY(r));
+                    Draw.rect(block.region, centerX(r), centerY(r), rotation * 90f);
                 }else{
                     //链接块缺失（被占用/被拆）：只画 4×4 核心，避免整图盖住别的建筑
                     Draw.rect(block.uiIcon, x, y);

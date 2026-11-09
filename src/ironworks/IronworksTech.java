@@ -383,10 +383,6 @@ public class IronworksTech{
 
         node(sep, IronworksSupport.nanoField,
             with(Items.lead, 300, Items.silicon, 300, Items.titanium, 300, IronworksItems.steelPlate, 150));
-        node(sep, IronworksSupport.jadeBeacon,
-            with(Items.silicon, 300, Items.titanium, 200, IronworksItems.steelPlate, 150));
-        node(sep, IronworksSupport.criticalDevice,
-            with(Items.silicon, 300, IronworksMaterials.pureCopper, 250, IronworksItems.steelPlate, 150));
 
         // ══════════════════ 三、行星标签 ══════════════════
         // 数据库按「行星标签」过滤内容：没有标签的物品/液体会在数据库里整页消失
@@ -398,8 +394,7 @@ public class IronworksTech{
             liquid.shownPlanets.add(Planets.serpulo);
         }
         for(StatusEffect effect : new StatusEffect[]{IronworksStatus.corrosion, IronworksStatus.nanoArmor,
-            IronworksStatus.jadeShatter, IronworksStatus.critical, IronworksStatus.reactiveArmor,
-            IronworksStatus.compositeArmor, IronworksStatus.naniteArmor}){
+            IronworksStatus.reactiveArmor, IronworksStatus.compositeArmor, IronworksStatus.naniteArmor}){
             effect.shownPlanets.add(Planets.serpulo);
         }
     }

@@ -21,6 +21,7 @@ import mindustry.gen.Groups;
 import mindustry.gen.Unit;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Pal;
+import mindustry.logic.LAccess;
 import mindustry.type.Category;
 import mindustry.type.Liquid;
 import mindustry.ui.Bar;
@@ -319,6 +320,8 @@ public class IronworksRBMK{
 
             //Block.config() 只注册处理器，不会打开 configurable——漏了这句，点击方块就没有面板
             configurable = true;
+            // 允许逻辑处理器通过 config 写入与面板相同的控制码；温度等只读量走 sense。
+            logicConfigurable = true;
             config(Integer.class, (RBMKReactorBuild b, Integer v) -> b.applyConfig(v));
         }
 
@@ -510,10 +513,10 @@ public class IronworksRBMK{
             public final float[] zoneCoolant = new float[9], zoneMeltDamage = new float[9];
             /** 每区当前蒸汽干度与湿蒸汽量（湿汽按公共湿汽包记账）。 */
             public final float[] zoneDryness = new float[9];
-            /** 主泵惰转：实际泵速 0..1，断电后按指数衰减。 */
-            public float pumpSpeed = 1f;
+            /** 主泵惰转：实际泵速 0..1；冷机未启泵时应为 0，不能从 100% 慢慢衰减。 */
+            public float pumpSpeed = 0f;
             /** 堆芯注水泵自己的惰转转速：与给水泵分开，避免公共水罐满时给水泵停转而注水中断。 */
-            public float corePumpSpeed = 1f;
+            public float corePumpSpeed = 0f;
             /** 一回路压力（归一化）与水锤/超压损伤积分 0..1。 */
             public float loopPressure = 0.5f, pressureDamage = 0f, waterHammer = 0f;
             /** 堆芯注水开关与注水率 0..1（从水罐注入堆芯，不等于直接往罐里灌水）。 */
@@ -554,6 +557,51 @@ public class IronworksRBMK{
             @Override
             public float getPowerProduction(){
                 return 0f;   // 反应堆不出电
+            }
+
+            /**
+             * 逻辑只读传感：温度/通量/液体等直接暴露，控制量不能从这里改。
+             * 温度使用归一化值（0=冷态，1=约 800°C），与 vanilla 的 heat 语义一致。
+             */
+            @Override
+            public double sense(LAccess sensor){
+                if(sensor == LAccess.heat) return heat;
+                if(sensor == LAccess.progress) return flux;
+                if(sensor == LAccess.efficiency) return flux;
+                if(sensor == LAccess.totalLiquids){
+                    return liquids.get(Liquids.water) + liquids.get(IronworksLiquids.steam)
+                        + liquids.get(IronworksLiquids.wetSteam) + liquids.get(IronworksLiquids.boricAcid);
+                }
+                if(sensor == LAccess.liquidCapacity) return block.liquidCapacity;
+                if(sensor == LAccess.health) return health;
+                if(sensor == LAccess.maxHealth) return maxHealth();
+                if(sensor == LAccess.armor) return block.armor;
+                return super.sense(sensor);
+            }
+
+            /** 逻辑控制：只接受与面板相同的整数配置码，不允许把只读状态写回去。 */
+            @Override
+            public void control(LAccess type, double p1, double p2, double p3, double p4){
+                if(type == LAccess.config){
+                    applyConfig((int)Math.round(p1));
+                    return;
+                }
+                super.control(type, p1, p2, p3, p4);
+            }
+
+            @Override
+            public void control(LAccess type, Object p1, double p2, double p3, double p4){
+                if(type == LAccess.config){
+                    if(p1 instanceof Number n) applyConfig(n.intValue());
+                    else if(p1 != null){
+                        try{
+                            applyConfig(Integer.parseInt(p1.toString().trim()));
+                        }catch(NumberFormatException ignored){
+                        }
+                    }
+                    return;
+                }
+                super.control(type, p1, p2, p3, p4);
             }
 
             /** 查询控制棒曲线（测试/UI 用，不改变棒位）。 */

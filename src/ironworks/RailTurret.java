@@ -5,20 +5,24 @@ import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Lines;
 import arc.math.Mathf;
+import arc.struct.IntSet;
 import arc.util.Time;
 import mindustry.content.Fx;
 import mindustry.entities.Effect;
 import mindustry.entities.Units;
 import mindustry.entities.bullet.BulletType;
+import mindustry.gen.Building;
 import mindustry.gen.Healthc;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
+import mindustry.world.Tile;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
 
 /** 磁轨炮：直接沿瞄准线结算，不发射子弹，避免光束画到射程尽头。 */
 public class RailTurret extends PowerTurret{
 
     public float beamDamage = 240f;
+    /** 单次射击最多结算 5 个目标 = 主目标 + 4 个穿透目标，对齐雷光 pierceCap=4。 */
     public int maxTargets = 5;
     public float hitWidth = 14f;
     /** 电磁重炮默认雷霆；以后换属性只改这一处。 */
@@ -31,6 +35,8 @@ public class RailTurret extends PowerTurret{
 
     public RailTurret(String name){
         super(name);
+        // 明确绑定自定义 Build；不能只依赖 Block.initBuilding() 的反射推断。
+        buildType = RailTurretBuild::new;
     }
 
     public class RailTurretBuild extends PowerTurretBuild{
@@ -49,24 +55,40 @@ public class RailTurret extends PowerTurret{
             }
 
             float ang = Mathf.angle(tx - x, ty - y);
-            float len = Mathf.dst(x, y, tx, ty);
+            // 穿透弹道按射程结算，而不是只到首个目标：磁轨束会继续穿过目标后方的敌人。
+            float len = range;
+            float dirx = Mathf.cosDeg(ang), diry = Mathf.sinDeg(ang);
 
             if(target instanceof Healthc h) Dmg.hit(h, beamDamage, damageType, true, true, damageType.pen, true, form);
 
             int[] hits = {1};
-            float midx = (x + tx) / 2f, midy = (y + ty) / 2f;
 
-            Units.nearbyEnemies(team, midx, midy, len / 2f + 24f, u -> {
-                if(hits[0] >= maxTargets || u.dead()) return;
-                if(Mathf.dst(u.x, u.y, x, y) > len) return;
-                if(pointLineDistance(u.x, u.y, x, y, tx, ty) > hitWidth) return;
+            Units.nearbyEnemies(team, x, y, range, u -> {
+                if(hits[0] >= maxTargets || u.dead() || u == target) return;
+                if(Mathf.dst(u.x, u.y, x, y) > range) return;
+                // 只结算射线前方，不能把炮塔背后的单位也打中。
+                if((u.x - x) * dirx + (u.y - y) * diry < 0f) return;
+                if(pointLineDistance(u.x, u.y, x, y, x + dirx * range, y + diry * range) > hitWidth) return;
                 hits[0]++;
                 Dmg.hit(u, beamDamage, damageType, true, true, damageType.pen, true, form);
             });
 
+            // 雷光的 LaserBulletType 同时结算单位与建筑；这里补上建筑，
+            // 避免“穿透只对单位生效”，也保证沿线的敌方墙体不会挡掉后面的目标。
+            IntSet hitBuildings = new IntSet();
+            for(float d = 4f; d <= range && hits[0] < maxTargets; d += 4f){
+                Tile t = mindustry.Vars.world.tileWorld(x + dirx * d, y + diry * d);
+                if(t == null) continue;
+                Building bld = t.build;
+                if(bld == null || bld == this || bld == target || bld.dead || bld.team == team) continue;
+                if(!hitBuildings.add(bld.id)) continue;
+                hits[0]++;
+                Dmg.hit(bld, beamDamage, damageType, true, true, damageType.pen, true, form);
+            }
+
             IronworksFx.beam(x, y, ang, len);
             IronworksFx.muzzle.at(x, y, ang);
-            IronworksFx.muzzle.at(tx, ty, ang);
+            IronworksFx.muzzle.at(x + dirx * range, y + diry * range, ang);
 
             // —— 开火反馈：屏幕震动 + 命中点火花 ——
             if(shakePower > 0f) Effect.shake(shakePower, shakeTime, x, y);

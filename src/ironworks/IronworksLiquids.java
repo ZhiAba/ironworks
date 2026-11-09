@@ -43,6 +43,8 @@ public class IronworksLiquids{
         acid = new Liquid("acid", Color.valueOf("b6ff6a")){{
             temperature = 0.35f;
             heatCapacity = 0.9f;
+            // 只作为化工原料，不再被原版炮塔当成冷却液（否则只耗液、不产热液）。
+            coolant = false;
             viscosity = 0.7f;
             flammability = 0f;
             effect = StatusEffects.corroded;
@@ -54,6 +56,10 @@ public class IronworksLiquids{
             heatCapacity = 1.6f;
             viscosity = 0.55f;
             flammability = 0f;
+            // 本模组炮塔走显式 CoolantLoop（冷液进、热液出）。
+            // 原版炮塔的 ConsumeCoolant 只会消耗、不会产热液，必须在这里关掉，
+            // 否则蜂群等原版炮塔会形成“只吃石墨烯冷液”的断链。
+            coolant = false;
             // 关掉原版"冷热液体相遇反应"：引擎会在热液试图进入冷液管道时
             // 每 tick 销毁 0.7*delta 的液体，闭环里看起来就是液体凭空蒸发。
             blockReactive = false;
@@ -63,6 +69,7 @@ public class IronworksLiquids{
         sodiumAluminate = new Liquid("sodium-aluminate", Color.valueOf("e8d38a")){{
             temperature = 0.45f;
             heatCapacity = 1.1f;
+            coolant = false;
             viscosity = 0.85f;
             flammability = 0f;
             blockReactive = false; // 循环液：禁止冷热相遇销毁，避免闭环里"蒸发"
@@ -132,6 +139,8 @@ public class IronworksLiquids{
         chiller = new Liquid("chiller", Color.valueOf("7fd4ff")){{
             temperature = 0.12f;
             heatCapacity = 1.3f;
+            // 天罚/硅基炮塔在 coolantLiquids 里显式指定；不让原版 ConsumeCoolant 误吃。
+            coolant = false;
             viscosity = 0.5f;
             flammability = 0f;
             blockReactive = false;
@@ -141,6 +150,7 @@ public class IronworksLiquids{
         boricAcid = new Liquid("boric-acid", Color.valueOf("9fd8ff")){{
             temperature = 0.15f;
             heatCapacity = 1.2f;
+            coolant = false;
             viscosity = 0.45f;
             flammability = 0f;
             blockReactive = false;
@@ -173,6 +183,8 @@ public class IronworksLiquids{
         warmWater = new Liquid("warm-water", Color.valueOf("8fc8dd")){{
             temperature = 0.25f;
             heatCapacity = 1.15f;
+            // 汽轮机回水，不是炮塔冷却液。
+            coolant = false;
             viscosity = 0.4f;
             flammability = 0f;
             blockReactive = false;

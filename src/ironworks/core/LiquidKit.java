@@ -99,16 +99,17 @@ public final class LiquidKit{
     }
 
     /**
-     * 安全交接：目标能收且有空间才给，返回实际给出的量。
-     * 用于"把热液/产物推给邻居"这类场景，避免把目标灌爆。
+     * 安全交接：目标能收且有空间才给，返回实际给出的量，并从来源扣除。
+     * 用于"把热液/产物推给邻居"这类场景，避免把目标灌爆或凭空复制液体。
      */
     public static float give(Building from, Building to, Liquid liquid, float amount){
         if(from == null || to == null || to == from || liquid == null || amount <= 0f) return 0f;
-        if(!to.block.hasLiquids || to.liquids == null) return 0f;
+        if(from.liquids == null || !to.block.hasLiquids || to.liquids == null) return 0f;
         if(!to.acceptLiquid(from, liquid)) return 0f;
 
-        float give = Math.min(amount, space(to, liquid));
+        float give = Math.min(Math.min(amount, space(to, liquid)), Math.max(0f, from.liquids.get(liquid)));
         if(give <= EPS) return 0f;
+        from.liquids.remove(liquid, give);
         to.handleLiquid(from, liquid, give);
         return give;
     }

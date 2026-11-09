@@ -17,7 +17,7 @@ import static mindustry.type.ItemStack.with;
  */
 public class IronworksSupport{
 
-    public static Block nanoField, jadeBeacon, criticalDevice;
+    public static Block nanoField;
 
     /**
      * 状态光环基类。
@@ -89,30 +89,6 @@ public class IronworksSupport{
             duration = 60f;
             status = IronworksStatus.nanoArmor;
             consumePower(8f);
-        }};
-
-        // 玉碎信标：给友军挂上「死亡爆裂」协议
-        jadeBeacon = new StatusAura("jade-beacon"){{
-            requirements(Category.effect,
-                with(Items.silicon, 70, Items.titanium, 40, IronworksItems.steelPlate, 30, IronworksMaterials.castIron, 20));
-            size = 3;
-            range = 64f;
-            duration = 120f;
-            status = IronworksStatus.jadeShatter;
-            consumePower(5f);
-        }};
-
-        // 临界装置：只对残血单位启用超载
-        criticalDevice = new StatusAura("critical-device"){{
-            requirements(Category.effect,
-                with(Items.silicon, 60, IronworksMaterials.pureCopper, 40, IronworksItems.steelPlate, 30, IronworksMaterials.castIron, 20));
-            size = 3;
-            range = 72f;
-            duration = 90f;
-            status = IronworksStatus.critical;
-            lowHealthOnly = true;
-            healthThreshold = 0.4f;
-            consumePower(6f);
         }};
     }
 }

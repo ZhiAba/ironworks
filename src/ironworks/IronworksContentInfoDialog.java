@@ -12,6 +12,7 @@ import mindustry.ctype.UnlockableContent;
 import mindustry.type.UnitType;
 import mindustry.ui.dialogs.ContentInfoDialog;
 import mindustry.world.Block;
+import mindustry.world.blocks.units.UnitFactory;
 import mindustry.world.meta.Stat;
 import mindustry.world.meta.StatCat;
 
@@ -31,12 +32,27 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
         Block block = content instanceof Block b ? b : null;
         UnitType unit = content instanceof UnitType u ? u : null;
         DifficultyCrafter crafter = block instanceof DifficultyCrafter c ? c : null;
+        UnitFactory unitFactory = block instanceof UnitFactory f ? f : null;
 
         float baseArmor = block == null ? 0f : block.armor;
         float baseBuildTime = block == null ? 0f : block.buildTime;
         float baseUnitHealth = unit == null ? 0f : unit.health;
         float baseUnitArmor = unit == null ? 0f : unit.armor;
         float baseCraftTime = crafter == null ? 0f : crafter.craftTime;
+        int[][] unitPlanCosts = null;
+        if(unitFactory != null && unitFactory.plans != null){
+            float costMultiplier = Difficulty.playerUnitCostMultiplier();
+            unitPlanCosts = new int[unitFactory.plans.size][];
+            for(int p = 0; p < unitFactory.plans.size; p++){
+                UnitFactory.UnitPlan plan = unitFactory.plans.get(p);
+                if(plan.requirements == null) continue;
+                unitPlanCosts[p] = new int[plan.requirements.length];
+                for(int i = 0; i < plan.requirements.length; i++){
+                    unitPlanCosts[p][i] = plan.requirements[i].amount;
+                    plan.requirements[i].amount = Math.max(1, Math.round(plan.requirements[i].amount * costMultiplier));
+                }
+            }
+        }
 
         // 建筑生命现在直接缩放 Building.maxHealth；详情页显示同一个实际上限。
         // 不再通过 blockHealthMultiplier 受伤除数实现，避免“上限缩小 + 伤害放大”双重惩罚。
@@ -78,6 +94,15 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
             }
             if(crafter != null){
                 crafter.craftTime = baseCraftTime;
+            }
+            if(unitFactory != null && unitPlanCosts != null){
+                for(int p = 0; p < unitFactory.plans.size; p++){
+                    if(unitPlanCosts[p] == null) continue;
+                    UnitFactory.UnitPlan plan = unitFactory.plans.get(p);
+                    for(int i = 0; i < unitPlanCosts[p].length; i++){
+                        plan.requirements[i].amount = unitPlanCosts[p][i];
+                    }
+                }
             }
         }
 

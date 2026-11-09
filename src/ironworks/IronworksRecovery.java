@@ -37,19 +37,6 @@ public final class IronworksRecovery{
         }
     }
 
-    /** 拆除完成后把核心中已返还的 70% 原物品替换成上一级材料。 */
-    public static void convertInCore(CoreBuild core, Item item, int amount){
-        if(core == null || item == null || amount <= 0) return;
-        ensureIndex();
-        int converted = Difficulty.recoveryConversion() > 0f ? (int)Math.floor(amount * Difficulty.recoveryConversion() + 0.0001f) : 0;
-        Item previous = precursor.get(item);
-        if(converted <= 0 || previous == null || previous == item) return;
-        int available = Math.min(converted, core.items.get(item));
-        if(available <= 0) return;
-        core.items.remove(item, available);
-        add(core, previous, available);
-    }
-
     private static void add(CoreBuild core, Item item, int amount){
         if(item == null || amount <= 0) return;
         int accepted = Math.max(0, Math.min(amount, core.storageCapacity - core.items.get(item)));

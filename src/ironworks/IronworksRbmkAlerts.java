@@ -7,6 +7,7 @@ import arc.util.Log;
 import arc.util.Time;
 import ironworks.IronworksRBMK.RBMKReactor;
 import ironworks.IronworksRBMK.RBMKReactor.RBMKReactorBuild;
+import mindustry.content.Items;
 import mindustry.content.Liquids;
 import mindustry.gen.Sounds;
 
@@ -47,6 +48,11 @@ public class IronworksRbmkAlerts{
 
     public static void update(RBMKReactorBuild b, float dt){
         if(headless || b == null || b.alertsMuted || b.melted || b.liquids == null) return;
+        // 新放置的冷堆没有燃料也没有热量：此时“流量 0 / 水位 0”只是尚未启动，
+        // 不是事故，不能在放下的一瞬间弹自动停堆/低水位通知。
+        boolean hasFuel = b.items != null
+            && (b.items.get(IronworksNuclear.fuelRod) > 0 || b.items.get(Items.thorium) > 0);
+        if(!hasFuel && b.heat < 0.05f && b.flux < 0.02f) return;
         if(b.alertQuiet == null || b.alertQuiet.length < 13){
             b.alertQuiet = new float[13];
             b.alertMask = 0;

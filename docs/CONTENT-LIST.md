@@ -1,4 +1,4 @@
-# 铁流工业 v3.4.0.0 注册实体全量清单
+# 铁流工业 v3.6.0.0 注册实体全量清单
 
 运行时统计（`Vars.content` 中 `minfo.mod != null` 的内容，无头端 160.3 实测）：
 
@@ -6,11 +6,11 @@
 |---|---|
 | 物品 | 73 |
 | 液体 | 19 |
-| 方块 | 115 |
+| 方块 | 113 |
 | 状态效果 | 9 |
 | 单位 | 0 |
 
-**合计 216 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
+**合计 214 个注册实体**。命名规则：游戏内 ID = `ironworks-<名字>`；贴图文件名不加前缀。
 
 ## 方块
 
@@ -28,7 +28,7 @@
 | 高温/冷却 | 9 | `graphene-forge` 石墨烯炉<br>`fluidizer` 石墨烯流化机<br>`coolant-plant` 冷却工厂<br>`hot-conduit` 耐高温管道<br>`coolant-conduit` 冷却循环管道<br>`hot-router` 耐高温路由器<br>`hot-junction` 耐高温交叉器<br>`hot-bridge` 耐高温管道桥<br>`graphite-crucible` 石墨坩埚 |
 | 炮塔 | 7 | `rapid-cannon` 速射炮<br>`piercer` 穿甲炮<br>`mortar` 迫击炮<br>`arc-tower` 电弧塔<br>`rail-tower` 磁轨穿刺炮<br>`singularity-tower` 引力奇点发射器<br>`tianfa` 天罚（4×4 四炮口电弧塔） |
 | 通液物流 | 8 | `liquid-conveyor` 通液传送带<br>`liquid-belt-router` 通液路由器<br>`liquid-belt-junction` 通液交叉器<br>`liquid-belt-bridge` 通液带桥<br>`liquid-conveyor-adv` 强化通液传送带<br>`liquid-belt-router-adv` 强化通液路由器<br>`liquid-belt-junction-adv` 强化通液交叉器<br>`liquid-belt-bridge-adv` 强化通液带桥 |
-| 支援 | 3 | `nano-field` 纳米修复场<br>`jade-beacon` 玉碎信标<br>`critical-device` 临界装置 |
+| 支援 | 1 | `nano-field` 纳米修复场（3.6.0.0 删除“玉碎信标”“临界装置”） |
 | 雷达（1.7.0） | 1 | `auto-radar` 自动雷达 3×3（103×103 索敌，链接 10 炮塔） |
 | 装甲 | 2 | `armor-press` 装甲压制机<br>`armor-dock` 外挂装甲坞 |
 | 算力（0.62.0） | 7 | `compute-cluster` 全域算力集群（4×4 核心，占地 4×6）<br>`compute-micro` 微型算力集群 1×1<br>`compute-basic` 基础算力集群 3×3<br>`compute-advanced` 高级算力集群（2×2 核心，占地 2×3）<br>`compute-quantum` 量子算力集群 2×2<br>`compute-cluster-link` 主集群链接块 2×2（隐藏）<br>`compute-advanced-link` 高级模块通风块 1×1（隐藏） |
@@ -46,7 +46,7 @@
 
 ## 状态效果（8）
 
-`corrosion` 腐蚀 · `overload` 过载（天罚专属，减速 + 穿甲持续伤害，潮湿翻倍） · `nano-armor` 纳米装甲 · `nanite-armor` 纳米装甲块 · `jade-shatter` 玉碎 · `critical` 临界 · `reactive-armor` 反应装甲 · `composite-armor` 复合装甲
+`corrosion` 腐蚀 · `overload` 过载（天罚专属，减速 + 穿甲持续伤害，潮湿翻倍） · `nano-armor` 纳米装甲 · `nanite-armor` 纳米装甲块 · `jade-shatter` 玉碎（方块已删除，仅保留状态定义兼容旧存档/旧逻辑） · `critical` 临界（同上） · `reactive-armor` 反应装甲 · `composite-armor` 复合装甲
 
 ## 统计方式
 

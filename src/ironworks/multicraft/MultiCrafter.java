@@ -54,6 +54,8 @@ public class MultiCrafter extends Block{
      * 多液体产出必须分开，否则两种液体会从同一侧流进同一根管道/罐子 → 混料。
      */
     public int[] liquidOutputDirections;
+    /** 是否给产出液体画自绘方向箭头；电解机式建筑关掉，改用原版外观。 */
+    public boolean showLiquidOutputArrows = true;
 
     public MultiCrafter(String name){
         super(name);
@@ -403,12 +405,14 @@ public class MultiCrafter extends Block{
         @Override
         public void draw(Building build){
             MultiCrafter crafter = (MultiCrafter)build.block;
+            if(!crafter.showLiquidOutputArrows) return;
             drawArrows(build.x, build.y, crafter.size, outputs.get(build), crafter.liquidOutputDirections);
         }
 
         @Override
         public void drawPlan(Block block, mindustry.entities.units.BuildPlan plan, arc.util.Eachable<mindustry.entities.units.BuildPlan> list){
             MultiCrafter crafter = (MultiCrafter)block;
+            if(!crafter.showLiquidOutputArrows) return;
             LiquidStack[] outs = crafter.recipes.length > 0 ? crafter.recipes[0].liquidOutputs : null;
             drawArrows(plan.drawx(), plan.drawy(), crafter.size, outs, crafter.liquidOutputDirections);
         }

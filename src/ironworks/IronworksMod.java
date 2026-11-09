@@ -74,6 +74,7 @@ public class IronworksMod extends Mod{
         IronworksRbmkWindow.init();     // RBMK 黑色半透明弹出控制台
         IronworksSidebar.init();      // 左侧长条：点击打开日志
         IronworksCampaignDifficulty.init(); // 战役星球界面的 T0-T7 难度页
+        IronworksLogicLocalization.init(); // 逻辑编辑器显示层汉化开关（中文默认开）
         IronworksSettings.init();    // 设置 → 铁流工业
         IronworksDamageUI.init();    // 详情页弹药属性着色
     }

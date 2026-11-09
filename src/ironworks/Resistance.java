@@ -29,8 +29,8 @@ public final class Resistance{
     public static float element(Healthc target, DamageType type){
         if(target == null || type == null) return 0f;
         float value = element(key(target), type);
-        // 精锐部队的“全元素抗性”是纯惩罚，直接加到敌方当前抗性上。
-        if(Difficulty.isEnemyTarget(target)){
+        // 精英的“全元素抗性”只加在真正的元素上，物理伤害不吃这一项。
+        if(type.elemental && Difficulty.isEnemyTarget(target)){
             value += Difficulty.enemyElementResistance();
         }
         return clamp(value);
@@ -98,7 +98,7 @@ public final class Resistance{
         StringBuilder sb = new StringBuilder();
         for(DamageType element : DamageType.values()){
             float value = element(key, element);
-            if(enemy) value += Difficulty.enemyElementResistance();
+            if(enemy && element.elemental) value += Difficulty.enemyElementResistance();
             value = clamp(value);
             if(value <= 0.0001f) continue;
             if(sb.length() > 0) sb.append(" / ");

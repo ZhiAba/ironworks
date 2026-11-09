@@ -126,6 +126,8 @@ public final class Difficulty{
     private static final float[] eliteDamageLevels = {0.12f, 0.25f};
     private static final float[] eliteArmorLevels = {8f, 18f};
     private static final float[] eliteResistanceLevels = {0.08f, 0.16f};
+    /** 精英“抗穿透率”：I/II 级分别把受到的穿透率绝对值降低 10%/20%。 */
+    private static final float[] elitePenResistLevels = {0.10f, 0.20f};
     private static final float[] eliteWaveReductionLevels = {0.08f, 0.15f};
 
     // 袭击式/团体式：数量与间隔按加法合并。
@@ -165,7 +167,6 @@ public final class Difficulty{
         Events.on(EventType.BlockBuildEndEvent.class, e -> {
             if(e.breaking){
                 deconstructing.add(e.tile);
-                convertDeconstruct(e.tile);
             }else{
                 applyPlayerBlockHealth(e.tile.build);
             }
@@ -200,26 +201,11 @@ public final class Difficulty{
     }
     public static Color tierColor(int value){ return tierColors[clampTier(value)]; }
 
-    public static float enemyHealthMul(){
-        float value = enemyHealth[tier];
-        if(tier == maxTier) value += modifierSum(MOD_ELITE, eliteHealthLevels);
-        return value;
-    }
+    public static float enemyHealthMul(){ return enemyHealthFor(tier); }
 
-    public static float enemyDamageMul(){
-        float value = enemyDamage[tier];
-        if(tier == maxTier) value += modifierSum(MOD_ELITE, eliteDamageLevels);
-        return value;
-    }
+    public static float enemyDamageMul(){ return enemyDamageFor(tier); }
 
-    public static float enemyArmorBonus(){
-        float value = enemyArmorBonus[tier];
-        if(tier == maxTier){
-            value += modifierSum(MOD_ENEMY_ARMOR, enemyArmorAddLevels);
-            value += modifierSum(MOD_ELITE, eliteArmorLevels);
-        }
-        return value;
-    }
+    public static float enemyArmorBonus(){ return enemyArmorFor(tier); }
 
     public static float ricochetBonus(){ return ricochetBonus[tier]; }
 
@@ -232,7 +218,9 @@ public final class Difficulty{
     /** 敌方受到攻击时，穿透率被绝对值扣减；不作用于能量形态。 */
     public static float enemyPenResistance(){
         if(tier != maxTier) return 0f;
-        return Math.min(0.75f, modifierSum(MOD_ENEMY_ARMOR, enemyPenResistLevels));
+        // 精良装甲与精英单位都会降低实际穿透率；按绝对值相加，不做乘法叠乘。
+        return Math.min(0.75f, modifierSum(MOD_ENEMY_ARMOR, enemyPenResistLevels)
+            + modifierSum(MOD_ELITE, elitePenResistLevels));
     }
 
     /** 精良装甲的减速是收益，可用关闭收益移除。 */
@@ -241,46 +229,20 @@ public final class Difficulty{
         return Math.max(0.35f, 1f - modifierSum(MOD_ENEMY_ARMOR, enemySpeedSlowLevels));
     }
 
-    public static float productionMultiplier(){
-        float value = production[tier];
-        if(tier == maxTier) value -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        // 资源匮乏 IV 全开时 T7: 0.80 - 0.60 = 0.20。
-        return Math.max(0.20f, value);
-    }
+    public static float productionMultiplier(){ return productionFor(tier); }
 
     /** 采矿/钻机倍率；下限按数值表为 0.05。 */
-    public static float miningMultiplier(){
-        float value = production[tier];
-        if(tier == maxTier) value -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
-        return Math.max(0.05f, value);
-    }
+    public static float miningMultiplier(){ return miningFor(tier); }
 
-    public static float buildSpeedMultiplier(){
-        float value = playerBuildSpeed[tier];
-        if(tier == maxTier && benefitEnabled(MOD_JERRY)) value *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
-        // 新的 T0 基础值就是 1.5，不能再套旧的 1.35 正向上限；下限按数值表为 0.25。
-        return Math.max(0.25f, value);
-    }
+    public static float buildSpeedMultiplier(){ return buildSpeedFor(tier); }
 
-    public static float playerBlockHealthMultiplier(){
-        float value = playerBlockHealth[tier];
-        if(tier == maxTier) value *= Math.max(0.55f, 1f - modifierSum(MOD_JERRY, jerryHealthLevels));
-        return value;
-    }
+    public static float playerBlockHealthMultiplier(){ return blockHealthFor(tier); }
 
-    public static float playerBlockArmorModifier(){
-        float value = playerBlockArmor[tier];
-        if(tier == maxTier) value -= modifierSum(MOD_JERRY, jerryArmorLevels);
-        return value;
-    }
+    public static float playerBlockArmorModifier(){ return armorFor(tier); }
 
-    public static float playerUnitCostMultiplier(){
-        return tier == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyCostLevels) : 1f;
-    }
+    public static float playerUnitCostMultiplier(){ return unitCostFor(tier); }
 
-    public static float playerUnitStatMultiplier(){
-        return tier == maxTier && benefitEnabled(MOD_HEAVY) ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
-    }
+    public static float playerUnitStatMultiplier(){ return unitStatFor(tier); }
 
     /** 敌方单位造价回收比例（资源匮乏）；关闭收益后为 0。 */
     public static float enemyRefund(){
@@ -318,15 +280,7 @@ public final class Difficulty{
     }
 
     /** 波次间隔：袭击缩短、团体延长，全部按加法合并；下限按数值表为 0.4。 */
-    public static float waveSpacingMultiplier(){
-        float value = waveSpacing[tier];
-        if(tier == maxTier){
-            float bonus = benefitEnabled(MOD_GROUP) ? modifierSum(MOD_GROUP, groupSpacingIncreaseLevels) : 0f;
-            float penalty = modifierSum(MOD_RAID, raidSpacingReductionLevels);
-            value *= Math.max(0.20f, Math.min(3f, 1f + bonus - penalty));
-        }
-        return Math.max(0.4f, value);
-    }
+    public static float waveSpacingMultiplier(){ return waveSpacingFor(tier); }
 
     /** 炮塔每发弹药倍率（精尖弹药惩罚）。 */
     public static float turretAmmoMultiplier(){
@@ -402,12 +356,7 @@ public final class Difficulty{
     }
 
     private static float modifierSum(String id, float[] perLevel){
-        int mask = modifierMask(id);
-        float sum = 0f;
-        for(int i = 0; i < perLevel.length; i++){
-            if((mask & (1 << i)) != 0) sum += perLevel[i];
-        }
-        return sum;
+        return ModifierMath.sum(modifierMask(id), perLevel);
     }
 
     /** UI 预览：按指定档位生成详细数值说明，包含已启用词条的实时效果。 */
@@ -415,10 +364,13 @@ public final class Difficulty{
         value = clampTier(value);
         int forced = value == maxTier ? Math.round(forcedLandingLoss() * 100f) : 0;
         int refund = value == maxTier ? Math.round(enemyRefund() * 100f) : 0;
+        float buildSpeed = buildSpeedFor(value);
+        // 速度倍率和耗时倍率同时显示，避免把“建造 ×0.8”误读成 0.8 秒/0.8 倍耗时。
+        String buildText = num3(buildSpeed) + "（耗时 ×" + num3(1f / Math.max(0.05f, buildSpeed)) + "）";
         String base = Core.bundle.format("ironworks.difficulty.detail",
             num(enemyHealthFor(value)), num(enemyDamageFor(value)), signed((int)enemyArmorFor(value)),
             num(ricochetBonus[value]), num4(waveSpacingFor(value)),
-            num3(buildSpeedFor(value)), num3(blockHealthFor(value)), num(armorFor(value)),
+            buildText, num3(blockHealthFor(value)), num(armorFor(value)),
             num(unitCostFor(value)), num(unitStatFor(value)), num(productionFor(value)), num(miningFor(value)),
             String.valueOf(forced), String.valueOf(refund), activeModifierSummary(value));
         String extra = Core.bundle.format("ironworks.difficulty.detail.extra",
@@ -436,15 +388,24 @@ public final class Difficulty{
     }
 
     private static float enemyHealthFor(int value){
-        return value == maxTier ? enemyHealthMul() : enemyHealth[value];
+        float result = enemyHealth[value];
+        if(value == maxTier) result = ModifierMath.add(result, modifierMask(MOD_ELITE), eliteHealthLevels);
+        return result;
     }
 
     private static float enemyDamageFor(int value){
-        return value == maxTier ? enemyDamageMul() : enemyDamage[value];
+        float result = enemyDamage[value];
+        if(value == maxTier) result = ModifierMath.add(result, modifierMask(MOD_ELITE), eliteDamageLevels);
+        return result;
     }
 
     private static float enemyArmorFor(int value){
-        return value == maxTier ? enemyArmorBonus() : enemyArmorBonus[value];
+        float result = enemyArmorBonus[value];
+        if(value == maxTier){
+            result = ModifierMath.add(result, modifierMask(MOD_ENEMY_ARMOR), enemyArmorAddLevels);
+            result = ModifierMath.add(result, modifierMask(MOD_ELITE), eliteArmorLevels);
+        }
+        return result;
     }
 
     private static float waveCountFor(int value){
@@ -452,20 +413,27 @@ public final class Difficulty{
     }
 
     private static float waveSpacingFor(int value){
-        return value == maxTier ? waveSpacingMultiplier() : waveSpacing[value];
+        float result = waveSpacing[value];
+        if(value == maxTier){
+            float bonus = benefitEnabled(MOD_GROUP) ? modifierSum(MOD_GROUP, groupSpacingIncreaseLevels) : 0f;
+            float penalty = modifierSum(MOD_RAID, raidSpacingReductionLevels);
+            result *= Math.max(0.20f, Math.min(3f, 1f + bonus - penalty));
+        }
+        return Math.max(0.4f, result);
     }
 
     private static float miningFor(int value){
-        float result = value == maxTier ? miningMultiplier() : production[value];
-        return Math.max(0.20f, result);
+        float result = production[value];
+        if(value == maxTier) result -= modifierSum(MOD_SCARCITY, scarcityPenaltyLevels);
+        return Math.max(0.05f, result);
     }
 
     private static float unitCostFor(int value){
-        return value == maxTier ? 1f + modifierSum(MOD_HEAVY, heavyCostLevels) : 1f;
+        return value == maxTier ? ModifierMath.add(1f, modifierMask(MOD_HEAVY), heavyCostLevels) : 1f;
     }
 
     private static float unitStatFor(int value){
-        return value == maxTier && benefitEnabled(MOD_HEAVY) ? 1f + modifierSum(MOD_HEAVY, heavyStatLevels) : 1f;
+        return value == maxTier && benefitEnabled(MOD_HEAVY) ? ModifierMath.add(1f, modifierMask(MOD_HEAVY), heavyStatLevels) : 1f;
     }
 
     private static String activeModifierSummary(int value){
@@ -480,7 +448,7 @@ public final class Difficulty{
 
     private static float buildSpeedFor(int value){
         float result = playerBuildSpeed[value];
-        if(value == maxTier && benefitEnabled(MOD_JERRY)) result *= 1f + modifierSum(MOD_JERRY, jerryBuildLevels);
+        if(value == maxTier && benefitEnabled(MOD_JERRY)) result = ModifierMath.scale(result, modifierMask(MOD_JERRY), jerryBuildLevels);
         return Math.max(0.25f, result);
     }
 
@@ -492,7 +460,7 @@ public final class Difficulty{
 
     private static float armorFor(int value){
         float result = playerBlockArmor[value];
-        if(value == maxTier) result -= modifierSum(MOD_JERRY, jerryArmorLevels);
+        if(value == maxTier) result = ModifierMath.subtract(result, modifierMask(MOD_JERRY), jerryArmorLevels);
         return result;
     }
 
@@ -832,8 +800,10 @@ public final class Difficulty{
 
         if(player != null){
             var r = state.rules.teams.get(player);
+            // 难度表只定义“建造速度”；单位工厂的生产速度不应被同一个倍率隐式拖慢，
+            // 否则详情页的计划时间会和实际产速对不上。工厂仍按原版速度生产。
             r.buildSpeedMultiplier = buildSpeedMultiplier();
-            r.unitBuildSpeedMultiplier = buildSpeedMultiplier();
+            r.unitBuildSpeedMultiplier = 1f;
             r.unitMineSpeedMultiplier = miningMultiplier();
             // 建筑生命改为直接缩放 Building.maxHealth；不能再用 TeamRule 的受伤除数，
             // 否则会同时缩小上限又放大伤害，形成双重惩罚。
@@ -1007,21 +977,6 @@ public final class Difficulty{
         for(ItemStack stack : req){
             int amount = (int)Math.ceil(stack.amount * refund);
             if(amount > 0) IronworksRecovery.recover(core, stack.item, amount);
-        }
-    }
-
-    /** 原版拆除已经按 100% 返还；这里只把核心中返还物的 70% 换成上一级材料，不重复给资源。 */
-    private static void convertDeconstruct(mindustry.world.Tile tile){
-        if(tile == null || tier != maxTier || !fullDeconstructRefund() || state == null || !state.isGame() || state.rules == null) return;
-        if(!isPlayerTeam(tile.team())) return;
-        if(!(tile.build instanceof mindustry.world.blocks.ConstructBlock.ConstructBuild cb)) return;
-        if(cb.current == null || cb.current.requirements == null || state.rules.defaultTeam == null) return;
-        CoreBuild core = state.rules.defaultTeam.core();
-        if(core == null) return;
-        float cost = Math.max(0f, state.rules.buildCostMultiplier);
-        for(ItemStack stack : cb.current.requirements){
-            int expected = Math.round(stack.amount * cost);
-            if(expected > 0) IronworksRecovery.convertInCore(core, stack.item, expected);
         }
     }
 

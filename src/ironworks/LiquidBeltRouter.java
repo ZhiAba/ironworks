@@ -34,6 +34,7 @@ public class LiquidBeltRouter extends Block{
     public class LiquidBeltRouterBuild extends Building{
         float timer;
         int counter;
+        int liquidCounter;
         float consumeTimer;
 
         @Override
@@ -70,9 +71,39 @@ public class LiquidBeltRouter extends Block{
                 timer = 0f;
                 Liquid cur = liquids.current();
                 if(cur != null && liquids.get(cur) > 0.001f){
-                    dumpLiquid(cur, 2f);
+                    dumpBalanced(cur);
                 }
             }
+        }
+
+        /** 向所有可接收邻居平均分配，避免 dumpLiquid 总是先灌满第一个邻居。 */
+        void dumpBalanced(Liquid liquid){
+            int count = 0;
+            for(int i = 0; i < proximity.size; i++){
+                Building other = proximity.get((i + liquidCounter) % proximity.size);
+                Building target = other == this ? null : other.getLiquidDestination(this, liquid);
+                if(target != null && target != this && target.acceptLiquid(this, liquid)
+                    && LiquidKit.hasSpace(target, liquid)) count++;
+            }
+            if(count == 0) return;
+
+            float remaining = liquids.get(liquid);
+            float share = remaining / count;
+            for(int i = 0; i < proximity.size && remaining > 0.001f; i++){
+                Building other = proximity.get((i + liquidCounter) % proximity.size);
+                Building target = other == this ? null : other.getLiquidDestination(this, liquid);
+                if(target == null || target == this) continue;
+                if(!target.acceptLiquid(this, liquid) || !LiquidKit.hasSpace(target, liquid)) continue;
+                remaining -= LiquidKit.give(this, target, liquid, Math.min(share, remaining));
+            }
+            // 有的邻居空间不足，第一轮剩下的继续补；仍然按轮询顺序。
+            for(int i = 0; i < proximity.size && remaining > 0.001f; i++){
+                Building other = proximity.get((i + liquidCounter) % proximity.size);
+                Building target = other == this ? null : other.getLiquidDestination(this, liquid);
+                if(target == null || target == this || !LiquidKit.hasSpace(target, liquid)) continue;
+                remaining -= LiquidKit.give(this, target, liquid, remaining);
+            }
+            liquidCounter++;
         }
     }
 }
