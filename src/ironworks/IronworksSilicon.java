@@ -137,7 +137,7 @@ public class IronworksSilicon{
             rotateSpeed = 1.2f;
             heatColor = Color.valueOf("cfd8ff");
 
-            // —— 攻击方式照抄雷光：充能 40 帧、同款音效/特效，一道能量激光 ——
+            // —— 攻击方式照抄雷光：充能 40 帧、同款音效/特效，5 道能量激光 ——
             shoot.firstShotDelay = 40f;
             recoil = 2f;
             shake = 2f;
