@@ -76,6 +76,7 @@ public class IronworksSettings{
                     .color(Pal.gray).padTop(8f).padBottom(8f));
 
                 // —— 界面显示 / 彩蛋 ——
+                st.checkPref(IronworksBetterMenu.KEY, true, IronworksBetterMenu::setEnabled);
                 st.checkPref(IronworksSidebar.key, true);
                 st.checkPref(IronworksLogicLocalization.KEY, IronworksLogicLocalization.enabled(),
                     IronworksLogicLocalization::setEnabled);

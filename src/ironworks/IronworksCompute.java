@@ -768,19 +768,15 @@ public class IronworksCompute{
                 return;
             }
             drawPotentialLinks(x, y);
-            // 放置预览只画完整包围盒轮廓，不再给链接格铺半透明黄色色块。
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, rotation, r);
-            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            // 核心图标 + 完整 4×6/2×3 包围盒轮廓；不铺额外色块。
-            Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
+            // 直接画完整贴图（2×3），不再画黄色包围盒轮廓；贴图本身就能表达体积。
             int[] r = new int[4];
             unionRect(plan.x, plan.y, size, linkLayout, plan.rotation, r);
-            drawFootprint(r, Pal.accent, 1.5f);
+            TextureRegion tex = region != null && region.found() ? region : uiIcon;
+            Draw.rect(tex, centerX(r), centerY(r), plan.rotation * 90f);
         }
 
         @Override
@@ -861,6 +857,10 @@ public class IronworksCompute{
                         Draw.rect(uiIcon, x, y);
                     }
                 }else{
+                    // WallBuild.draw() 只处理受击闪白，不会画 region；未贴合的方形模块
+                    // 原来走 super.draw() 就完全不可见（量子集群最明显）。这里显式补画。
+                    if(region != null && region.found()) Draw.rect(region, x, y);
+                    else if(uiIcon != null && uiIcon.found()) Draw.rect(uiIcon, x, y);
                     super.draw();
                 }
             }
@@ -933,19 +933,15 @@ public class IronworksCompute{
             //幽灵贴图由 drawPlan -> drawPlanRegion 统一绘制（半透明 + 原版闪白），
             //这里不能再画一份不透明的，否则会盖住地块选择标线。
             drawPotentialLinks(x, y);
-            // 只画 4×6 完整包围盒轮廓；去掉之前多出来的黄色半透明链接格。
-            int[] r = new int[4];
-            unionRect(x, y, size, linkLayout, rotation, r);
-            drawFootprint(r, Pal.accent, 1.5f);
         }
 
         @Override
         public void drawPlanRegion(BuildPlan plan, Eachable<BuildPlan> list){
-            // 主 4×4 图标 + 4×6 完整包围盒轮廓，预放置阶段就能看出真实体积。
-            Draw.rect(uiIcon, plan.drawx(), plan.drawy(), plan.rotation * 90f);
+            // 直接画完整的 4×6 贴图，不再画黄色包围盒轮廓；避免预放置时看起来只有 4×4。
             int[] r = new int[4];
             unionRect(plan.x, plan.y, size, linkLayout, plan.rotation, r);
-            drawFootprint(r, Pal.accent, 1.5f);
+            TextureRegion tex = region != null && region.found() ? region : uiIcon;
+            Draw.rect(tex, centerX(r), centerY(r), plan.rotation * 90f);
         }
 
         @Override

@@ -79,6 +79,7 @@ public class IronworksMod extends Mod{
         IronworksCampaignDifficulty.init(); // 战役星球界面的 T0-T7 难度页
         IronworksLogicLocalization.init(); // 逻辑编辑器显示层汉化开关（中文默认开）
         IronworksSettings.init();    // 设置 → 铁流工业
+        IronworksBetterMenu.init();  // 可开关的真实星球主界面
         IronworksDamageUI.init();    // 详情页弹药属性着色
     }
 }
