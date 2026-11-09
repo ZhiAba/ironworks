@@ -171,6 +171,9 @@ class TypedFlakBulletType extends FlakBulletType implements TypedBullet{
 
 class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
     final DamageType dtype;
+    /** >0 时只固定绘制长度，不改变伤害穿透上限；磁轨炮用它做到“第 6 个目标挡不住特效但也不受伤”。 */
+    float visualLength = -1f;
+
     TypedLaserBulletType(DamageType dtype, float damage){
         super(damage);
         this.dtype = dtype;
@@ -178,6 +181,17 @@ class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
     }
     @Override public DamageType dtype(){ return dtype; }
     @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
+
+    @Override
+    public void init(Bullet b){
+        super.init(b);
+        // 伤害仍由 collideLaser 按 pierceCap 截断；只有磁轨炮（visualLength>0）
+        // 把 fdata 单独恢复成完整射程，让第 6 个目标截不住特效。
+        if(visualLength > 0f){
+            b.fdata = visualLength;
+            laserEffect.at(b.x, b.y, b.rotation(), visualLength * 0.75f);
+        }
+    }
 }
 
 class TypedLiquidBulletType extends LiquidBulletType implements TypedBullet{

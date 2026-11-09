@@ -29,8 +29,6 @@ import static mindustry.Vars.*;
  * 两侧都可用时通过 {@link #handleLiquid} 尽量均分，而不是只选一边。</p>
  */
 public class LiquidSorter extends Block{
-    /** 未配置时显示的叉号；复用原版图集。 */
-    public TextureRegion cross;
     /** true = 反向分类器：设定液体去两侧，其余液体直通。 */
     public boolean invert;
 
@@ -52,8 +50,6 @@ public class LiquidSorter extends Block{
         hasLiquids = true;
         outputsLiquid = true;
 
-        cross = Core.atlas == null ? null : Core.atlas.find("cross-full");
-
         config(Liquid.class, (LiquidSorterBuild build, Liquid liquid) -> build.sortLiquid = liquid);
         configClear((LiquidSorterBuild build) -> build.sortLiquid = null);
     }
@@ -70,7 +66,9 @@ public class LiquidSorter extends Block{
 
     @Override
     public TextureRegion[] icons(){
-        return new TextureRegion[]{region};
+        // 建筑本体 region 的中心是透明的（让液体层透出来），不能直接当图标用；
+        // 这里优先用 -full 图（中心不透明，供建造菜单/手持/蓝图使用）。
+        return new TextureRegion[]{fullIcon != null && fullIcon.found() ? fullIcon : region};
     }
 
     @Override
@@ -106,8 +104,14 @@ public class LiquidSorter extends Block{
                 Draw.z(z);
             }
             super.draw();
-            if(sortLiquid == null && cross != null){
-                Draw.rect(cross, x, y);
+            if(sortLiquid == null){
+                // 不能在建方块时缓存 cross：那时图集可能还是临时的，刷完新图集会失效。
+                TextureRegion cross = Core.atlas == null ? null : Core.atlas.find("cross-full");
+                if(cross != null && cross.found()){
+                    Draw.color();
+                    Draw.rect(cross, x, y);
+                    Draw.color();
+                }
             }
         }
 

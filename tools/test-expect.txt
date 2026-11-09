@@ -159,6 +159,10 @@
 216	T216 right=1 top=0 ok=true
 217	T217 src=0 right=[1-9][0-9]* top=[1-9][0-9]* ok=true
 219	T219 cost=2\.8500 stat=1\.7500 ok=true
-218	T218 .*w1=[0-9]+/1840 w2=[0-9]+/1840 ok=true
+218	T218 .*w1=[0-9.]+/1840 w2=[0-9.]+/1840 ok=true
 220	T220 full=true rule=1(\.0)? conv=0\.70 ok=true
 221	T221 key=ironworks\.logic-localization on=true off=false ok=true
+222	T222 dmg=270(\.0)? len=420(\.0)? pierce=5 form=ENERGY beams=5 spread=4(\.0)? pattern=true sound=true ok=true
+223	T223 h0=[0-9]+ h4=[0-9]+ h5=10000 ok=true
+224	T224 hp=[0-9]+ shield=1000 dead=false ok=true
+225	T225 eval=300 aura=null ok=true

@@ -132,13 +132,54 @@ public class IronworksSilicon{
             range = 420f;
             reload = 180f;
             shootCone = 4f;
+            beams = 5;
+            beamSpread = 4f;
             rotateSpeed = 1.2f;
             heatColor = Color.valueOf("cfd8ff");
+
+            // —— 攻击方式照抄雷光：充能 40 帧、同款音效/特效，一道能量激光 ——
+            shoot.firstShotDelay = 40f;
+            recoil = 2f;
+            shake = 2f;
+            shootEffect = Fx.lancerLaserShoot;
+            smokeEffect = Fx.none;
+            targetAir = false;
+            moveWhileCharging = false;
+            accurateDelay = false;
+            shootSound = mindustry.gen.Sounds.shootLancer;
+            chargeSound = mindustry.gen.Sounds.chargeLancer;
+
             consumePower(40f);
 
-            shootType = new BulletType(0.001f, 240f){{
-                lifetime = 1f;
+            shootType = new LaserBulletType(270f){{
+                colors = new Color[]{mindustry.graphics.Pal.lancerLaser.cpy().a(0.4f), mindustry.graphics.Pal.lancerLaser, Color.white};
+                chargeEffect = new mindustry.entities.effect.MultiEffect(Fx.lancerLaserCharge, Fx.lancerLaserChargeBegin);
+                buildingDamageMultiplier = 0.25f;
+                armorMultiplier = 4f;
+                hitEffect = Fx.hitLancer;
+                hitSize = 4;
+                lifetime = 16f;
+                drawSize = 400f;
+                collidesAir = false;
+                // 光束长度必须跟着磁轨炮射程走（420）；LaserBulletType.init 会自动把 drawSize 扩到 2 倍。
+                length = 420f;
+                ammoMultiplier = 1f;
+                // 每束最多伤害 5 个目标；第 6 个目标不影响光束绘制，也不会被结算。
+                pierceCap = 5;
             }};
+
+            // 5 道束均匀分布在 beamSpread（±2°）内，每道都在 40 帧充能后一起发射。
+            shootType.shootPattern = new mindustry.entities.pattern.ShootPattern(){
+                @Override
+                public void shoot(int totalShots, mindustry.entities.pattern.ShootPattern.BulletHandler handler){
+                    int count = Math.max(1, beams);
+                    float step = beamSpread / Math.max(1, count - 1);
+                    float mid = (count - 1) / 2f;
+                    for(int i = 0; i < count; i++){
+                        handler.shoot(0f, 0f, (i - mid) * step, 40f);
+                    }
+                }
+            };
         }};
 
         // —— 引力奇点发射器（T3）——

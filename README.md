@@ -6,9 +6,9 @@ Mindustry 160.x 的 Java 模组：从铁砂、钢铁和铝开始，一路搭到�
 
 源码仓库：<https://github.com/ZhiAba/ironworks>
 
-> 当前版本：**3.6.0.0** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
+> 当前版本：**3.6.1.0** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
 >
-> 3.6 验证：T206–T219 新增用例通过；详细列表见 `docs/CHANGELOG.md`。全量回归需在部署前按 `docs/RELEASE-CHECKLIST.md` 复跑。
+> 3.6.1 验证：T218/T222/T223 磁轨炮、T224/T225 魔灵崩溃与能量穿盾、T203–T225 定向 23/23 通过；详细列表见 `docs/CHANGELOG.md`。全量回归需在部署前按 `docs/RELEASE-CHECKLIST.md` 复跑。
 
 ## 主要内容
 

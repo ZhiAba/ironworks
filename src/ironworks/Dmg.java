@@ -754,7 +754,14 @@ public class Dmg{
         register(IronworksTurrets.piercer, DamageType.physical);
         register(IronworksShells.mortar, DamageType.physical);
         register(IronworksSilicon.arcTower, DamageType.thunder, DamageForm.ENERGY);
-        register(IronworksSilicon.railTower, DamageType.thunder, DamageForm.KINETIC);
+        register(IronworksSilicon.railTower, DamageType.thunder, DamageForm.ENERGY);
+        // 模组炮塔不会被 integrateVanillaTurrets 接管，必须显式把 LaserBulletType 换成带属性的弹体。
+        retypePower((PowerTurret) IronworksSilicon.railTower, DamageType.thunder, DamageForm.ENERGY);
+        // 伤害只到第 5 个目标，但激光绘制始终到磁轨炮射程；第 6 个目标不会把光束“截断”。
+        if(IronworksSilicon.railTower instanceof RailTurret rail
+            && rail.shootType instanceof TypedLaserBulletType laser){
+            laser.visualLength = rail.range;
+        }
         register(IronworksSilicon.singularityTower, DamageType.physical, DamageForm.ENERGY);
         register(IronworksTianfa.tianfa, DamageType.thunder, DamageForm.ENERGY);
 

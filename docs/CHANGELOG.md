@@ -48,6 +48,18 @@
 
 ## 3.6.x
 
+### 3.6.1.0 — 磁轨炮雷光化、魔灵崩溃修复、分类器图标与缺失液体图标
+
+- **液体分类器/反向分类器的黑色图标（根因）**：`liquid-sorter`/`liquid-inverted-sorter` 的**建筑本体图中心本来就是透明镂空**，用来让下面的液体流动层透出来；但缺少 `-full` 图时，`UnlockableContent.loadIcon()` 会退回这张镂空图，建造菜单、手持、蓝图/放置预览（`getPlanRegion()` 返回 `fullIcon`）就只看到深色底，表现为黑方块。修复不是改液体层，而是补 `liquid-sorter-full.png` / `liquid-inverted-sorter-full.png`：中心不透明并画一个液体水滴，专门供 UI/手持/放置预览使用；世界内仍用原镂空图，液体层继续在建筑下方透出。`icons()` 也优先返回 `fullIcon`。
+- **未配置叉号**：不再在方块构造时缓存 `cross-full`（那时图集可能还是临时/旧的，mod 图集刷新后会失效并画黑）；改为绘制时按当前 `Core.atlas` 取图，并先 `Draw.color()` 复位。
+- **缺失液体图标**：补齐 `steam`、`wet-steam`、`warm-water`、`boric-acid` 的 32×32 液体图标。之前它们没有 sprites，液体选择面板/管道 UI 会显示黑色 error 区域；这也是截图里部分液体图标发黑的来源。
+- **磁轨穿刺炮改为雷光式攻击**：不再手写射线结算，改用 `LaserBulletType`。一次充能发射 **5 道 270 点能量伤害**的激光，5 道在 `shootCone=4°`（±2°）内均匀分布；每道最多伤害 5 个目标，第 6 个目标不受伤。`LaserBulletType` 的伤害截断会用 `pierceCap=5`，但 `TypedLaserBulletType.visualLength` 把绘制长度单独恢复为射程 420，所以**第 6 个目标不会把特效截断**。充能/音效/光束特效完整照抄雷光：`shoot.firstShotDelay=40`、`Sounds.chargeLancer`/`Sounds.shootLancer`、`Fx.lancerLaserCharge`/`Fx.lancerLaserChargeBegin`/`Fx.lancerLaserShoot`/`Fx.hitLancer`。
+- **属性形态**：磁轨炮弹体显式重定型为雷霆 + 能量形态（`Dmg.retypePower`），保证走 Dmg 的护甲/抗性/穿透结算，而不是原版裸伤害。
+- **魔灵（malign）攻击单位崩溃（根因）**：崩溃栈为 `ElementCombo.evaluate → cleanup → ObjectMap.remove(null) → IllegalArgumentException: key cannot be null`。`cleanup()` 原来一边遍历 `ObjectMap<Unit, Aura>` 一边 `remove(entry.key)`，迭代过程中 Entry 被清空后 `entry.key` 变成 null；魔灵的激光碎片恰好在大约第 256 次属性结算时触发清理。修复为先把过期/死亡目标收集到 `Seq<Unit>`，遍历结束后再统一移除，绝不 `remove(null)`。
+- **能量伤害与立场盾**：能量形态原本就已 `bypassShields=true`，弹体也会被设为 `absorbable=false`；魔灵/磁轨炮的弹体均登记为能量形态。T224 用 `shield=1000` 的单位验证：能量命中后单位掉血，护盾仍保持 1000，确认不会被立场盾吞伤。本次崩溃不是护盾结算，而是上面的 Combo 清理空键。
+- **验证**：T218 更新为真实发射 5 道激光后的建筑穿透；新增 T222（270 伤害/420 长度/穿透 5/能量形态/5 道/雷光音效）、T223（5 个目标受伤、第 6 个满血，验证视觉不被第 6 个截断）、T224（魔灵攻击带盾单位不崩溃且能量穿盾）、T225（过期 Aura 第 256 次 evaluate 清理不崩溃）。T203–T225 定向 **23/23** 通过。
+- **版本**：3.6.1.0。
+
 ### 3.6.0.0 — 建造/词条叠加修正、逻辑汉化与液体/血量修复
 
 - **冷却液准入修正**：酸液、铝酸钠、防冻冷却液、硼酸、温水全部 `coolant = false`，不再被原版炮塔的 `ConsumeCoolant` 当作冷却液；石墨烯冷却液也不再被原版炮塔消耗。原因是原版 `ItemTurret`/`ReloadTurret` 只扣冷却液、不产出热液，会形成“只进不出”的断链。模组炮塔继续走显式 `CoolantLoop`（冷液进、热液出），因此不受影响。

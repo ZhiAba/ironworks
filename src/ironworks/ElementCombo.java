@@ -2,6 +2,7 @@ package ironworks;
 
 import arc.Core;
 import arc.struct.ObjectMap;
+import arc.struct.Seq;
 import arc.util.Time;
 import mindustry.gen.Healthc;
 import mindustry.gen.Unit;
@@ -166,10 +167,17 @@ public final class ElementCombo{
     private static void cleanup(){
         if(++cleanupCounter < 256) return;
         cleanupCounter = 0;
+        // 不能在遍历 ObjectMap 的过程中 remove：迭代器会读到被清空的 Entry，
+        // entry.key 变成 null，ObjectMap.remove(null) 会抛 IllegalArgumentException。
+        // 这正是魔灵的激光命中单位时崩溃的原因（evaluate → cleanup）。
+        Seq<Unit> stale = new Seq<>();
         for(ObjectMap.Entry<Unit, Aura> entry : auras){
-            if(entry.key == null || entry.key.dead() || entry.value.expire <= Time.time){
-                auras.remove(entry.key);
+            if(entry.key != null && (entry.key.dead() || entry.value.expire <= Time.time)){
+                stale.add(entry.key);
             }
+        }
+        for(Unit unit : stale){
+            auras.remove(unit);
         }
     }
 
