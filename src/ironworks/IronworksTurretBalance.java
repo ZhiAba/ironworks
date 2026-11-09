@@ -14,6 +14,8 @@ import mindustry.type.Liquid;
 import mindustry.type.StatusEffect;
 import mindustry.world.Block;
 import mindustry.world.blocks.defense.turrets.BaseTurret;
+import mindustry.world.blocks.defense.turrets.ContinuousLiquidTurret;
+import mindustry.world.blocks.defense.turrets.ContinuousTurret;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.defense.turrets.LiquidTurret;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
@@ -373,6 +375,106 @@ public final class IronworksTurretBalance{
             Dmg.overrideBullet(x, DamageType.fire, DamageForm.ENERGY);
             Dmg.pen(x, 0f, 0f, 0f, 0f);
         }
+        if(Blocks.afflict instanceof PowerTurret afflict && afflict.shootType != null){
+            x = afflict.shootType;
+            x.damage = 180f;
+            x.pierceCap = 2;
+            frag(x, 20, 35f);
+            Dmg.overrideBullet(x, DamageType.physical, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
+        if(Blocks.lustre instanceof ContinuousTurret lustre && lustre.shootType != null){
+            x = lustre.shootType;
+            x.damage = 157.5f;
+            x.pierce = true;
+            x.pierceCap = -1;
+            Dmg.overrideBullet(x, DamageType.physical, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
+        if(Blocks.malign instanceof PowerTurret malign && malign.shootType != null){
+            x = malign.shootType;
+            x.damage = 70f;
+            homing(x, .17f);
+            frag(x, 9, 65f);
+            Dmg.overrideBullet(x, DamageType.physical, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
+        if(Blocks.sublimate instanceof ContinuousLiquidTurret sublimate){
+            x = liquid(sublimate, Liquids.cyanogen, 97.5f, 0f, 0f, DamageType.physical, DamageForm.ENERGY);
+            extras(x, 1f, 8.8f, 0f, 0f);
+            pierce(x, 3, false);
+            knock(x, 2f);
+            x = liquid(sublimate, Liquids.ozone, 45f, 0f, 0f, DamageType.physical, DamageForm.ENERGY);
+            pierce(x, 2, false);
+            knock(x, 1f);
+        }
+        // 创伤的伤害在导弹单位里，弹体本身 0 伤害；这里只统一属性/形态。
+        ItemTurret scathe = (ItemTurret)Blocks.scathe;
+        if(scathe != null){
+            for(Item ammo : new Item[]{Items.carbide, Items.phaseFabric, Items.surgeAlloy}){
+                BulletType scatheBullet = scathe.ammoTypes.get(ammo);
+                if(scatheBullet != null){
+                    Dmg.overrideBullet(scatheBullet, DamageType.physical, DamageForm.EXPLOSIVE);
+                    Dmg.pen(scatheBullet, 0f, 0f, 0.20f);
+                }
+            }
+        }
+
+        // 本模组炮塔的弹药。轨炮按用户确认保留现机制，不在这里改。
+        ItemTurret rapid = (ItemTurret)IronworksTurrets.rapidCannon;
+        x = hit(rapid, IronworksAmmo.copperAmmo, 16f, .55f, 15f, DamageType.physical, DamageForm.KINETIC);
+        x = hit(rapid, IronworksAmmo.heavyAmmo, 50f, .70f, 20f, DamageType.physical, DamageForm.KINETIC);
+        extras(x, 1.5f, 0f, 0f, 0f);
+        knock(x, 3f);
+
+        ItemTurret piercer = (ItemTurret)IronworksTurrets.piercer;
+        x = hit(piercer, IronworksAmmo.leadCoreAmmo, 30f, .75f, 18f, DamageType.physical, DamageForm.KINETIC);
+        pierce(x, 2, false);
+        x = hit(piercer, IronworksAmmo.tiPierceAmmo, 42f, .90f, 25f, DamageType.physical, DamageForm.KINETIC);
+        pierce(x, 4, true);
+        x = hit(piercer, IronworksAmmo.tiOverpressureAmmo, 90f, .60f, 20f, DamageType.physical, DamageForm.EXPLOSIVE);
+        extras(x, 1f, 0f, 40f, 3.3f);
+        x = hit(piercer, IronworksAmmo.napalmAmmo, 38f, .25f, 10f, DamageType.fire, DamageForm.EXPLOSIVE);
+        extras(x, 1f, 0f, 34f, 4f);
+        status(x, StatusEffects.burning, 4f);
+        x = hit(piercer, IronworksAmmo.corrosiveAmmo, 30f, .80f, 20f, DamageType.corrosive, DamageForm.KINETIC);
+        status(x, StatusEffects.corroded, 5f);
+
+        ItemTurret mortar = (ItemTurret)IronworksShells.mortar;
+        x = hit(mortar, IronworksShells.heShell, 150f, .55f, 18f, DamageType.physical, DamageForm.EXPLOSIVE);
+        extras(x, 1f, 0f, 195f, 13.8f);
+        noBuildings(x);
+        x = hit(mortar, IronworksShells.apShell, 260f, .90f, 25f, DamageType.physical, DamageForm.KINETIC);
+        extras(x, 1f, 0f, 60f, 6.3f);
+        pierce(x, 3, true);
+        noBuildings(x);
+        x = hit(mortar, IronworksShells.incendiaryShell, 110f, .20f, 8f, DamageType.fire, DamageForm.EXPLOSIVE);
+        extras(x, 1f, 0f, 105f, 14.4f);
+        status(x, StatusEffects.burning, 4f);
+        noBuildings(x);
+        x = hit(mortar, IronworksShells.fragShell, 90f, .45f, 12f, DamageType.physical, DamageForm.EXPLOSIVE);
+        extras(x, 1f, 0f, 75f, 15.6f);
+        frag(x, 6, 30f);
+        noBuildings(x);
+
+        if(IronworksSilicon.arcTower instanceof PowerTurret arcTower && arcTower.shootType != null){
+            x = arcTower.shootType;
+            x.damage = 35f;
+            Dmg.overrideBullet(x, DamageType.thunder, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
+        if(IronworksSilicon.singularityTower instanceof PowerTurret singularity && singularity.shootType != null){
+            x = singularity.shootType;
+            x.damage = 680f;
+            Dmg.overrideBullet(x, DamageType.physical, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
+        if(IronworksTianfa.tianfa != null && IronworksTianfa.tianfa.shootType != null){
+            x = IronworksTianfa.tianfa.shootType;
+            x.damage = 370f;
+            Dmg.overrideBullet(x, DamageType.thunder, DamageForm.ENERGY);
+            Dmg.pen(x, 0f, 0f, 0f, 0f);
+        }
     }
 
     private static BulletType hit(ItemTurret turret, Item item, float damage, float rate, float flat,
@@ -387,7 +489,16 @@ public final class IronworksTurretBalance{
 
     private static BulletType liquid(LiquidTurret turret, Liquid liquid, float damage, float rate, float flat,
                                      DamageType type, DamageForm form){
-        BulletType bullet = turret == null ? null : turret.ammoTypes.get(liquid);
+        return liquid(turret == null ? null : turret.ammoTypes.get(liquid), damage, rate, flat, type, form);
+    }
+
+    private static BulletType liquid(ContinuousLiquidTurret turret, Liquid liquid, float damage, float rate, float flat,
+                                     DamageType type, DamageForm form){
+        return liquid(turret == null ? null : turret.ammoTypes.get(liquid), damage, rate, flat, type, form);
+    }
+
+    private static BulletType liquid(BulletType bullet, float damage, float rate, float flat,
+                                     DamageType type, DamageForm form){
         if(bullet == null) return null;
         bullet.damage = damage;
         Dmg.overrideBullet(bullet, type, form);
