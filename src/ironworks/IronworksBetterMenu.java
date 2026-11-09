@@ -183,7 +183,7 @@ public final class IronworksBetterMenu{
                     //原版行星拖动：向右拖时绕 camUp 正方向旋转。之前符号写反了。
                     float speed = Mathf.clamp((float)Math.cos(pitch), 0f, 1f);
                     yaw += (x - lastX) * DRAG_YAW * speed;
-                    //原版垂直拖动：cy / 10 度，并且向下拖动时降低俯仰角。
+                    //原版垂直拖动：cy / 10 度（场景坐标 y 向上，向下拖动时抬高俯仰角）。
                     pitch = Mathf.clamp(pitch - (y - lastY) * DRAG_PITCH, -1.25f, 1.25f);
                     lastX = x;
                     lastY = y;
@@ -464,6 +464,8 @@ public final class IronworksBetterMenu{
 
         void onPlanetHidden(){
             animating = false;
+            dragging = false;
+            pointer = -1;
             centerTarget = 0f;
             center = 0f;
             params.drawUi = false;

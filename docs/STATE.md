@@ -19,7 +19,7 @@ Mindustry 模组「铁流工业」v3.7.0.1，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.7.0.1 / md5 `bcb3b8d39a67ef037442956ff6ee929c`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.7.0.1 / md5 `52f860577ebad25beabedcc17d406558`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
 - 3.7.0.1 **原版桌面菜单**：`IronworksBetterMenu` 不再自绘文字按钮，按 `MenuFragment.buildDesktop()` 复刻左 10% 留白、230×70 按钮列、`flatToggleMenut` 图标、子菜单与 `@play/@database.button` 层级；`ResizeEvent` 重建列。修复旧版 `Scl.scl(300)` 过大、`padTop(70)` 偏低和尺寸不随窗口变化。
 - 3.7.0.1 **右侧星球**：起始视口 `frac=0.55`（中心约 72.5%），zoom=0.9；不再用 0.22 缩放占满中间。进入战役时视口扩到全屏、中心到 50%、zoom 到 1.0。
 - 3.7.0.1 **无缝战役过渡**：菜单淡出后同一颗星球扩到全屏；打开 `PlanetDialog` 后立即把 `state.camPos`、`state.zoom`、`ui.planet.zoom` 设为菜单的 yaw/pitch 和 zoom=1，并补一帧同步，避免先回默认视角再重载。移除了旧的 `buttons/sectorTop/notifs/expandTable` 手动边缘滑入。
