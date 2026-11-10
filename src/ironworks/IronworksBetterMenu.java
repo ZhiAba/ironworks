@@ -3,6 +3,7 @@ package ironworks;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.graphics.g2d.TextureRegion;
 import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.geom.Mat3D;
@@ -19,6 +20,7 @@ import arc.scene.ui.Button;
 import arc.scene.ui.Dialog.DialogStyle;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
+import arc.scene.ui.Image;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Stack;
 import arc.scene.ui.layout.Table;
@@ -59,6 +61,8 @@ public final class IronworksBetterMenu{
     /** 原版星球拖动的角速度：水平 cx / 9 度，垂直 cy / 10 度。 */
     private static final float DRAG_YAW = 0.017453292f / 9f;
     private static final float DRAG_PITCH = 0.017453292f / 10f;
+    /** 主菜单用较窄的摄影机 FOV 抵消离轴投影把球体压扁；战役恢复 60°。 */
+    private static final float MENU_FOV = 12f, CAMPAIGN_FOV = 60f;
 
     private static MenuFragment vanilla;
     private static BetterMenuFragment custom;
@@ -73,6 +77,19 @@ public final class IronworksBetterMenu{
     private IronworksBetterMenu(){
     }
 
+    private static void updateAtmosphere(){
+        if(custom != null) custom.updateAtmosphere();
+    }
+
+    /** 星空单独按 60° FOV 渲染；只影响星空那一次绘制，星球仍用菜单窄 FOV。 */
+    private static void beginSkybox(){
+        if(custom != null) custom.beginSkybox();
+    }
+
+    private static void endSkybox(){
+        if(custom != null) custom.endSkybox();
+    }
+
     public static void init(){
         Core.settings.defaults(KEY, true);
         preloadPlanet();
@@ -81,6 +98,9 @@ public final class IronworksBetterMenu{
             sync();
         });
         Events.run(EventType.Trigger.update, IronworksBetterMenu::sync);
+        Events.run(EventType.Trigger.update, IronworksBetterMenu::updateAtmosphere);
+        Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::beginSkybox);
+        Events.run(EventType.Trigger.universeDraw, IronworksBetterMenu::endSkybox);
         if(!resizeHook){
             resizeHook = true;
             Events.on(EventType.ResizeEvent.class, e -> {
@@ -165,6 +185,7 @@ public final class IronworksBetterMenu{
         private Table menuLayer;
         private Table panel;
         private Table submenu;
+        private Table titleLayer;
         private ImageButton eggButton;
         private Button currentMenu;
         private final PlanetParams params = new PlanetParams();
@@ -180,11 +201,18 @@ public final class IronworksBetterMenu{
         private boolean campaignActive;
         private boolean disposed;
         private boolean reopenPending;
+        private boolean returningToMenu;
         private Element nativeMainView;
         private float menuYaw = 0.72f, menuPitch = 0.15f;
 
         private float yaw = 0.72f, pitch = 0.15f;
         private float center, centerTarget;
+        /** 主菜单/战役共用同一个 Serpulo 渲染层，大气层只能靠颜色强度渐隐，不能换渲染层。 */
+        private Color baseAtmosphere;
+        private float atmosphereAlpha = 1f, atmosphereTarget = 1f;
+        /** 星空绘制前临时切到战役 FOV，画完立刻恢复，避免窄 FOV 把星空放糊。 */
+        private float menuFov = MENU_FOV;
+        private boolean skyboxWide;
         private boolean dragging;
         private float lastX, lastY;
         private int pointer = -1;
@@ -243,6 +271,7 @@ public final class IronworksBetterMenu{
 
             buildMenu();
             buildEgg();
+            buildTitle();
             Core.app.post(this::startNativeLayer);
         }
 
@@ -343,6 +372,39 @@ public final class IronworksBetterMenu{
             submenu.actions(Actions.alpha(1f), Actions.alpha(0f, 0.2f, Interp.fade), Actions.run(() -> submenu.clearChildren()));
         }
 
+        /** 主菜单大标题；只做 UI 层的透明淡入淡出，不参与星球渲染。 */
+        private void buildTitle(){
+            TextureRegion logo = Core.atlas.find("logo");
+            if(!logo.found()) return;
+
+            titleLayer = new Table();
+            titleLayer.setFillParent(true);
+            titleLayer.top();
+            titleLayer.touchable = Touchable.disabled;
+            titleLayer.color.a = 0f;
+
+            float logoscl = Scl.scl(1f) * logo.scale;
+            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() - Scl.scl(20f));
+            float logoh = logow * (float)logo.height / logo.width;
+            // 与 MenuFragment.draw() 的原版 logo 位置一致：离内容区顶部 6px，竖屏再下移 30px。
+            float top = Core.scene.marginTop + 6f + (Core.graphics.isPortrait() ? Scl.scl(30f) : 0f);
+            titleLayer.add(new Image(logo)).size(logow, logoh).padTop(top);
+            root.addChild(titleLayer);
+        }
+
+        private void fadeTitleIn(float duration){
+            if(titleLayer == null) return;
+            titleLayer.clearActions();
+            titleLayer.color.a = 0f;
+            titleLayer.addAction(Actions.fadeIn(duration, Interp.fade));
+        }
+
+        private void fadeTitleOut(float duration){
+            if(titleLayer == null) return;
+            titleLayer.clearActions();
+            titleLayer.addAction(Actions.fadeOut(duration, Interp.fade));
+        }
+
         /** 最左缘的彩蛋入口；x=0 锚定，不随屏幕宽度/缩放居中。 */
         private void buildEgg(){
             ImageButtonStyle style = new ImageButtonStyle(Styles.clearNonei);
@@ -391,6 +453,7 @@ public final class IronworksBetterMenu{
 
         private void createMenuCamera(){
             if(menuCamera != null) return;
+            if(baseAtmosphere == null) baseAtmosphere = Planets.serpulo.atmosphereColor.cpy();
             menuSun = Planets.serpulo.solarSystem;
             menuCamera = new Planet("ironworks-menu-camera", null, Planets.serpulo.radius);
             menuCamera.camRadius = Planets.serpulo.camRadius;
@@ -401,13 +464,47 @@ public final class IronworksBetterMenu{
             content.remove(menuCamera);
         }
 
+        /** 大气层没有独立的 alpha uniform，这里缩放它的颜色强度来淡出/淡入。 */
+        private void updateAtmosphere(){
+            if(disposed || baseAtmosphere == null) return;
+            atmosphereAlpha = Mathf.lerpDelta(atmosphereAlpha, atmosphereTarget, 0.22f);
+            if(Math.abs(atmosphereAlpha - atmosphereTarget) < 0.002f) atmosphereAlpha = atmosphereTarget;
+            applyAtmosphereAlpha();
+        }
+
+        private void beginSkybox(){
+            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            skyboxWide = true;
+            ui.planet.planets.cam.fov = CAMPAIGN_FOV;
+            ui.planet.planets.cam.update();
+        }
+
+        private void endSkybox(){
+            if(!skyboxWide) return;
+            skyboxWide = false;
+            if(ui.planet != null && ui.planet.planets != null){
+                ui.planet.planets.cam.fov = menuFov;
+                ui.planet.planets.cam.update();
+            }
+        }
+
+        private void applyAtmosphereAlpha(){
+            if(baseAtmosphere == null) return;
+            Planets.serpulo.atmosphereColor.set(
+                baseAtmosphere.r * atmosphereAlpha,
+                baseAtmosphere.g * atmosphereAlpha,
+                baseAtmosphere.b * atmosphereAlpha,
+                baseAtmosphere.a
+            );
+        }
+
         /** 主菜单和战役共用 ui.planet.mainView 这一层；这里只改同一份相机状态，不创建第二层。 */
         private void updateMenuState(){
             if(disposed || campaignActive || ui.planet == null) return;
             createMenuCamera();
 
             // 从游戏/战役返回主菜单时，原生 PlanetDialog 可能已经被 hide；重新挂回同一层。
-            if(!ui.planet.isShown() && !reopenPending && (ui.loadfrag == null || !ui.loadfrag.shown())){
+            if(!ui.planet.isShown() && !reopenPending && !returningToMenu && (ui.loadfrag == null || !ui.loadfrag.shown())){
                 reopenPending = true;
                 Core.app.post(() -> {
                     reopenPending = false;
@@ -423,32 +520,53 @@ public final class IronworksBetterMenu{
 
             float cp = (float)Math.cos(pitch);
             params.camPos.set((float)Math.cos(yaw) * cp, (float)Math.sin(pitch), (float)Math.sin(yaw) * cp);
+
+            // 离轴看球体会把圆压成椭圆；菜单用窄 FOV + 相机后退，保持屏幕大小不变，
+            // 进入战役时 FOV 平滑回到 60°。中心点画面尺寸连续，不会二次拉伸。
+            float fov = Mathf.lerp(MENU_FOV, CAMPAIGN_FOV, center);
+            float radius = Planets.serpulo.radius + Planets.serpulo.camRadius;
+            float campaignLength = radius * PlanetRenderer.camLength;
+            float targetLength = campaignLength
+                * (float)(Math.tan(CAMPAIGN_FOV * Mathf.degRad * 0.5f) / Math.tan(fov * Mathf.degRad * 0.5f));
+            float zoom = 1f + (targetLength - campaignLength) / (radius * 2f);
+
+            menuFov = fov;
+            if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = fov;
             params.planet = menuCamera;
             params.drawUi = false;
             params.drawSkybox = true;
             params.uiAlpha = 1f;
-            params.zoom = Mathf.lerp(0.9f, 1f, center);
+            params.zoom = zoom;
             params.viewW = -1;
             params.viewH = -1;
             params.renderer = null;
             params.otherCamPos = null;
             params.otherCamAlpha = 1f;
-            if(ui.planet != null) ui.planet.zoom = params.zoom;
+            if(ui.planet != null) ui.planet.zoom = zoom;
 
             // 相机直接看向 Serpulo 左侧一点，使 Serpulo 在菜单落在右侧；
             // 星空由同一个 PlanetRenderer 铺满全屏，不做整张画面平移。
-            float radius = Planets.serpulo.radius + Planets.serpulo.camRadius;
-            float depth = radius * PlanetRenderer.camLength + (params.zoom - 1f) * radius * 2f;
             float aspect = Core.graphics.getWidth() / (float)Math.max(1, Core.graphics.getHeight());
-            float d = (1f - center) * 0.45f * depth
-                * (float)Math.tan(ui.planet.planets.cam.fov * Mathf.degRad * 0.5f) * aspect;
+            float d = (1f - center) * 0.45f * targetLength
+                * (float)Math.tan(fov * Mathf.degRad * 0.5f) * aspect;
 
             tmpDir.set(params.camPos).nor();
             tmpRight.set(Vec3.Y).crs(tmpDir).nor();
             menuCamera.position.set(Planets.serpulo.position).sub(tmpRight.scl(d));
+
+            if(returningToMenu && center < 0.005f){
+                returningToMenu = false;
+                animating = false;
+                atmosphereTarget = 1f;
+                applyMenuScene();
+            }
         }
 
         private void startNativeLayer(){
+            startNativeLayer(false);
+        }
+
+        private void startNativeLayer(boolean returning){
             if(disposed || ui.planet == null || !state.isMenu() || (ui.loadfrag != null && ui.loadfrag.shown())) return;
             createMenuCamera();
 
@@ -473,10 +591,14 @@ public final class IronworksBetterMenu{
             }
 
             campaignActive = false;
-            center = 0f;
-            centerTarget = 0f;
+            if(!returning){
+                center = 0f;
+                centerTarget = 0f;
+                atmosphereTarget = 1f;
+            }
             setNativeCampaignUi(false);
-            applyMenuScene();
+            if(!returning) applyMenuScene();
+            fadeTitleIn(0.55f);
             updateMenuState();
         }
 
@@ -555,6 +677,8 @@ public final class IronworksBetterMenu{
             }
 
             animating = true;
+            atmosphereTarget = 0f;
+            fadeTitleOut(0.28f);
             menuYaw = yaw;
             menuPitch = pitch;
             centerTarget = 1f;
@@ -584,7 +708,12 @@ public final class IronworksBetterMenu{
             // 菜单和战役是同一个 ui.planet.mainView：这里只切参数/UI，不 show/hide 对话框，
             // 也没有第二层星球画面，所以不会出现两层画面对齐造成的错位或拉伸。
             center = 1f;
+            returningToMenu = false;
+            atmosphereAlpha = 0f;
+            atmosphereTarget = 1f;
+            applyAtmosphereAlpha();
             params.planet = Planets.serpulo;
+            if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             params.drawUi = true;
             params.drawSkybox = true;
             params.uiAlpha = 1f;
@@ -620,9 +749,11 @@ public final class IronworksBetterMenu{
 
         private void cancelTransition(){
             animating = false;
+            returningToMenu = false;
             campaignActive = false;
             centerTarget = 0f;
             center = 0f;
+            atmosphereTarget = 1f;
             params.planet = menuCamera;
             params.renderer = null;
             params.drawUi = false;
@@ -634,6 +765,7 @@ public final class IronworksBetterMenu{
             }
             applyMenuScene();
             setNativeCampaignUi(false);
+            if(titleLayer != null) titleLayer.color.a = 1f;
             if(root != null) root.visible = true;
             if(ui.planet != null && !ui.planet.isShown()) Core.app.post(this::startNativeLayer);
             if(menuLayer != null){
@@ -654,10 +786,70 @@ public final class IronworksBetterMenu{
             if(disposed) return;
 
             boolean backToMenu = state.isMenu();
-            animating = false;
-            campaignActive = false;
             dragging = false;
             pointer = -1;
+            currentMenu = null;
+
+            if(backToMenu){
+                // 从战役返回菜单：沿用同一个 mainView，从战役视角连续拉回右侧菜单视角。
+                campaignActive = false;
+                returningToMenu = true;
+                animating = true;
+                atmosphereTarget = 0f;
+                center = 1f;
+                centerTarget = 0f;
+
+                float camLen = params.camPos.len();
+                if(camLen > 0.0001f){
+                    yaw = (float)Math.atan2(params.camPos.z, params.camPos.x);
+                    pitch = (float)Math.asin(Mathf.clamp(params.camPos.y / camLen, -1f, 1f));
+                }
+
+                params.planet = Planets.serpulo;
+                params.renderer = null;
+                params.drawUi = false;
+                params.uiAlpha = 1f;
+                params.zoom = 1f;
+                params.otherCamPos = null;
+                params.otherCamAlpha = 1f;
+                if(ui.planet != null){
+                    ui.planet.color.a = 1f;
+                    ui.planet.zoom = 1f;
+                }
+
+                // 这里故意不恢复菜单太阳/行星：返回动画期间保持战役完整太阳系，
+                // 相机拉到菜单位、菜单 UI 淡入后，再在 updateMenuState 末尾隐藏太阳/其它行星。
+                if(root != null) root.visible = true;
+                if(menuLayer != null){
+                    menuLayer.clearActions();
+                    menuLayer.translation.set(-60f, 0f);
+                    menuLayer.color.a = 0f;
+                    menuLayer.visible = true;
+                    menuLayer.addAction(Actions.parallel(
+                        Actions.translateBy(60f, 0f, 0.55f, Interp.pow3Out),
+                        Actions.fadeIn(0.45f, Interp.fade)
+                    ));
+                }
+                fadeTitleIn(0.5f);
+                if(submenu != null){
+                    submenu.clearActions();
+                    submenu.clearChildren();
+                    submenu.color.a = 0f;
+                }
+                if(ui.planet != null){
+                    resetGui(ui.planet.buttons);
+                    resetGui(ui.planet.sectorTop);
+                    resetGui(ui.planet.expandTable);
+                }
+                Core.app.post(() -> startNativeLayer(true));
+                return;
+            }
+
+            // 真正进入游戏：不要把 PlanetDialog 再挂回来。
+            returningToMenu = false;
+            animating = false;
+            campaignActive = false;
+            atmosphereTarget = 1f;
             centerTarget = 0f;
             center = 0f;
             yaw = menuYaw;
@@ -671,33 +863,14 @@ public final class IronworksBetterMenu{
                 ui.planet.color.a = 1f;
                 ui.planet.zoom = 0.9f;
             }
-
             restoreMenuScene();
-            if(root != null) root.visible = backToMenu;
-
-            if(menuLayer != null){
-                menuLayer.clearActions();
-                menuLayer.translation.set(0f, 0f);
-                menuLayer.color.a = 1f;
-                menuLayer.visible = true;
-            }
-            if(submenu != null){
-                submenu.clearActions();
-                submenu.clearChildren();
-                submenu.color.a = 0f;
-            }
+            if(root != null) root.visible = false;
             if(ui.planet != null){
                 resetGui(ui.planet.buttons);
                 resetGui(ui.planet.sectorTop);
                 resetGui(ui.planet.expandTable);
             }
-            currentMenu = null;
-
-            if(backToMenu){
-                Core.app.post(this::startNativeLayer);
-            }else{
-                restoreNativePlanet();
-            }
+            restoreNativePlanet();
         }
 
         private void resetGui(Table t){
@@ -710,6 +883,7 @@ public final class IronworksBetterMenu{
         void dispose(){
             disposed = true;
             restoreMenuScene();
+            if(baseAtmosphere != null) Planets.serpulo.atmosphereColor.set(baseAtmosphere);
             if(root != null && root.parent != null) root.parent.removeChild(root);
             setNativeCampaignUi(true);
             if(ui.planet != null && ui.planet.isShown()){
