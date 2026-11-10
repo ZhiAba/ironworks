@@ -13,10 +13,12 @@ import arc.input.KeyCode;
 import arc.scene.Element;
 import arc.scene.Group;
 import arc.scene.actions.Actions;
+import arc.scene.event.EventListener;
 import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.event.Touchable;
 import arc.scene.ui.Button;
+import arc.scene.ui.Dialog;
 import arc.scene.ui.Dialog.DialogStyle;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
@@ -345,8 +347,8 @@ public final class IronworksBetterMenu{
                         currentMenu = out[0];
                         submenu.clearChildren();
                         fadeInMenu();
-                        //让子菜单第一项和父按钮对齐（按钮尺寸是原版逻辑像素，不再除 Scl）
-                        submenu.add().height(Core.graphics.getHeight() - Core.scene.marginTop - Core.scene.marginBottom - out[0].getY(Align.topLeft));
+                        //让子菜单第一项和父按钮对齐；与原版一样按 Scl 还原逻辑像素
+                        submenu.add().height((Core.graphics.getHeight() - Core.scene.marginTop - Core.scene.marginBottom - out[0].getY(Align.topLeft)) / Scl.scl(1f));
                         submenu.row();
                         buttons(submenu, b.submenu.toArray(MenuButton.class));
                     }else{
@@ -384,7 +386,8 @@ public final class IronworksBetterMenu{
             titleLayer.color.a = 0f;
 
             float logoscl = Scl.scl(1f) * logo.scale;
-            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() - Scl.scl(20f));
+            // 原版 logo 在桌面大屏约占屏宽 40%；手机竖屏不能直接铺到 70%+，否则标题压过菜单。
+            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() * 0.42f);
             float logoh = logow * (float)logo.height / logo.width;
             // 与 MenuFragment.draw() 的原版 logo 位置一致：离内容区顶部 6px，竖屏再下移 30px。
             float top = Core.scene.marginTop + 6f + (Core.graphics.isPortrait() ? Scl.scl(30f) : 0f);
@@ -504,7 +507,7 @@ public final class IronworksBetterMenu{
             createMenuCamera();
 
             // 从游戏/战役返回主菜单时，原生 PlanetDialog 可能已经被 hide；重新挂回同一层。
-            if(!ui.planet.isShown() && !reopenPending && !returningToMenu && (ui.loadfrag == null || !ui.loadfrag.shown())){
+            if(!ui.planet.isShown() && !reopenPending && (ui.loadfrag == null || !ui.loadfrag.shown())){
                 reopenPending = true;
                 Core.app.post(() -> {
                     reopenPending = false;
@@ -575,10 +578,14 @@ public final class IronworksBetterMenu{
             ui.planet.state = params;
             ui.planet.color.a = 1f;
             configurePlanetDialog();
+            // 退出战役时 Dialog.hide() 的默认淡出还在跑，此时 isShown() 仍为 true；
+            // 只判断 isShown() 会跳过 show，等淡出动作把对话框移出场景后就是一段黑屏。
+            // 因此：已经彻底隐藏才 show；仍在隐藏动画中就只清掉动作并恢复不透明，
+            // 不重复触发 PlanetDialog.shown() 的 setup()，相机和返回过渡保持连续。
             if(!ui.planet.isShown()){
                 ui.planet.show(Core.scene, null);
-                ui.planet.clearActions();
-                ui.planet.color.a = 1f;
+            }else{
+                cancelDialogHide();
             }
             cacheNativeMainView();
 
@@ -602,6 +609,22 @@ public final class IronworksBetterMenu{
             if(titleLayer == null) buildTitle();
             fadeTitleIn(0.55f);
             updateMenuState();
+        }
+
+        /** 取消 Dialog.hide() 的淡出，同时摘掉 hide 临时添加的触摸拦截器。 */
+        private void cancelDialogHide(){
+            if(ui.planet == null) return;
+            ui.planet.clearActions();
+            ui.planet.color.a = 1f;
+            try{
+                Field field = Dialog.class.getDeclaredField("ignoreTouchDown");
+                field.setAccessible(true);
+                Object listener = field.get(ui.planet);
+                if(listener instanceof EventListener){
+                    ui.planet.removeCaptureListener((EventListener)listener);
+                }
+            }catch(Throwable ignored){
+            }
         }
 
         private void cacheNativeMainView(){
