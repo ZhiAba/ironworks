@@ -442,7 +442,7 @@ public final class IronworksBetterMenu{
                     }finally{
                         if(begun) planetBuffer.end();
                     }
-                    Gl.viewport(0, 0, Core.graphics.getWidth(), Core.graphics.getHeight());
+                    Gl.viewport(0, 0, Core.graphics.getBackBufferWidth(), Core.graphics.getBackBufferHeight());
 
                     if(planets != null){
                         float cx = Mathf.lerp(w * 0.725f, w * 0.5f, center);

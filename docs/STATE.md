@@ -19,7 +19,7 @@ Mindustry 模组「铁流工业」v3.8.0.0，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.0.0 / md5 `f3fb2de8536a02af549733c4d1b2d08b`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.0.0 / md5 `d3faef1ccf550fe98bb9aee6ce39957d`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
 - 3.8.0.0 **单场景共享星球**：不使用 `Core.app.setScreen()`。主菜单背景、左侧菜单和战役 `PlanetDialog` 都在现有 `ui.root` 场景树；全局 `renderer.planets` 与菜单 `PlanetParams` 进入战役时赋给 `ui.planet.state`，之后相机/拖拽/区块/zoom 共用同一份状态。
 - 3.8.0.0 **固定全屏 FBO**：`PlanetRenderer` 的 bloom 会重置 `Gl.viewport`，所以先渲染到固定全屏离屏 FBO，再把整张星球画面从右侧 72.5% 滑到 50%；过渡不重建 FBO，战役时直接贴满全屏。
 - 3.8.0.0 **复用原生战役 GUI**：`PlanetDialog.show()` 后将私有 `mainView` 换成透明输入层，并临时去掉 `stageBackground`；Hex 网格、区块图标和星球仍由同一个背景渲染器绘制，原生对话框只保留选择/按钮/通知逻辑。
