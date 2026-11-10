@@ -6,11 +6,13 @@ import arc.graphics.Color;
 import arc.graphics.Gl;
 import arc.graphics.g2d.Draw;
 import arc.graphics.gl.FrameBuffer;
+import arc.graphics.gl.Shader;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.geom.Vec3;
+import mindustry.type.Planet;
 import arc.input.KeyCode;
 import arc.scene.Element;
 import arc.scene.Group;
@@ -176,9 +178,12 @@ public final class IronworksBetterMenu{
         private Table menuLayer;
         private Table panel;
         private Table submenu;
+        private Table eggArc;
+        private ImageButton eggButton;
         private Button currentMenu;
         private PlanetRenderer planets;
         private FrameBuffer planetBuffer;
+        private Shader gridShader;
         private final PlanetParams params = new PlanetParams();
         private boolean campaignActive;
         private float menuYaw = 0.72f, menuPitch = 0.15f;
@@ -197,12 +202,35 @@ public final class IronworksBetterMenu{
             params.drawUi = false;
             params.drawSkybox = false;
             params.zoom = 0.9f;
-            configurePlanetDialog();
+            try{
+                gridShader = new Shader(
+                    "attribute vec4 a_position;\n" +
+                    "attribute vec4 a_color;\n" +
+                    "uniform mat4 u_proj;\n" +
+                    "uniform mat4 u_trans;\n" +
+                    "varying vec4 v_col;\n" +
+                    "varying vec4 v_position;\n" +
+                    "void main(){\n" +
+                    "  gl_Position = u_proj * u_trans * a_position;\n" +
+                    "  v_col = a_color;\n" +
+                    "  v_position = a_position;\n" +
+                    "}",
+                    "varying vec4 v_col;\n" +
+                    "varying vec4 v_position;\n" +
+                    "uniform float u_alpha;\n" +
+                    "void main(){\n" +
+                    "  gl_FragColor = v_col;\n" +
+                    "  gl_FragColor.a *= u_alpha;\n" +
+                    "}"
+                );
+            }catch(Throwable t){
+                Log.err("IronworksBetterMenu: 网格淡入 shader 创建失败", t);
+            }
 
             root = new WidgetGroup();
             root.setFillParent(true);
             root.touchable = Touchable.childrenOnly;
-            root.visible(() -> state.isMenu() && !ui.editor.isShown());
+            root.visible(() -> (state.isMenu() && !ui.editor.isShown()) || campaignActive);
             parent.addChild(root);
 
             Table background = new Table();
@@ -263,8 +291,9 @@ public final class IronworksBetterMenu{
             menuLayer.setFillParent(true);
             menuLayer.left().top();
             menuLayer.touchable = Touchable.childrenOnly;
+            menuLayer.visible(() -> !campaignActive);
 
-            menuLayer.add().width(Core.graphics.getWidth() / 10f);
+            menuLayer.add().width(Math.max(Scl.scl(44f), 70f));
 
             panel = new Table(Styles.black6);
             panel.name = "buttons";
@@ -349,23 +378,30 @@ public final class IronworksBetterMenu{
 
         /** 最左缘的彩蛋入口；x=0 锚定，不随屏幕宽度/缩放居中。 */
         private void buildEgg(){
-            Table egg = new Table();
-            egg.setFillParent(true);
-            egg.left().center();
-            egg.touchable = Touchable.childrenOnly;
-            egg.fill((x, y, w, h) -> drawEggArc(y, h));
+            Table arc = new Table();
+            arc.setFillParent(true);
+            arc.touchable = Touchable.childrenOnly;
+            arc.visible(() -> !campaignActive);
+            arc.fill((x, y, w, h) -> drawEggArc(y, h));
+            eggArc = arc;
+            root.addChild(arc);
 
             ImageButtonStyle style = new ImageButtonStyle(Styles.clearNonei);
             style.imageUp = Icon.infoCircle;
             style.imageUpColor = Color.valueOf("d94b5a");
             ImageButton button = new ImageButton(style);
             button.resizeImage(Scl.scl(16f));
+            button.visible(() -> !campaignActive);
             button.clicked(() -> ui.about.show());
-            egg.add(button).size(Scl.scl(32f)).padLeft(4f);
-
-            root.addChild(egg);
+            eggButton = button;
+            // Pin the info button to the screen-left edge instead of a centered Table cell.
+            button.update(() -> {
+                float size = Scl.scl(32f);
+                button.setSize(size, size);
+                button.setPosition(6f, (Core.graphics.getHeight() - size) / 2f);
+            });
+            root.addChild(button);
         }
-
         private void drawEggArc(float y, float h){
             float cx = -h * 0.04f;
             float cy = y + h * 0.53f;
@@ -397,6 +433,66 @@ public final class IronworksBetterMenu{
             ui.planet.setStyle(style);
         }
 
+        /** 离开战役后把原生对话框状态/样式还回去，避免影响游戏内再次打开星球界面。 */
+        private void restoreNativePlanet(){
+            if(ui.planet == null) return;
+            if(nativePlanetState != null) ui.planet.state = nativePlanetState;
+            if(nativeDialogStyle != null) ui.planet.setStyle(nativeDialogStyle);
+        }
+
+        /** 主菜单只画 Serpulo 本身：不画太阳/其它行星，避免右侧星球左侧残留黄色光斑。 */
+        private void renderMenuPlanet(PlanetParams params, int w, int h){
+            Planet planet = params.planet;
+            Draw.flush();
+
+            Gl.depthMask(true);
+            Gl.clear(Gl.depthBufferBit);
+            Gl.enable(Gl.depthTest);
+            Gl.enable(Gl.cullFace);
+            Gl.cullFace(Gl.back);
+
+            planets.bloom.blending = !params.drawSkybox;
+            planets.cam.up.set(Vec3.Y);
+            planets.cam.resize(w, h);
+            params.camPos.setLength((planet.radius + planet.camRadius) * PlanetRenderer.camLength
+                + (params.zoom - 1f) * (planet.radius + planet.camRadius) * 2f);
+
+            planets.cam.position.set(planet.position).add(params.camPos);
+            planets.cam.lookAt(planet.position);
+            planets.cam.update();
+            params.camUp.set(planets.cam.up);
+            params.camDir.set(planets.cam.direction);
+
+            planets.projector.proj(planets.cam.combined);
+            planets.batch.proj(planets.cam.combined);
+
+            planets.renderPlanet(planet, params);
+            planets.renderTransparent(planet, params);
+
+            Gl.enable(Gl.blend);
+            Gl.disable(Gl.cullFace);
+            Gl.disable(Gl.depthTest);
+            planets.cam.update();
+        }
+
+        private void drawGridFade(float alpha){
+            if(gridShader == null || planets == null || params.planet == null || params.planet.gridMesh == null) return;
+            Planet p = params.planet;
+            arc.math.geom.Mat3D transform = p.getTransform(planets.mat);
+            planets.batch.proj().mul(transform);
+            Gl.enable(Gl.depthTest);
+            Gl.depthMask(false);
+            gridShader.bind();
+            gridShader.setUniformMatrix4("u_proj", planets.cam.combined.val);
+            gridShader.setUniformMatrix4("u_trans", transform.val);
+            gridShader.setUniformf("u_alpha", Mathf.clamp(alpha, 0f, 1f));
+            gridShader.apply();
+            p.gridMesh.render(gridShader, Gl.lines);
+            Gl.depthMask(true);
+            Gl.disable(Gl.depthTest);
+            planets.batch.proj(planets.cam.combined);
+        }
+
         private void renderPlanet(float w, float h){
             // 时间单位：Time.delta 是帧（60/秒），所以过渡系数直接乘 Time.delta。
             center += (centerTarget - center) * Mathf.clamp(Time.delta * 0.1f, 0f, 1f);
@@ -416,7 +512,7 @@ public final class IronworksBetterMenu{
                     params.camPos.set((float)Math.cos(yaw) * cp, (float)Math.sin(pitch), (float)Math.sin(yaw) * cp);
                     params.zoom = Mathf.lerp(0.9f, 1f, center);
                     // 过渡期间六边形网格从暗到亮；进入战役后由 PlanetDialog 的 state.uiAlpha 接管。
-                    params.drawUi = center > 0.01f;
+                    params.drawUi = gridShader == null && center > 0.01f;
                     params.uiAlpha = Mathf.clamp(center, 0f, 1f);
                 }
                 params.viewW = fw;
@@ -435,7 +531,12 @@ public final class IronworksBetterMenu{
                     try{
                         planetBuffer.begin(Color.clear);
                         begun = true;
-                        planets.render(params);
+                        if(campaignActive){
+                            planets.render(params);
+                        }else{
+                            renderMenuPlanet(params, fw, fh);
+                            if(center > 0.01f) drawGridFade(center);
+                        }
                     }catch(Throwable t){
                         Log.err("IronworksBetterMenu: 星球渲染失败，回退纯色背景", t);
                         planets = null;
@@ -634,6 +735,7 @@ public final class IronworksBetterMenu{
             params.renderer = null;
             params.drawUi = false;
             if(ui.planet != null) ui.planet.color.a = 1f;
+            restoreNativePlanet();
             if(menuLayer != null){
                 menuLayer.clearActions();
                 menuLayer.translation.set(0f, 0f);
@@ -660,6 +762,7 @@ public final class IronworksBetterMenu{
             params.drawUi = false;
             params.uiAlpha = 1f;
             if(ui.planet != null) ui.planet.color.a = 1f;
+            restoreNativePlanet();
 
             if(menuLayer != null){
                 menuLayer.clearActions();
