@@ -598,6 +598,8 @@ public final class IronworksBetterMenu{
             }
             setNativeCampaignUi(false);
             if(!returning) applyMenuScene();
+            // 标题用原版 logo 贴图；若首次安装时图集还没就绪，等同一层挂回来时再补建。
+            if(titleLayer == null) buildTitle();
             fadeTitleIn(0.55f);
             updateMenuState();
         }
@@ -780,6 +782,14 @@ public final class IronworksBetterMenu{
             if(root == null || animating) return;
             root.setSize(Core.graphics.getWidth(), Core.graphics.getHeight());
             buildMenu();
+            if(titleLayer != null){
+                root.removeChild(titleLayer);
+                titleLayer = null;
+                buildTitle();
+                if(titleLayer != null) titleLayer.color.a = 1f;
+            }else{
+                buildTitle();
+            }
         }
 
         void onPlanetHidden(){

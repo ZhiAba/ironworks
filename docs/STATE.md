@@ -19,7 +19,7 @@ Mindustry 模组「铁流工业」v3.8.1.5，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.1.5 / md5 `a43872cba7db03fd6e0ea2f0194731be`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.1.5 / md5 `50a44ac9a1a21864c25fbb438f7d1b4d`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
 - 3.8.1.5 **主菜单星空清晰度**：星空发糊是菜单 12° FOV 放大天空盒所致，不是相机移动；在 `universeDrawBegin` 临时把 `cam.fov` 切到 60° 只画天空盒，`universeDraw` 立即恢复菜单 FOV，星球/大气/UI/过渡不变。
 - 3.8.1.5 **大气层淡出淡入**：不新增渲染层，缩放 `Planets.serpulo.atmosphereColor` 的颜色强度；进战役时随星球拉近淡出、界面打开后淡入，关闭战役返回菜单时先淡出、视角归位后再淡入，避免星球归位瞬间硬切。
 - 3.8.1.5 **原版标题 PNG**：主菜单标题不再用 `Label` 自绘，直接使用游戏自带 `logo.png`（768×107），按原版 `MenuFragment` 的宽度/比例/顶部留白显示，并保留 UI 层淡入淡出。
