@@ -14,10 +14,8 @@ import arc.math.Mathf;
 import arc.math.geom.Vec3;
 import mindustry.type.Planet;
 import arc.input.KeyCode;
-import arc.scene.Element;
 import arc.scene.Group;
 import arc.scene.actions.Actions;
-import arc.scene.event.ElementGestureListener;
 import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.event.Touchable;
@@ -38,12 +36,9 @@ import mindustry.game.EventType;
 import mindustry.gen.Icon;
 import mindustry.graphics.g3d.PlanetParams;
 import mindustry.graphics.g3d.PlanetRenderer;
-import mindustry.type.Sector;
 import mindustry.ui.dialogs.PlanetDialog;
 import mindustry.ui.Styles;
 import mindustry.ui.fragments.MenuFragment;
-
-import java.lang.reflect.Field;
 
 import static mindustry.Vars.*;
 
@@ -70,7 +65,6 @@ public final class IronworksBetterMenu{
     private static BetterMenuFragment custom;
     private static boolean installed;
     private static boolean planetHook;
-    private static boolean campaignHook;
     private static boolean resizeHook;
     private static boolean failed;
     private static boolean preloaded;
@@ -139,12 +133,6 @@ public final class IronworksBetterMenu{
                 planetHook = true;
                 ui.planet.hidden(() -> {
                     if(custom != null) custom.onPlanetHidden();
-                });
-            }
-            if(!campaignHook){
-                campaignHook = true;
-                ui.planet.shown(() -> {
-                    if(custom != null) custom.onCampaignShown();
                 });
             }
             Log.info("[IRONWORKS] better main menu installed");
@@ -230,7 +218,7 @@ public final class IronworksBetterMenu{
             root = new WidgetGroup();
             root.setFillParent(true);
             root.touchable = Touchable.childrenOnly;
-            root.visible(() -> (state.isMenu() && !ui.editor.isShown()) || campaignActive);
+            root.visible(() -> state.isMenu() && !ui.editor.isShown() && !campaignActive);
             parent.addChild(root);
 
             Table background = new Table();
@@ -609,17 +597,21 @@ public final class IronworksBetterMenu{
                 return;
             }
 
-            // 不创建第二个 Screen/PlanetRenderer：菜单背景和战役界面共用同一个离屏星球。
+            // 不创建第二个 Screen/PlanetRenderer：菜单背景和战役界面共用同一个 PlanetRenderer/PlanetParams。
+            // 战役里保留原生 PlanetDialog.mainView，由它继续渲染星球并处理区块点击；菜单 FBO 在此刻隐藏。
             center = 1f;
-            campaignActive = true;
             params.planet = Planets.serpulo;
             params.drawUi = true;
+            params.drawSkybox = true;
             params.uiAlpha = 1f;
             params.zoom = 1f;
+            params.viewW = -1;
+            params.viewH = -1;
+            params.renderer = ui.planet;
 
             Vec3 saved = new Vec3(params.camPos);
             ui.planet.state = params;
-            ui.planet.color.a = 0f;
+            ui.planet.color.a = 1f;
             configurePlanetDialog();
             ui.planet.show();
 
@@ -628,103 +620,17 @@ public final class IronworksBetterMenu{
                 return;
             }
 
+            campaignActive = true;
+            if(root != null) root.visible = false;
             // show() 内部会 lookAt 最后的区块；恢复菜单里已经渲染到的相机，避免视觉重载。
             params.camPos.set(saved);
+            params.otherCamPos = null;
+            params.otherCamAlpha = 1f;
             params.zoom = 1f;
             ui.planet.zoom = 1f;
             params.drawUi = true;
             params.uiAlpha = 1f;
             params.renderer = ui.planet;
-
-            installCampaignInput();
-            Core.app.post(this::installCampaignInput);
-            animateCampaignGui();
-            ui.planet.clearActions();
-            ui.planet.addAction(Actions.alpha(1f, 0.45f, Interp.fade));
-        }
-
-        void onCampaignShown(){
-            if(!campaignActive) return;
-            installCampaignInput();
-            animateCampaignGui();
-        }
-
-        private void animateCampaignGui(){
-            if(!campaignActive || ui.planet == null) return;
-            if(ui.planet.buttons != null){
-                ui.planet.buttons.clearActions();
-                ui.planet.buttons.translation.set(0f, -30f);
-                ui.planet.buttons.color.a = 0f;
-                ui.planet.buttons.addAction(Actions.parallel(
-                    Actions.translateBy(0f, 30f, 0.42f, Interp.pow3Out),
-                    Actions.fadeIn(0.42f, Interp.fade)
-                ));
-            }
-            if(ui.planet.sectorTop != null){
-                ui.planet.sectorTop.clearActions();
-                ui.planet.sectorTop.translation.set(0f, -30f);
-                ui.planet.sectorTop.color.a = 0f;
-                ui.planet.sectorTop.addAction(Actions.parallel(
-                    Actions.translateBy(0f, 30f, 0.46f, Interp.pow3Out),
-                    Actions.fadeIn(0.46f, Interp.fade)
-                ));
-            }
-            if(ui.planet.expandTable != null){
-                ui.planet.expandTable.clearActions();
-                ui.planet.expandTable.translation.set(38f, 0f);
-                ui.planet.expandTable.color.a = 0f;
-                ui.planet.expandTable.addAction(Actions.parallel(
-                    Actions.translateBy(-38f, 0f, 0.5f, Interp.pow3Out),
-                    Actions.fadeIn(0.5f, Interp.fade)
-                ));
-            }
-        }
-
-        /** 战役界面自己的 mainView 改成透明输入层；星球仍由主菜单的同一个渲染器绘制。 */
-        private void installCampaignInput(){
-            if(!campaignActive || ui.planet == null || !ui.planet.isShown()) return;
-            try{
-                Field field = PlanetDialog.class.getDeclaredField("mainView");
-                field.setAccessible(true);
-                Element old = (Element)field.get(ui.planet);
-                if(old instanceof CampaignInputView) return;
-                if(old == null || old.parent == null){
-                    Core.app.post(this::installCampaignInput);
-                    return;
-                }
-
-                Group parent = old.parent;
-                int index = -1;
-                for(int i = 0; i < parent.getChildren().size; i++){
-                    if(parent.getChildren().get(i) == old){
-                        index = i;
-                        break;
-                    }
-                }
-
-                CampaignInputView view = new CampaignInputView();
-                parent.removeChild(old);
-                parent.addChildAt(Math.max(0, index), view);
-                field.set(ui.planet, view);
-            }catch(Throwable t){
-                Log.err("IronworksBetterMenu: 接管战役星球输入失败", t);
-            }
-        }
-
-        private final class CampaignInputView extends Element{
-            CampaignInputView(){
-                touchable = Touchable.enabled;
-                addListener(new ElementGestureListener(){
-                    @Override
-                    public void tap(InputEvent event, float x, float y, int count, KeyCode button){
-                        if(ui.planet == null || !ui.planet.isShown()) return;
-                        Sector sector = ui.planet.hovered;
-                        if(sector != null){
-                            ui.planet.selectSector(sector);
-                        }
-                    }
-                });
-            }
         }
 
         private void cancelTransition(){
@@ -736,6 +642,7 @@ public final class IronworksBetterMenu{
             params.drawUi = false;
             if(ui.planet != null) ui.planet.color.a = 1f;
             restoreNativePlanet();
+            if(root != null) root.visible = true;
             if(menuLayer != null){
                 menuLayer.clearActions();
                 menuLayer.translation.set(0f, 0f);
@@ -763,6 +670,7 @@ public final class IronworksBetterMenu{
             params.uiAlpha = 1f;
             if(ui.planet != null) ui.planet.color.a = 1f;
             restoreNativePlanet();
+            if(root != null) root.visible = true;
 
             if(menuLayer != null){
                 menuLayer.clearActions();

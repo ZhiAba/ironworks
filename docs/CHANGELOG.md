@@ -50,6 +50,16 @@
 
 ## 3.8.x
 
+### 3.8.1.1 — 恢复原生战役点击/渲染，去掉手写 GUI 位移动画
+
+- **恢复原生 `PlanetDialog.mainView`**：3.8.1.0 把 `mainView` 反射替换成透明输入层，等于绕过了原生 `planets.render(state)` 和它自带的区块点击/双击进入战役逻辑；本版不再替换，战役界面继续由原生 `mainView` 渲染星球并处理点击。
+- **战役阶段隐藏菜单 FBO**：`openCampaign()` 打开原生对话框后 `campaignActive=true`，菜单 `root` 立即隐藏；星球改由 `ui.planet` 的原生 `mainView` 全屏渲染，不再同时画菜单 FBO。共享的仍是同一套 `renderer.planets` + `PlanetParams`，没有第二个 `PlanetRenderer`，也没有 `Core.app.setScreen()`。
+- **去掉 UI 抖动来源**：删除 `animateCampaignGui()` 对 `buttons/sectorTop/expandTable` 的 `translateBy/fadeIn` 手写动画；这些动画在原生对话框布局/重排时会造成按钮位置跳变和抖动。现在战役 GUI 直接使用原生位置，只保留星球从右侧滑到中心的过渡。
+- **相机/布局接管更干净**：打开对话框前设置 `viewW/viewH=-1`、`renderer=ui.planet`；`show()` 后恢复保存的 `camPos`，清空 `otherCamPos`、把 `otherCamAlpha` 置 1，避免原生 `lookAt` 再插一段相机插值导致视觉跳动；`color.a` 直接为 1，不再对对话框做 alpha 缓冲。
+- **保留菜单修正**：主菜单仍只画 Serpulo（无太阳光斑）、按钮列贴左、网格从完全隐藏渐显、彩蛋按钮钉在左缘；这些不依赖战役输入层。
+- **验证**：3.8.1.1 构建通过；T226–T233 定向 **8/8**。战役区块点击、双击进入战役和 GUI 抖动属于客户端运行时行为，无头环境无法自动验证，仍需实机确认。
+- **版本**：3.8.1.1。
+
 ### 3.8.1.0 — 菜单贴左、去掉太阳光斑、网格真正渐显
 
 - **主菜单只画 Serpulo**：菜单离屏渲染改为只调用 `PlanetRenderer.renderPlanet/renderTransparent(Serpulo)`，不再遍历整个太阳系；左侧黄色光斑（太阳/其它行星被同一张 FBO 一起右移造成）消失。进入战役后仍渲染完整太阳系。
