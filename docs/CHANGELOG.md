@@ -50,6 +50,16 @@
 
 ## 3.8.x
 
+### 3.8.1.2 — 主菜单接入真实星空，取消整屏淡入/拉伸与边界淡入
+
+- **主菜单恢复真实星空**：菜单 FBO 现在同时渲染 `PlanetRenderer.skybox`，与战役界面是同一张星空 cubemap；不再是纯黑底。星空镜头与星球镜头使用同一套 yaw/pitch/zoom，进入战役时星空连续。
+- **不再平移整张画面**：撤销“把整张 FBO 纹理从 72.5% 拖到 50%”的做法。改为在 FBO 内对投影矩阵做水平光轴偏移（`clip.x += k * clip.w`），星球在主菜单落在右侧、星空仍铺满全屏；左侧不再出现未渲染黑边，菜单列也不依赖画面平移。注意 `PlanetRenderer.renderPlanet()` 内部会调用 `cam.update()` 覆盖偏移，菜单改为直接 `planet.draw/drawClouds/drawAtmosphere`。
+- **取消整屏淡入**：不再使用 `Dialog.show()` 默认的 alpha 动画，改为 `show(Core.scene, null)`；对话框本身不透明，只对 `buttons/sectorTop/expandTable` 做纯透明度淡入。星球/星空画面不做 alpha，因此没有黑屏，也不会走 `Dialog.draw()` 的全屏缓冲造成一次性拉伸。
+- **取消区块边界淡入**：删除自定义 grid shader 和 `drawGridFade`。主菜单不画边界；进入战役后原生 `PlanetRenderer.renderSectors` 直接按 `uiAlpha=1` 显示，不再从 0 渐显。
+- **保留原生战役点击/渲染**：继续使用原生 `PlanetDialog.mainView`，区块单击/双击/战役按钮不受影响；仍是同一个全局 `PlanetRenderer/PlanetParams`，无第二个渲染器、无 `setScreen()`。
+- **验证**：3.8.1.2 构建通过；T226–T233 定向 **8/8**。无头端不加载 GPU UI/FBO/skybox，星空连续、无黑屏、无二次拉伸和区块边界即时显示仍需实机确认。
+- **版本**：3.8.1.2。
+
 ### 3.8.1.1 — 恢复原生战役点击/渲染，去掉手写 GUI 位移动画
 
 - **恢复原生 `PlanetDialog.mainView`**：3.8.1.0 把 `mainView` 反射替换成透明输入层，等于绕过了原生 `planets.render(state)` 和它自带的区块点击/双击进入战役逻辑；本版不再替换，战役界面继续由原生 `mainView` 渲染星球并处理点击。

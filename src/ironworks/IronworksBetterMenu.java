@@ -6,7 +6,6 @@ import arc.graphics.Color;
 import arc.graphics.Gl;
 import arc.graphics.g2d.Draw;
 import arc.graphics.gl.FrameBuffer;
-import arc.graphics.gl.Shader;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Interp;
@@ -171,8 +170,8 @@ public final class IronworksBetterMenu{
         private Button currentMenu;
         private PlanetRenderer planets;
         private FrameBuffer planetBuffer;
-        private Shader gridShader;
         private final PlanetParams params = new PlanetParams();
+        private final Vec3 lastCamPos = new Vec3();
         private boolean campaignActive;
         private float menuYaw = 0.72f, menuPitch = 0.15f;
 
@@ -188,33 +187,8 @@ public final class IronworksBetterMenu{
             planets = Vars.renderer == null ? null : Vars.renderer.planets;
             params.planet = Planets.serpulo;
             params.drawUi = false;
-            params.drawSkybox = false;
+            params.drawSkybox = true;
             params.zoom = 0.9f;
-            try{
-                gridShader = new Shader(
-                    "attribute vec4 a_position;\n" +
-                    "attribute vec4 a_color;\n" +
-                    "uniform mat4 u_proj;\n" +
-                    "uniform mat4 u_trans;\n" +
-                    "varying vec4 v_col;\n" +
-                    "varying vec4 v_position;\n" +
-                    "void main(){\n" +
-                    "  gl_Position = u_proj * u_trans * a_position;\n" +
-                    "  v_col = a_color;\n" +
-                    "  v_position = a_position;\n" +
-                    "}",
-                    "varying vec4 v_col;\n" +
-                    "varying vec4 v_position;\n" +
-                    "uniform float u_alpha;\n" +
-                    "void main(){\n" +
-                    "  gl_FragColor = v_col;\n" +
-                    "  gl_FragColor.a *= u_alpha;\n" +
-                    "}"
-                );
-            }catch(Throwable t){
-                Log.err("IronworksBetterMenu: 网格淡入 shader 创建失败", t);
-            }
-
             root = new WidgetGroup();
             root.setFillParent(true);
             root.touchable = Touchable.childrenOnly;
@@ -451,11 +425,35 @@ public final class IronworksBetterMenu{
             params.camUp.set(planets.cam.up);
             params.camDir.set(planets.cam.direction);
 
+            // 镜头光轴横移，而不是把整张 FBO 往右搬：星空仍然铺满全屏，
+            // 星球在主菜单落在右侧，菜单 UI 仍是独立的左对齐层。
+            float shift = (1f - center) * 0.45f;
+            lastCamPos.set(planets.cam.position);
+
+            if(planets.skybox != null && params.drawSkybox){
+                planets.cam.position.setZero();
+                planets.cam.update();
+                shiftCamera(shift);
+                Gl.depthMask(false);
+                planets.skybox.render(planets.cam.combined);
+                Gl.depthMask(true);
+                planets.cam.position.set(lastCamPos);
+                planets.cam.update();
+            }
+
+            shiftCamera(shift);
             planets.projector.proj(planets.cam.combined);
             planets.batch.proj(planets.cam.combined);
 
-            planets.renderPlanet(planet, params);
-            planets.renderTransparent(planet, params);
+            // 不能调用 PlanetRenderer.renderPlanet()：它内部会 cam.update()，会把刚做的光轴偏移冲掉。
+            // 主菜单只画 Serpulo，直接按当前投影绘制星球本体/云层/大气即可。
+            planet.draw(params, planets.cam.combined, planet.getTransform(planets.mat));
+            planet.drawClouds(params, planets.cam.combined, planet.getTransform(planets.mat));
+            if(planet.parent != null && planet.hasAtmosphere
+                && (params.alwaysDrawAtmosphere || Core.settings.getBool("atmosphere"))){
+                planet.drawAtmosphere(planets.atmosphere, planets.cam);
+            }
+            planets.batch.proj(planets.cam.combined);
 
             Gl.enable(Gl.blend);
             Gl.disable(Gl.cullFace);
@@ -463,22 +461,14 @@ public final class IronworksBetterMenu{
             planets.cam.update();
         }
 
-        private void drawGridFade(float alpha){
-            if(gridShader == null || planets == null || params.planet == null || params.planet.gridMesh == null) return;
-            Planet p = params.planet;
-            arc.math.geom.Mat3D transform = p.getTransform(planets.mat);
-            planets.batch.proj().mul(transform);
-            Gl.enable(Gl.depthTest);
-            Gl.depthMask(false);
-            gridShader.bind();
-            gridShader.setUniformMatrix4("u_proj", planets.cam.combined.val);
-            gridShader.setUniformMatrix4("u_trans", transform.val);
-            gridShader.setUniformf("u_alpha", Mathf.clamp(alpha, 0f, 1f));
-            gridShader.apply();
-            p.gridMesh.render(gridShader, Gl.lines);
-            Gl.depthMask(true);
-            Gl.disable(Gl.depthTest);
-            planets.batch.proj(planets.cam.combined);
+        /** 横移投影矩阵的 x 行：clip.x += amount * clip.w（等效镜头光轴偏移，不改相机朝向）。 */
+        private void shiftCamera(float amount){
+            if(amount == 0f || planets == null) return;
+            float[] v = planets.cam.combined.val;
+            v[0] += amount * v[3];
+            v[4] += amount * v[7];
+            v[8] += amount * v[11];
+            v[12] += amount * v[15];
         }
 
         private void renderPlanet(float w, float h){
@@ -488,7 +478,7 @@ public final class IronworksBetterMenu{
 
             Draw.color(0.008f, 0.010f, 0.020f, 1f);
             Fill.crect(0f, 0f, w, h);
-            drawStars(w, h);
+            if(planets == null || planets.skybox == null) drawStars(w, h);
 
             if(planets != null && params.planet != null){
                 // 固定使用全屏 FBO，动画只改变绘制中心，避免过渡期间每帧重建纹理。
@@ -499,9 +489,9 @@ public final class IronworksBetterMenu{
                     float cp = (float)Math.cos(pitch);
                     params.camPos.set((float)Math.cos(yaw) * cp, (float)Math.sin(pitch), (float)Math.sin(yaw) * cp);
                     params.zoom = Mathf.lerp(0.9f, 1f, center);
-                    // 过渡期间六边形网格从暗到亮；进入战役后由 PlanetDialog 的 state.uiAlpha 接管。
-                    params.drawUi = gridShader == null && center > 0.01f;
-                    params.uiAlpha = Mathf.clamp(center, 0f, 1f);
+                    // 主菜单不画区块边界；进入战役后由原生 PlanetDialog 直接显示，不做边界淡入。
+                    params.drawUi = false;
+                    params.uiAlpha = 1f;
                 }
                 params.viewW = fw;
                 params.viewH = fh;
@@ -513,18 +503,13 @@ public final class IronworksBetterMenu{
                     }
 
                     // PlanetRenderer 的 bloom 会重置 GL viewport，所以不能直接 Gl.viewport 偏右；
-                    // 先渲染到固定全屏 FBO，再把整张星球画面按 center 滑到右侧/中心（战役时贴满全屏）。
+                    // 固定全屏 FBO 只承载真实场景；星球右移由镜头光轴偏移完成，避免左侧出现未渲染黑边。
                     Draw.flush();
                     boolean begun = false;
                     try{
                         planetBuffer.begin(Color.clear);
                         begun = true;
-                        if(campaignActive){
-                            planets.render(params);
-                        }else{
-                            renderMenuPlanet(params, fw, fh);
-                            if(center > 0.01f) drawGridFade(center);
-                        }
+                        renderMenuPlanet(params, fw, fh);
                     }catch(Throwable t){
                         Log.err("IronworksBetterMenu: 星球渲染失败，回退纯色背景", t);
                         planets = null;
@@ -534,9 +519,8 @@ public final class IronworksBetterMenu{
                     Gl.viewport(0, 0, Core.graphics.getBackBufferWidth(), Core.graphics.getBackBufferHeight());
 
                     if(planets != null){
-                        float cx = Mathf.lerp(w * 0.725f, w * 0.5f, center);
                         Draw.color();
-                        Draw.rect(Draw.wrap(planetBuffer.getTexture()), cx, h / 2f, fw, -fh);
+                        Draw.rect(Draw.wrap(planetBuffer.getTexture()), w / 2f, h / 2f, fw, -fh);
                     }
                 }catch(Throwable t){
                     Log.err("IronworksBetterMenu: 星球离屏渲染失败，回退纯色背景", t);
@@ -613,7 +597,10 @@ public final class IronworksBetterMenu{
             ui.planet.state = params;
             ui.planet.color.a = 1f;
             configurePlanetDialog();
-            ui.planet.show();
+            // 不用 Dialog 默认的整屏 alpha 动画：那会把星球和 UI 一起从黑色淡入，并走全屏缓冲导致一次拉伸。
+            ui.planet.show(Core.scene, null);
+            ui.planet.clearActions();
+            ui.planet.color.a = 1f;
 
             if(!ui.planet.isShown()){
                 cancelTransition();
@@ -631,6 +618,19 @@ public final class IronworksBetterMenu{
             params.drawUi = true;
             params.uiAlpha = 1f;
             params.renderer = ui.planet;
+
+            // 只让原生 UI 层淡入；星球/FBO 画面保持完全不透明，不做全屏 alpha。
+            fadeCampaignUi(ui.planet.buttons);
+            fadeCampaignUi(ui.planet.sectorTop);
+            fadeCampaignUi(ui.planet.expandTable);
+        }
+
+        /** 只对 UI Table 做透明度淡入，绝不改 translation/位置，避免与原生布局叠加产生抖动。 */
+        private void fadeCampaignUi(Table t){
+            if(t == null) return;
+            t.clearActions();
+            t.color.a = 0f;
+            t.addAction(Actions.fadeIn(0.18f, Interp.fade));
         }
 
         private void cancelTransition(){

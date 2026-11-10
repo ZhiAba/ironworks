@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.8.1.1，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.8.1.2，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -19,7 +19,10 @@ Mindustry 模组「铁流工业」v3.8.1.1，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.1.1 / md5 `9b6dac812133f203b74a69b2dd3d7989`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.1.2 / md5 `76f654746a875914e43a91d2b8a50758`，双端已部署（2026-11-10，phone_sh 文件复制；旧版备份 `ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.8.1.2 **主菜单真实星空 + 光轴偏移**：菜单 FBO 渲染原生 `skybox`；不再平移整张纹理，改为投影矩阵水平 `clip.x += k*clip.w`，星球右侧而星空铺满全屏，菜单 UI 独立左对齐。`PlanetRenderer.renderPlanet()` 内部会 `cam.update()` 冲掉偏移，所以主菜单改为直接 `planet.draw/drawClouds/drawAtmosphere`。
+- 3.8.1.2 **取消整屏淡入/拉伸**：`show(Core.scene, null)` 禁用 Dialog 全屏 alpha；只对 `buttons/sectorTop/expandTable` 做 0.18s 纯透明度淡入，不移动位置；画面/FBO 不淡入、不走全屏缓冲。
+- 3.8.1.2 **取消区块边界淡入**：移除自定义 grid shader 与 `drawGridFade`；菜单无边界，战役原生 `renderSectors` 在 `uiAlpha=1` 下即时显示。
 - 3.8.1.1 **恢复原生战役渲染/点击**：不再反射替换 `PlanetDialog.mainView`；打开战役后菜单 FBO/root 隐藏，由原生 `mainView` 继续调用 `planets.render(state)` 并处理区块单击/双击/战役按钮。仍是同一套共享 `PlanetRenderer/PlanetParams`，无第二渲染器、无 `setScreen()`。
 - 3.8.1.1 **去掉手写 GUI 位移动画**：删除 `animateCampaignGui()` 对 `buttons/sectorTop/expandTable` 的 translate/fade，这些动画与原生布局重排叠加会造成抖动和位置跳变。
 - 3.8.1.1 **相机恢复**：打开前设置 `viewW/viewH=-1`、`renderer=ui.planet`；`show()` 后恢复 `camPos`、清空 `otherCamPos`、`otherCamAlpha=1`，避免 `lookAt` 插值造成视觉跳动。
@@ -56,6 +59,7 @@ Mindustry 模组「铁流工业」v3.8.1.1，Java 编写，自研多配方库 + 
 - 3.6.1.0 验证：T218（真实发射 5 道激光后的建筑穿透）、T222（270/420/穿透 5/能量/5 道/音效）、T223（5 个目标受伤、第 6 个满血）、T224/T225 通过；T203–T225 定向 **23/23**。
 - 3.6.2.0 验证：T226–T233 新增 8 项全过（建造时间、蜂群、读档血量、4×6 预览、占位块存档、日志器可见性、原版弹药抽样、剩余固定/模组炮塔弹药）；T203–T233 定向 **31/31**。全量回归复跑到 T79 仍卡住（已知环境问题），不宣称全量通过。
 - 3.7.0.1 验证：T226–T233 定向 8/8；T203–T233 定向 **31/31**；T224 单跑 1/1。主界面是客户端 GPU UI，无头环境不渲染，需实机确认菜单尺寸、右侧星球、拖动方向、120 秒自转和无缝过渡；本版不宣称 UI 自动化通过。
+- 3.8.1.2 验证：构建通过，T226–T233 定向 8/8；无头端不加载 GPU UI/FBO/skybox，星空连续、无黑屏、无二次拉伸和边界即时显示仍需实机确认。
 - 3.8.1.1 验证：构建通过，T226–T233 定向 8/8；无头端不加载 GPU UI/FBO，战役区块点击/双击、GUI 抖动仍需实机确认。
 - 3.8.1.0 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；无头端不加载 GPU UI/FBO，菜单贴左、光斑、网格渐显、彩蛋位置仍需实机确认。
 - 3.8.0.0 验证：T226–T233 定向 8/8；全量 UI 无头无法验证（FBO/反射 mainView/输入层均客户端）。需实机确认星球右侧、过渡连续、区块输入、关闭恢复。
