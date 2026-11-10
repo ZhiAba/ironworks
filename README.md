@@ -6,9 +6,9 @@ Mindustry 160.x 的 Java 模组：从铁砂、钢铁和铝开始，一路搭到�
 
 源码仓库：<https://github.com/ZhiAba/ironworks>
 
-> 当前版本：**3.8.1.2** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
+> 当前版本：**3.8.1.3** · 游戏版本：**Mindustry 160.x** · 许可证：**GPL-3.0-only**
 >
-> 3.8.1 主题：主菜单与战役共用同一个 `PlanetRenderer`/相机/`PlanetParams`，菜单用固定全屏 FBO 渲染真实星空+Serpulo，并通过摄影机光轴偏移把星球放到右侧，不再平移整张画面；战役阶段使用原生 `PlanetDialog.mainView` 全屏渲染和区块点击，不再用手写输入层或手写 GUI 位移动画。取消整屏 alpha 淡入与区块边界渐显，只保留 UI 层淡入。主菜单/战役切换是客户端 GPU UI，仍需实机确认。
+> 3.8.1 主题：主菜单与战役合并为同一个常驻 `PlanetDialog.mainView` 渲染层，主菜单只额外叠加 UI；进入战役只切参数/显示原生 UI，不再切换第二层画面。菜单期用临时相机目标把 Serpulo 放到右侧，原生星空铺满全屏；只做 UI 层淡入，取消整屏 alpha 和区块边界渐显。主菜单/战役切换是客户端 GPU UI，仍需实机确认。
 
 ## 主要内容
 
