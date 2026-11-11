@@ -44,6 +44,8 @@ import mindustry.graphics.g3d.GenericMesh;
 import mindustry.graphics.g3d.PlanetRenderer;
 import mindustry.graphics.g3d.PlanetMesh;
 import mindustry.graphics.g3d.PlanetParams;
+import mindustry.graphics.g3d.MultiMesh;
+import mindustry.graphics.g3d.MatMesh;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.PlanetDialog;
 import mindustry.ui.fragments.MenuFragment;
@@ -160,6 +162,10 @@ public final class IronworksBetterMenu{
 
     private static void sync(){
         if(failed || headless || ui == null || ui.menuGroup == null || ui.menufrag == null) return;
+        // 设置页自己也在 ui.settings 里；切换开关时如果立刻 clear()/rebuild menuGroup，
+        // 会把正在显示的设置对话框下方的菜单层抽掉，导致关闭设置后按钮失去响应。
+        // 等设置页关闭、且回到主菜单后再应用安装/还原。
+        if(state == null || !state.isMenu() || (ui.settings != null && ui.settings.isShown())) return;
         boolean enabled = Core.settings.getBool(KEY, true);
         if(enabled && !installed) install();
         else if(!enabled && installed) restore();
@@ -256,7 +262,8 @@ public final class IronworksBetterMenu{
         private float planetFadeAlpha = 1f;
         private Seq<FadePlanet> planetFades;
         private FadeShader planetFadeShader, unlitFadeShader;
-        private static Field planetMeshShaderField;
+        private CloudFadeShader cloudFadeShader;
+        private static Field planetMeshShaderField, multiMeshField, matMeshField;
         /** 天空盒单次绘制前保存的实际相机 FOV；画完只恢复到绘制前的值。 */
         private float skyboxPrevFov = CAMPAIGN_FOV;
         private boolean skyboxWide;
@@ -659,7 +666,7 @@ public final class IronworksBetterMenu{
         private void applyPlanetFadeAlpha(){
             if(planetFades == null) return;
             for(FadePlanet fp : planetFades){
-                fp.fade.alpha = planetFadeAlpha;
+                for(FadeLeaf leaf : fp.leaves) leaf.fade.setAlpha(planetFadeAlpha);
                 fp.planet.atmosphereColor.set(
                     fp.atmosphere.r * planetFadeAlpha,
                     fp.atmosphere.g * planetFadeAlpha,
@@ -669,7 +676,56 @@ public final class IronworksBetterMenu{
             }
         }
 
-        /** 为所有非选中星球换上一层带 alpha uniform 的着色器；不支持的自定义 mesh 跳过。 */
+        /** 递归收集星球本体/云层里的所有 PlanetMesh 叶子；小行星常是 MultiMesh/MatMesh。 */
+        private void collectFadeLeaves(GenericMesh mesh, boolean body, Field shaderField, Seq<PlanetMesh> seen, Seq<FadeLeaf> out){
+            if(mesh == null) return;
+            if(mesh instanceof PlanetMesh){
+                PlanetMesh pm = (PlanetMesh)mesh;
+                if(seen.contains(pm, true)) return;
+                seen.add(pm);
+                try{
+                    Shader original = (Shader)shaderField.get(pm);
+                    Shader fade = null;
+                    if(body){
+                        if(original == Shaders.planet){
+                            if(planetFadeShader == null) planetFadeShader = new PlanetFadeShader();
+                            fade = planetFadeShader;
+                        }else if(original == Shaders.unlit){
+                            if(unlitFadeShader == null) unlitFadeShader = new UnlitFadeShader();
+                            fade = unlitFadeShader;
+                        }
+                    }else if(original == Shaders.clouds){
+                        if(cloudFadeShader == null) cloudFadeShader = new CloudFadeShader();
+                        fade = cloudFadeShader;
+                    }
+                    if(fade != null){
+                        shaderField.set(pm, fade);
+                        out.add(new FadeLeaf(pm, original, (AlphaFade)fade));
+                    }
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 创建星球淡出着色器失败: " + pm.getClass().getSimpleName(), t);
+                }
+            }else if(mesh instanceof MultiMesh){
+                Field field = multiMeshField();
+                if(field == null) return;
+                try{
+                    GenericMesh[] meshes = (GenericMesh[])field.get(mesh);
+                    if(meshes != null) for(GenericMesh child : meshes) collectFadeLeaves(child, body, shaderField, seen, out);
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 读取 MultiMesh.meshes 失败", t);
+                }
+            }else if(mesh instanceof MatMesh){
+                Field field = matMeshField();
+                if(field == null) return;
+                try{
+                    collectFadeLeaves((GenericMesh)field.get(mesh), body, shaderField, seen, out);
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 读取 MatMesh.mesh 失败", t);
+                }
+            }
+        }
+
+        /** 为所有非选中星球换上一层带 alpha uniform 的着色器；小行星/云层递归处理，不支持的自定义 mesh 跳过。 */
         private boolean beginPlanetFade(){
             if(planetFadeActive) return true;
             planetFadeTried = true;
@@ -679,25 +735,13 @@ public final class IronworksBetterMenu{
 
             Seq<FadePlanet> list = new Seq<>();
             for(Planet p : content.planets()){
-                if(p == menuPlanet || !p.visible || p.mesh == null || !(p.mesh instanceof PlanetMesh)) continue;
-                PlanetMesh mesh = (PlanetMesh)p.mesh;
-                try{
-                    Shader original = (Shader)field.get(mesh);
-                    FadeShader fade;
-                    if(original == Shaders.planet){
-                        if(planetFadeShader == null) planetFadeShader = new PlanetFadeShader();
-                        fade = planetFadeShader;
-                    }else if(original == Shaders.unlit){
-                        if(unlitFadeShader == null) unlitFadeShader = new UnlitFadeShader();
-                        fade = unlitFadeShader;
-                    }else{
-                        continue;
-                    }
-                    field.set(mesh, fade);
-                    list.add(new FadePlanet(p, mesh, original, fade));
-                }catch(Throwable t){
-                    Log.err("IronworksBetterMenu: 创建星球淡出着色器失败: " + p.name, t);
-                }
+                if(p == menuPlanet || !p.visible) continue;
+                Seq<PlanetMesh> seen = new Seq<>();
+                Seq<FadeLeaf> leaves = new Seq<>();
+                collectFadeLeaves(p.mesh, true, field, seen, leaves);
+                collectFadeLeaves(p.cloudMesh, false, field, seen, leaves);
+                if(leaves.isEmpty()) continue;
+                list.add(new FadePlanet(p, leaves));
             }
 
             if(list.isEmpty()){
@@ -734,10 +778,12 @@ public final class IronworksBetterMenu{
             if(planetFades == null) return;
             Field field = planetMeshShaderField();
             for(FadePlanet fp : planetFades){
-                try{
-                    if(field != null) field.set(fp.mesh, fp.original);
-                }catch(Throwable t){
-                    Log.err("IronworksBetterMenu: 恢复星球 shader 失败: " + fp.planet.name, t);
+                for(FadeLeaf leaf : fp.leaves){
+                    try{
+                        if(field != null) field.set(leaf.mesh, leaf.original);
+                    }catch(Throwable t){
+                        Log.err("IronworksBetterMenu: 恢复星球 shader 失败: " + fp.planet.name, t);
+                    }
                 }
                 fp.planet.atmosphereColor.set(fp.atmosphere);
             }
@@ -754,6 +800,10 @@ public final class IronworksBetterMenu{
                 unlitFadeShader.dispose();
                 unlitFadeShader = null;
             }
+            if(cloudFadeShader != null){
+                cloudFadeShader.dispose();
+                cloudFadeShader = null;
+            }
         }
 
         private static Field planetMeshShaderField(){
@@ -767,6 +817,32 @@ public final class IronworksBetterMenu{
                 }
             }
             return planetMeshShaderField;
+        }
+
+        private static Field multiMeshField(){
+            if(multiMeshField == null){
+                try{
+                    Field f = MultiMesh.class.getDeclaredField("meshes");
+                    f.setAccessible(true);
+                    multiMeshField = f;
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 读取 MultiMesh.meshes 失败", t);
+                }
+            }
+            return multiMeshField;
+        }
+
+        private static Field matMeshField(){
+            if(matMeshField == null){
+                try{
+                    Field f = MatMesh.class.getDeclaredField("mesh");
+                    f.setAccessible(true);
+                    matMeshField = f;
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 读取 MatMesh.mesh 失败", t);
+                }
+            }
+            return matMeshField;
         }
 
         private void beginReturnCamera(){
@@ -1411,24 +1487,36 @@ public final class IronworksBetterMenu{
             restoreNativePlanet();
         }
 
-        private static final class FadePlanet{
-            final Planet planet;
+        private interface AlphaFade{
+            void setAlpha(float alpha);
+        }
+
+        private static final class FadeLeaf{
             final PlanetMesh mesh;
             final Shader original;
-            final FadeShader fade;
-            final Color atmosphere;
+            final AlphaFade fade;
 
-            FadePlanet(Planet planet, PlanetMesh mesh, Shader original, FadeShader fade){
-                this.planet = planet;
+            FadeLeaf(PlanetMesh mesh, Shader original, AlphaFade fade){
                 this.mesh = mesh;
                 this.original = original;
                 this.fade = fade;
+            }
+        }
+
+        private static final class FadePlanet{
+            final Planet planet;
+            final Seq<FadeLeaf> leaves;
+            final Color atmosphere;
+
+            FadePlanet(Planet planet, Seq<FadeLeaf> leaves){
+                this.planet = planet;
+                this.leaves = leaves;
                 this.atmosphere = new Color(planet.atmosphereColor);
             }
         }
 
         /** 和原版 planet.frag 输出一致，只额外乘一个透明度；星球本体/太阳共用同一对 shader。 */
-        private abstract static class FadeShader extends Shader{
+        private abstract static class FadeShader extends Shader implements AlphaFade{
             private static final String alphaFrag =
                 "varying vec4 v_col;\n" +
                 "uniform float u_alpha;\n" +
@@ -1445,6 +1533,11 @@ public final class IronworksBetterMenu{
             @Override
             public void apply(){
                 setUniformf("u_alpha", alpha);
+            }
+
+            @Override
+            public void setAlpha(float alpha){
+                this.alpha = alpha;
             }
         }
 
@@ -1468,6 +1561,28 @@ public final class IronworksBetterMenu{
         private static final class UnlitFadeShader extends FadeShader{
             UnlitFadeShader(){
                 super("unlit.vert");
+            }
+        }
+
+        /** 云层/包裹层：clouds.vert 已把 u_alpha 写进顶点色，这里复用 planet.frag 输出。 */
+        private static final class CloudFadeShader extends Shader implements AlphaFade{
+            float alpha = 1f;
+
+            CloudFadeShader(){
+                super(shaderSource("clouds.vert"), shaderSource("planet.frag"));
+            }
+
+            @Override
+            public void apply(){
+                setUniformf("u_alpha", alpha);
+                setUniformf("u_emissive", 0f);
+                setUniformf("u_lightdir", Shaders.clouds.lightDir);
+                setUniformf("u_ambientColor", Shaders.clouds.ambientColor.r, Shaders.clouds.ambientColor.g, Shaders.clouds.ambientColor.b);
+            }
+
+            @Override
+            public void setAlpha(float alpha){
+                this.alpha = alpha;
             }
         }
 
@@ -1496,9 +1611,11 @@ public final class IronworksBetterMenu{
             if(root != null && root.parent != null) root.parent.removeChild(root);
             setNativeCampaignUi(true);
             if(ui.planet != null && ui.planet.isShown()){
-                ui.planet.hide();
+                // 不能用 hide() 后再 clearActions()：clearActions 会取消 hide 的移除动作，
+                // 留下一个仍挂在场景里的静止星球层。Actions.remove() 立即移除，并照常触发 hidden。
                 ui.planet.clearActions();
                 ui.planet.color.a = 1f;
+                ui.planet.hide(Actions.remove());
             }
             restoreNativePlanet();
         }
