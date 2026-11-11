@@ -22,8 +22,6 @@ import arc.scene.event.Touchable;
 import arc.scene.ui.Button;
 import arc.scene.ui.Dialog;
 import arc.scene.ui.Dialog.DialogStyle;
-import arc.scene.ui.ImageButton;
-import arc.scene.ui.ImageButton.ImageButtonStyle;
 import arc.scene.ui.Image;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Stack;
@@ -223,7 +221,6 @@ public final class IronworksBetterMenu{
         private Table panel;
         private Table submenu;
         private Table titleLayer;
-        private ImageButton eggButton;
         private Button currentMenu;
         private final PlanetParams params = new PlanetParams();
         private final Vec3 tmpDir = new Vec3();
@@ -325,7 +322,6 @@ public final class IronworksBetterMenu{
             root.addChild(drag);
 
             buildMenu();
-            buildEgg();
             buildTitle();
             Core.app.post(this::startNativeLayer);
         }
@@ -371,12 +367,12 @@ public final class IronworksBetterMenu{
                 ),
                 new MenuButton("@database.button", Icon.menu, () -> {},
                     new MenuButton("@schematics", Icon.paste, ui.schematics::show),
-                    new MenuButton("@database", Icon.book, ui.database::show),
-                    new MenuButton("@about.button", Icon.info, ui.about::show)
+                    new MenuButton("@database", Icon.book, ui.database::show)
                 ),
                 new MenuButton("@editor", Icon.terrain, () -> checkPlay(ui.maps::show)),
                 new MenuButton("@mods", Icon.book, ui.mods::show),
-                new MenuButton("@settings", Icon.settings, ui.settings::show)
+                new MenuButton("@settings", Icon.settings, ui.settings::show),
+                new MenuButton("@about.button", Icon.info, ui.about::show)
             );
 
             buttons(panel, desktopButtons.toArray(MenuButton.class));
@@ -392,8 +388,8 @@ public final class IronworksBetterMenu{
             menuBackdrop.visible(() -> menuLayer != null && menuLayer.visible && !campaignActive);
             menuBackdrop.update(() -> {
                 if(menuLayer == null || panel == null) return;
-                menuBackdrop.setSize(MENU_WIDTH, Math.max(menuLayer.getHeight(), Core.graphics.getHeight()));
-                menuBackdrop.setPosition(menuLayer.x + menuLayer.translation.x + leftGutter, 0f);
+                menuBackdrop.setSize(panel.getWidth(), Math.max(menuLayer.getHeight(), Core.graphics.getHeight()));
+                menuBackdrop.setPosition(panel.x + menuLayer.x + menuLayer.translation.x, 0f);
                 menuBackdrop.color.a = menuLayer.color.a;
             });
             root.addChild(menuBackdrop);
@@ -456,13 +452,15 @@ public final class IronworksBetterMenu{
             titleLayer.touchable = Touchable.disabled;
             titleLayer.color.a = 0f;
 
-            float logoscl = Scl.scl(1f) * logo.scale;
+            // Cell 的 size/pad 会再乘一次 Scl；这里统一用逻辑像素算，避免把物理像素
+            // 传进去后二次放大，导致标题没缩小、还被推到屏幕外。
+            float screenW = Core.graphics.getWidth() / Scl.scl(1f);
             // 标题不再居中：缩到屏宽约 48%，从左侧 34% 处开始，落在右上区域。
-            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() * 0.48f);
+            float logow = screenW * 0.48f;
             float logoh = logow * (float)logo.height / logo.width;
-            float left = Core.graphics.getWidth() * 0.34f;
-            // 与 MenuFragment.draw() 的原版 logo 位置一致：离内容区顶部 6px，竖屏再下移 30px。
-            float top = Core.scene.marginTop + 6f + (Core.graphics.isPortrait() ? Scl.scl(30f) : 0f);
+            float left = screenW * 0.34f;
+            // 竖屏保留额外的 30px 安全距离；marginTop 也是场景像素，先折回逻辑像素。
+            float top = Core.scene.marginTop / Scl.scl(1f) + 6f + (Core.graphics.isPortrait() ? 30f : 0f);
             titleLayer.add(new Image(logo)).size(logow, logoh).padLeft(left).padTop(top);
             root.addChild(titleLayer);
         }
@@ -480,24 +478,6 @@ public final class IronworksBetterMenu{
             titleLayer.addAction(Actions.fadeOut(duration, Interp.fade));
         }
 
-        /** 最左缘的彩蛋入口；x=0 锚定，不随屏幕宽度/缩放居中。 */
-        private void buildEgg(){
-            ImageButtonStyle style = new ImageButtonStyle(Styles.clearNonei);
-            style.imageUp = Icon.infoCircle;
-            style.imageUpColor = Color.valueOf("d94b5a");
-            ImageButton button = new ImageButton(style);
-            button.resizeImage(Scl.scl(16f));
-            button.visible(() -> !campaignActive);
-            button.clicked(() -> ui.about.show());
-            eggButton = button;
-            // Pin the info button to the screen-left edge instead of a centered Table cell.
-            button.update(() -> {
-                float size = Scl.scl(32f);
-                button.setSize(size, size);
-                button.setPosition(6f, (Core.graphics.getHeight() - size) / 2f);
-            });
-            root.addChild(button);
-        }
         private void configurePlanetDialog(){
             if(ui.planet == null) return;
             DialogStyle old = ui.planet.getStyle();

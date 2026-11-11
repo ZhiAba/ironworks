@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.8.2.12，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.8.2.13，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -19,7 +19,8 @@ Mindustry 模组「铁流工业」v3.8.2.12，Java 编写，自研多配方库 +
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.2.12 / md5 `6d9798e47ca6c86060a2e89b9938b1af`，双端已部署（2026-11-12，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.2.13 / md5 `c6d6ec8b439d12437d26d22841e0e418`，双端已部署（2026-11-12，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.8.2.13 **修正标题/黑底 Scl 尺寸 + 关于按钮**：标题改为逻辑像素计算（屏宽 48%、左 34%），不再被二次 Scl 放大；`menuBackdrop` 宽度取 `panel.getWidth()`，覆盖整列文字；删除红色 i，改为“设置”和“退出”之间的灰色 `Icon.info` 关于按钮，并移除数据库子菜单重复项。
 - 3.8.2.12 **标题右移缩小 + 手机菜单下移**：logo 宽度上限改为 48% 屏宽、左边距 34% 屏宽，不再居中；左侧按钮列用 70 高的空行整体下移一个按键高度，子菜单同步下移。
 - 3.8.2.11 **竖屏黑色菜单背景贴合屏幕**：按钮列的 `Styles.black6` 从 `panel` 背景改为独立的 `menuBackdrop`，高度按 `max(menuLayer 高度, 屏幕高度)` 从 `y=0` 铺满，位置跟随菜单平移、透明度跟随淡入淡出；修复竖屏 Table 背景只按内容高度计算导致的顶部留白。
 - 3.8.2.10 **返回淡出补全 + 设置页开关分层修复**：`beginPlanetFade()` 递归展开 `MultiMesh`/`MatMesh`，覆盖小行星本体和云层，除当前主控星球外全部淡出（不再只有太阳）；`dispose()` 改用 `hide(Actions.remove())`，修复 `hide()+clearActions()` 取消移除动作留下的静止 PlanetDialog 层；`sync()` 只在设置页关闭且处于主菜单时安装/还原，避免在打开的设置 Dialog 下方重建菜单导致渲染层/触摸层顺序错乱。
@@ -90,6 +91,7 @@ Mindustry 模组「铁流工业」v3.8.2.12，Java 编写，自研多配方库 +
 - 3.6.1.0 验证：T218（真实发射 5 道激光后的建筑穿透）、T222（270/420/穿透 5/能量/5 道/音效）、T223（5 个目标受伤、第 6 个满血）、T224/T225 通过；T203–T225 定向 **23/23**。
 - 3.6.2.0 验证：T226–T233 新增 8 项全过（建造时间、蜂群、读档血量、4×6 预览、占位块存档、日志器可见性、原版弹药抽样、剩余固定/模组炮塔弹药）；T203–T233 定向 **31/31**。全量回归复跑到 T79 仍卡住（已知环境问题），不宣称全量通过。
 - 3.7.0.1 验证：T226–T233 定向 8/8；T203–T233 定向 **31/31**；T224 单跑 1/1。主界面是客户端 GPU UI，无头环境不渲染，需实机确认菜单尺寸、右侧星球、拖动方向、120 秒自转和无缝过渡；本版不宣称 UI 自动化通过。
+- 3.8.2.13 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；标题/黑底/关于按钮需实机确认。
 - 3.8.2.12 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；标题位置/按钮下移量需实机确认。
 - 3.8.2.11 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；竖屏背景贴合需实机确认。
 - 3.8.2.10 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；小行星/云层淡出、设置页开关后的层级与触摸仍需实机确认。
