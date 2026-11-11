@@ -219,6 +219,7 @@ public final class IronworksBetterMenu{
     private static final class BetterMenuFragment extends MenuFragment{
         private WidgetGroup root;
         private Table menuLayer;
+        private Table menuBackdrop;
         private Table panel;
         private Table submenu;
         private Table titleLayer;
@@ -335,6 +336,7 @@ public final class IronworksBetterMenu{
          */
         private void buildMenu(){
             if(menuLayer != null) menuLayer.remove();
+            if(menuBackdrop != null) menuBackdrop.remove();
             currentMenu = null;
 
             menuLayer = new Table();
@@ -343,10 +345,12 @@ public final class IronworksBetterMenu{
             menuLayer.touchable = Touchable.childrenOnly;
             menuLayer.visible(() -> !campaignActive);
 
-            menuLayer.add().width(Math.max(Scl.scl(44f), 70f));
+            float leftGutter = Math.max(Scl.scl(44f), 70f);
+            menuLayer.add().width(leftGutter);
 
-            panel = new Table(Styles.black6);
+            panel = new Table();
             panel.name = "buttons";
+            panel.top();
             panel.defaults().width(MENU_WIDTH).height(MENU_HEIGHT);
 
             submenu = new Table(Styles.black6);
@@ -376,8 +380,21 @@ public final class IronworksBetterMenu{
             buttons(panel, desktopButtons.toArray(MenuButton.class));
             buttons(panel, new MenuButton("@quit", Icon.exit, Core.app::exit));
 
-            menuLayer.add(panel).width(MENU_WIDTH).growY();
-            menuLayer.add(submenu).width(MENU_WIDTH).growY();
+            menuLayer.add(panel).width(MENU_WIDTH).growY().top();
+            menuLayer.add(submenu).width(MENU_WIDTH).growY().top();
+
+            // 背景单独铺满菜单栏的整列高度：Table 的 growY 在竖屏下会让背景只按
+            // 内容高度（6×70）计算，顶部留出一段空白；这里不依赖单元格高度。
+            menuBackdrop = new Table(Styles.black6);
+            menuBackdrop.touchable = Touchable.disabled;
+            menuBackdrop.visible(() -> menuLayer != null && menuLayer.visible && !campaignActive);
+            menuBackdrop.update(() -> {
+                if(menuLayer == null || panel == null) return;
+                menuBackdrop.setSize(MENU_WIDTH, Math.max(menuLayer.getHeight(), Core.graphics.getHeight()));
+                menuBackdrop.setPosition(menuLayer.x + menuLayer.translation.x + leftGutter, 0f);
+                menuBackdrop.color.a = menuLayer.color.a;
+            });
+            root.addChild(menuBackdrop);
             root.addChild(menuLayer);
         }
 
