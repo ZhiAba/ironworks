@@ -3,7 +3,9 @@ package ironworks;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.graphics.Gl;
 import arc.graphics.g2d.TextureRegion;
+import arc.graphics.gl.Shader;
 import arc.math.Interp;
 import arc.math.Mathf;
 import arc.math.geom.Mat3D;
@@ -37,8 +39,10 @@ import mindustry.content.Planets;
 import mindustry.ctype.ContentType;
 import mindustry.game.EventType;
 import mindustry.gen.Icon;
+import mindustry.graphics.Shaders;
 import mindustry.graphics.g3d.GenericMesh;
 import mindustry.graphics.g3d.PlanetRenderer;
+import mindustry.graphics.g3d.PlanetMesh;
 import mindustry.graphics.g3d.PlanetParams;
 import mindustry.ui.Styles;
 import mindustry.ui.dialogs.PlanetDialog;
@@ -98,6 +102,20 @@ public final class IronworksBetterMenu{
         if(custom != null) custom.guardGameLayer();
     }
 
+    private static void updateOverlayLayer(){
+        if(custom != null) custom.updateOverlay();
+    }
+
+    /** 星球层绘制前确保混合开启；返回菜单末尾用它让剩余星球按透明度退出。 */
+    private static void preparePlanetFade(){
+        if(custom != null) custom.preparePlanetFade();
+    }
+
+    /** 场景 act/draw 之前再压一次返回期间的 Dialog 透明度，避免 hide 动作在同一帧先进一拍。 */
+    private static void keepDialogOpaqueLayer(){
+        if(custom != null) custom.keepDialogOpaque();
+    }
+
     public static void init(){
         Core.settings.defaults(KEY, true);
         preloadPlanet();
@@ -107,9 +125,12 @@ public final class IronworksBetterMenu{
         });
         Events.run(EventType.Trigger.update, IronworksBetterMenu::sync);
         Events.run(EventType.Trigger.update, IronworksBetterMenu::updateAtmosphere);
+        Events.run(EventType.Trigger.uiDrawBegin, IronworksBetterMenu::keepDialogOpaqueLayer);
         Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::beginSkybox);
         Events.run(EventType.Trigger.universeDraw, IronworksBetterMenu::endSkybox);
         Events.run(EventType.Trigger.update, IronworksBetterMenu::guardGameLayer);
+        Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::updateOverlayLayer);
+        Events.run(EventType.Trigger.universeDraw, IronworksBetterMenu::preparePlanetFade);
         if(!resizeHook){
             resizeHook = true;
             Events.on(EventType.ResizeEvent.class, e -> {
@@ -214,6 +235,8 @@ public final class IronworksBetterMenu{
         private boolean disposed;
         private boolean reopenPending;
         private boolean returningToMenu;
+        /** 返回菜单期间压住 Dialog.hide() 的 alpha 淡出；<0.99 会让 PlanetDialog 走全屏 FBO 缓冲，造成几帧横向挤压。 */
+        private boolean dialogHideSuppressed;
         private Element nativeMainView;
         private float menuYaw = 0.72f, menuPitch = 0.15f;
 
@@ -222,6 +245,18 @@ public final class IronworksBetterMenu{
         /** 主菜单/战役共用同一个 PlanetRenderer 渲染层，大气层只能靠颜色强度渐隐，不能换渲染层。 */
         private Color baseAtmosphere;
         private float atmosphereAlpha = 1f, atmosphereTarget = 1f;
+        /** 战役 UI 层（区块/包裹层）与菜单包裹层的交叉淡入淡出。 */
+        private boolean overlayFading;
+        private float overlayTarget = 1f, overlayAlpha;
+        private boolean returnOverlayHold;
+        /** 从战役返回时保留玩家缩放，随镜头一起过渡到菜单尺寸。 */
+        private float returnZoom = 1f;
+        /** 返回菜单末尾对非选中星球做真正的透明度渐隐，避免被遮挡的星球在隐藏时突然消失。 */
+        private boolean planetFadeActive, planetFadeTried, planetFadeFinishing;
+        private float planetFadeAlpha = 1f;
+        private Seq<FadePlanet> planetFades;
+        private FadeShader planetFadeShader, unlitFadeShader;
+        private static Field planetMeshShaderField;
         /** 星空绘制前临时切到战役 FOV，画完立刻恢复，避免窄 FOV 把星空放糊。 */
         private float menuFov = MENU_FOV;
         private boolean skyboxWide;
@@ -568,9 +603,16 @@ public final class IronworksBetterMenu{
             }
         }
 
+        /** 返回过渡中 Dialog 必须保持不透明；否则 PlanetDialog.draw() 会启用 FBO 缓冲，尺寸取整时出现几帧横向挤压。 */
+        private void keepDialogOpaque(){
+            if(!dialogHideSuppressed || disposed || ui.planet == null) return;
+            if(ui.planet.isShown()) cancelDialogHide();
+        }
+
         /** 大气层没有独立的 alpha uniform，这里缩放它的颜色强度来淡出/淡入。 */
         private void updateAtmosphere(){
             if(disposed) return;
+            keepDialogOpaque();
             rememberPlanet();
             if(baseAtmosphere == null) return;
             atmosphereAlpha = Mathf.lerpDelta(atmosphereAlpha, atmosphereTarget, 0.22f);
@@ -578,8 +620,196 @@ public final class IronworksBetterMenu{
             applyAtmosphereAlpha();
         }
 
+        /** 战役层和菜单包裹层共用 PlanetParams.uiAlpha；在同一个星球上做真正的交叉淡入淡出。 */
+        private void updateOverlay(){
+            if(!overlayFading) return;
+            overlayAlpha = Mathf.lerpDelta(overlayAlpha, overlayTarget, 0.25f);
+            if(Math.abs(overlayAlpha - overlayTarget) < 0.002f){
+                overlayAlpha = overlayTarget;
+                params.uiAlpha = overlayAlpha;
+                overlayFading = false;
+                if(returnOverlayHold && overlayTarget <= 0.001f){
+                    // 不在 universeDrawBegin 中途换相机目标；下一帧再启动向右的返回动画。
+                    Core.app.post(this::beginReturnCamera);
+                }
+            }else{
+                params.uiAlpha = overlayAlpha;
+            }
+        }
+
+        /** 返回动画后段开始让非选中星球整体淡出；阴影和大气层一起变暗，不再突然隐藏。 */
+        private void preparePlanetFade(){
+            if(disposed || !planetFadeActive || planetFades == null) return;
+            Gl.enable(Gl.blend);
+            Gl.blendFunc(Gl.srcAlpha, Gl.oneMinusSrcAlpha);
+            planetFadeAlpha = Mathf.lerpDelta(planetFadeAlpha, 0f, 0.12f);
+            if(planetFadeAlpha <= 0.01f){
+                planetFadeAlpha = 0f;
+                applyPlanetFadeAlpha();
+                if(!planetFadeFinishing){
+                    planetFadeFinishing = true;
+                    // 不在 PlanetRenderer 递归绘制中途隐藏星球；下一帧再收起场景。
+                    Core.app.post(this::finishPlanetFade);
+                }
+            }else{
+                applyPlanetFadeAlpha();
+            }
+        }
+
+        private void applyPlanetFadeAlpha(){
+            if(planetFades == null) return;
+            for(FadePlanet fp : planetFades){
+                fp.fade.alpha = planetFadeAlpha;
+                fp.planet.atmosphereColor.set(
+                    fp.atmosphere.r * planetFadeAlpha,
+                    fp.atmosphere.g * planetFadeAlpha,
+                    fp.atmosphere.b * planetFadeAlpha,
+                    fp.atmosphere.a
+                );
+            }
+        }
+
+        /** 为所有非选中星球换上一层带 alpha uniform 的着色器；不支持的自定义 mesh 跳过。 */
+        private boolean beginPlanetFade(){
+            if(planetFadeActive) return true;
+            planetFadeTried = true;
+            if(menuPlanet == null) return false;
+            Field field = planetMeshShaderField();
+            if(field == null) return false;
+
+            Seq<FadePlanet> list = new Seq<>();
+            for(Planet p : content.planets()){
+                if(p == menuPlanet || !p.visible || p.mesh == null || !(p.mesh instanceof PlanetMesh)) continue;
+                PlanetMesh mesh = (PlanetMesh)p.mesh;
+                try{
+                    Shader original = (Shader)field.get(mesh);
+                    FadeShader fade;
+                    if(original == Shaders.planet){
+                        if(planetFadeShader == null) planetFadeShader = new PlanetFadeShader();
+                        fade = planetFadeShader;
+                    }else if(original == Shaders.unlit){
+                        if(unlitFadeShader == null) unlitFadeShader = new UnlitFadeShader();
+                        fade = unlitFadeShader;
+                    }else{
+                        continue;
+                    }
+                    field.set(mesh, fade);
+                    list.add(new FadePlanet(p, mesh, original, fade));
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 创建星球淡出着色器失败: " + p.name, t);
+                }
+            }
+
+            if(list.isEmpty()){
+                disposeFadeShaders();
+                planetFadeTried = true;
+                return false;
+            }
+            planetFades = list;
+            planetFadeActive = true;
+            planetFadeFinishing = false;
+            planetFadeAlpha = 1f;
+            return true;
+        }
+
+        private void finishPlanetFade(){
+            if(disposed || !planetFadeActive) return;
+            restorePlanetFade();
+            planetFadeActive = false;
+            planetFadeFinishing = false;
+            planetFadeTried = true;
+            planetFadeAlpha = 1f;
+            applyMenuScene();
+        }
+
+        /** 恢复杂项星球的原始 shader/大气层颜色；调用方决定之后是否 applyMenuScene 隐藏它们。 */
+        private void clearPlanetFade(){
+            if(planetFades != null) restorePlanetFade();
+            planetFadeActive = false;
+            planetFadeFinishing = false;
+            planetFadeAlpha = 1f;
+        }
+
+        private void restorePlanetFade(){
+            if(planetFades == null) return;
+            Field field = planetMeshShaderField();
+            for(FadePlanet fp : planetFades){
+                try{
+                    if(field != null) field.set(fp.mesh, fp.original);
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 恢复星球 shader 失败: " + fp.planet.name, t);
+                }
+                fp.planet.atmosphereColor.set(fp.atmosphere);
+            }
+            planetFades = null;
+            disposeFadeShaders();
+        }
+
+        private void disposeFadeShaders(){
+            if(planetFadeShader != null){
+                planetFadeShader.dispose();
+                planetFadeShader = null;
+            }
+            if(unlitFadeShader != null){
+                unlitFadeShader.dispose();
+                unlitFadeShader = null;
+            }
+        }
+
+        private static Field planetMeshShaderField(){
+            if(planetMeshShaderField == null){
+                try{
+                    Field f = PlanetMesh.class.getDeclaredField("shader");
+                    f.setAccessible(true);
+                    planetMeshShaderField = f;
+                }catch(Throwable t){
+                    Log.err("IronworksBetterMenu: 读取 PlanetMesh.shader 失败", t);
+                }
+            }
+            return planetMeshShaderField;
+        }
+
+        private void beginReturnCamera(){
+            if(disposed) return;
+            returnOverlayHold = false;
+            overlayFading = false;
+            params.drawUi = false;
+            params.renderer = null;
+            params.planet = menuCamera;
+            overlayAlpha = 0f;
+            params.uiAlpha = 0f;
+
+            if(root != null) root.visible = true;
+            if(menuLayer != null){
+                menuLayer.clearActions();
+                menuLayer.translation.set(-60f, 0f);
+                menuLayer.color.a = 0f;
+                menuLayer.visible = true;
+                menuLayer.addAction(Actions.parallel(
+                    Actions.translateBy(60f, 0f, 0.55f, Interp.pow3Out),
+                    Actions.fadeIn(0.45f, Interp.fade)
+                ));
+            }
+            fadeTitleIn(0.5f);
+            if(submenu != null){
+                submenu.clearActions();
+                submenu.clearChildren();
+                submenu.color.a = 0f;
+            }
+            if(ui.planet != null){
+                resetGui(ui.planet.buttons);
+                resetGui(ui.planet.sectorTop);
+                resetGui(ui.planet.expandTable);
+            }
+            if(ui.planet == null || !ui.planet.isShown()){
+                Core.app.post(() -> startNativeLayer(true));
+            }else{
+                updateMenuState();
+            }
+        }
+
         private void beginSkybox(){
-            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
             skyboxWide = true;
             ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             ui.planet.planets.cam.update();
@@ -643,14 +873,15 @@ public final class IronworksBetterMenu{
             float campaignLength = radius * PlanetRenderer.camLength;
             float targetLength = campaignLength
                 * (float)(Math.tan(CAMPAIGN_FOV * Mathf.degRad * 0.5f) / Math.tan(fov * Mathf.degRad * 0.5f));
-            float zoom = 1f + (targetLength - campaignLength) / (radius * 2f);
+            float menuZoom = 1f + (targetLength - campaignLength) / (radius * 2f);
+            float zoom = returningToMenu ? Mathf.lerp(menuZoom, returnZoom, center) : menuZoom;
 
             menuFov = fov;
             if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = fov;
             params.planet = menuCamera;
             params.drawUi = false;
             params.drawSkybox = true;
-            params.uiAlpha = 1f;
+            params.uiAlpha = 0f;
             params.zoom = zoom;
             params.viewW = -1;
             params.viewH = -1;
@@ -669,11 +900,21 @@ public final class IronworksBetterMenu{
             tmpRight.set(Vec3.Y).crs(tmpDir).nor();
             menuCamera.position.set(menuPlanet.position).sub(tmpRight.scl(d));
 
+            // 镜头回落的后段开始渐隐其它星球；这样无论它们是否被挡住、是否能飞出屏幕，
+            // 都不会在动画结束后直接消失。alpha 归零后才真正 applyMenuScene() 隐藏。
+            if(returningToMenu && center < 0.35f && !planetFadeActive && !planetFadeTried){
+                if(!beginPlanetFade()) applyMenuScene();
+            }
+
             if(returningToMenu && center < 0.005f){
                 returningToMenu = false;
                 animating = false;
+                overlayFading = false;
+                overlayAlpha = 0f;
+                params.uiAlpha = 0f;
                 atmosphereTarget = 1f;
-                applyMenuScene();
+                dialogHideSuppressed = false;
+                if(!planetFadeActive) applyMenuScene();
             }
         }
 
@@ -683,8 +924,14 @@ public final class IronworksBetterMenu{
 
         private void startNativeLayer(boolean returning){
             if(disposed || ui.planet == null || !state.isMenu() || (ui.loadfrag != null && ui.loadfrag.shown())) return;
-            if(!returning) selectMenuPlanet(settingPlanet());
-            else ensureMenuPlanet();
+            if(!returning){
+                dialogHideSuppressed = false;
+                clearPlanetFade();
+                planetFadeTried = false;
+                selectMenuPlanet(settingPlanet());
+            }else{
+                ensureMenuPlanet();
+            }
 
             // setup() 必须用真实的目标星球建 UI；之后菜单周期再把 state.planet 换成相机目标。
             params.planet = menuPlanet;
@@ -696,7 +943,19 @@ public final class IronworksBetterMenu{
             // 因此：已经彻底隐藏才 show；仍在隐藏动画中就只清掉动作并恢复不透明，
             // 不重复触发 PlanetDialog.shown() 的 setup()，相机和返回过渡保持连续。
             if(!ui.planet.isShown()){
-                ui.planet.show(Core.scene, null);
+                if(returning){
+                    // 返回菜单时不要走 Dialog.show()：它会 pack/center 并重新触发 setup()，
+                    // 在主界面已经存在时可能让这一层短暂按不同尺寸重排，录屏中就是几帧横向挤压。
+                    // 这层在战役里刚显示过，直接按屏幕尺寸挂回即可，状态和子控件都还在。
+                    ui.planet.color.a = 1f;
+                    ui.planet.setSize(Core.graphics.getWidth(), Core.graphics.getHeight());
+                    ui.planet.setPosition(0f, 0f);
+                    Core.scene.add(ui.planet);
+                    // hide() 在移除前装了触摸拦截器；直接挂回时也要把它摘掉。
+                    cancelDialogHide();
+                }else{
+                    ui.planet.show(Core.scene, null);
+                }
             }else{
                 cancelDialogHide();
             }
@@ -718,6 +977,27 @@ public final class IronworksBetterMenu{
                 atmosphereTarget = 1f;
             }
             setNativeCampaignUi(false);
+            if(returning && returnOverlayHold){
+                // 先保持战役视角，在原星球上把区块层/包裹层交叉淡化；结束后再开始向右的相机动画。
+                params.planet = menuPlanet;
+                params.drawUi = true;
+                params.drawSkybox = true;
+                params.uiAlpha = overlayAlpha;
+                params.zoom = returnZoom;
+                params.viewW = -1;
+                params.viewH = -1;
+                params.renderer = ui.planet;
+                params.otherCamPos = null;
+                params.otherCamAlpha = 1f;
+                if(ui.planet != null){
+                    ui.planet.state = params;
+                    ui.planet.zoom = returnZoom;
+                    ui.planet.color.a = 1f;
+                }
+                if(root != null) root.visible = false;
+                return;
+            }
+
             if(!returning) applyMenuScene();
             // 标题用原版 logo 贴图；若首次安装时图集还没就绪，等同一层挂回来时再补建。
             if(titleLayer == null) buildTitle();
@@ -728,10 +1008,18 @@ public final class IronworksBetterMenu{
         /** 自定义地图/读档等路径不会主动调 ui.planet.hide()，进入游戏后在这里兜底清掉菜单背景层。 */
         private void guardGameLayer(){
             if(disposed || !menuLayerActive || !state.isGame()) return;
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
             menuLayerActive = false;
             returningToMenu = false;
             animating = false;
             campaignActive = false;
+            returnOverlayHold = false;
+            overlayFading = false;
+            overlayAlpha = 0f;
+            returnZoom = 1f;
+            params.uiAlpha = 0f;
             atmosphereTarget = 1f;
             center = 0f;
             centerTarget = 0f;
@@ -795,6 +1083,8 @@ public final class IronworksBetterMenu{
         }
 
         private void applyMenuScene(){
+            // 任何路径直接重排场景前，先撤掉仍在使用的淡出 shader，避免把自定义 shader 保存在隐藏快照里。
+            clearPlanetFade();
             if(menuSceneHidden || menuPlanet == null) return;
             if(menuRoot == null) menuRoot = menuPlanet.solarSystem;
             if(menuRoot == null) menuRoot = menuPlanet;
@@ -890,10 +1180,19 @@ public final class IronworksBetterMenu{
                 return;
             }
 
+            // 若玩家在返回菜单的星球淡出期间又点进战役，先把星球恢复为不透明再开始飞入。
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
             // 菜单和战役是同一个 ui.planet.mainView：这里只切参数/UI，不 show/hide 对话框，
             // 也没有第二层星球画面，所以不会出现两层画面对齐造成的错位或拉伸。
             center = 1f;
             returningToMenu = false;
+            returnOverlayHold = false;
+            overlayFading = true;
+            overlayAlpha = 0f;
+            overlayTarget = 1f;
+            returnZoom = 1f;
             atmosphereAlpha = 0f;
             atmosphereTarget = 1f;
             applyAtmosphereAlpha();
@@ -901,7 +1200,7 @@ public final class IronworksBetterMenu{
             if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             params.drawUi = true;
             params.drawSkybox = true;
-            params.uiAlpha = 1f;
+            params.uiAlpha = 0f;
             params.zoom = 1f;
             params.viewW = -1;
             params.viewH = -1;
@@ -935,8 +1234,15 @@ public final class IronworksBetterMenu{
 
         private void cancelTransition(){
             animating = false;
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
             returningToMenu = false;
             campaignActive = false;
+            returnOverlayHold = false;
+            overlayFading = false;
+            overlayAlpha = 0f;
+            returnZoom = 1f;
             centerTarget = 0f;
             center = 0f;
             atmosphereTarget = 1f;
@@ -944,7 +1250,7 @@ public final class IronworksBetterMenu{
             params.planet = menuCamera;
             params.renderer = null;
             params.drawUi = false;
-            params.uiAlpha = 1f;
+            params.uiAlpha = 0f;
             params.zoom = 0.9f;
             if(ui.planet != null){
                 ui.planet.color.a = 1f;
@@ -991,13 +1297,22 @@ public final class IronworksBetterMenu{
 
             if(backToMenu){
                 // 从战役返回菜单：沿用同一个 mainView，从战役视角连续拉回右侧菜单视角。
+                dialogHideSuppressed = true;
+                if(ui.planet != null) ui.planet.color.a = 1f;
+                clearPlanetFade();
+                planetFadeTried = false;
                 campaignActive = false;
                 returningToMenu = true;
                 animating = true;
                 menuLayerActive = true;
+                returnOverlayHold = true;
+                overlayFading = true;
+                overlayAlpha = params.uiAlpha;
+                overlayTarget = 0f;
                 atmosphereTarget = 0f;
                 center = 1f;
                 centerTarget = 0f;
+                returnZoom = params.zoom;
 
                 float camLen = params.camPos.len();
                 if(camLen > 0.0001f){
@@ -1008,51 +1323,42 @@ public final class IronworksBetterMenu{
                 // 战役里可能已经点选/切换到埃里克尔或模组星球；返回菜单时沿用当前星球。
                 Planet returned = (params.planet != null && params.planet != menuCamera) ? params.planet : settingPlanet();
                 selectMenuPlanet(returned);
+
+                // 先不切换相机：保持战役视角，把 uiAlpha 从 1 降到 0，让区块层淡出、
+                // HexSky 包裹层淡入；淡完再由 beginReturnCamera() 启动向右的镜头动画。
                 params.planet = menuPlanet;
-                params.renderer = null;
-                params.drawUi = false;
-                params.uiAlpha = 1f;
-                params.zoom = 1f;
+                params.renderer = ui.planet;
+                params.drawUi = true;
+                params.drawSkybox = true;
+                params.uiAlpha = overlayAlpha;
+                params.zoom = returnZoom;
                 params.otherCamPos = null;
                 params.otherCamAlpha = 1f;
+                params.viewW = -1;
+                params.viewH = -1;
                 if(ui.planet != null){
+                    ui.planet.state = params;
                     ui.planet.color.a = 1f;
-                    ui.planet.zoom = 1f;
+                    ui.planet.zoom = returnZoom;
                 }
+                if(root != null) root.visible = false;
 
-                // 这里故意不恢复菜单太阳/行星：返回动画期间保持战役完整太阳系，
-                // 相机拉到菜单位、菜单 UI 淡入后，再在 updateMenuState 末尾隐藏太阳/其它行星。
-                if(root != null) root.visible = true;
-                if(menuLayer != null){
-                    menuLayer.clearActions();
-                    menuLayer.translation.set(-60f, 0f);
-                    menuLayer.color.a = 0f;
-                    menuLayer.visible = true;
-                    menuLayer.addAction(Actions.parallel(
-                        Actions.translateBy(60f, 0f, 0.55f, Interp.pow3Out),
-                        Actions.fadeIn(0.45f, Interp.fade)
-                    ));
-                }
-                fadeTitleIn(0.5f);
-                if(submenu != null){
-                    submenu.clearActions();
-                    submenu.clearChildren();
-                    submenu.color.a = 0f;
-                }
-                if(ui.planet != null){
-                    resetGui(ui.planet.buttons);
-                    resetGui(ui.planet.sectorTop);
-                    resetGui(ui.planet.expandTable);
-                }
                 Core.app.post(() -> startNativeLayer(true));
                 return;
             }
 
             // 真正进入游戏：不要把 PlanetDialog 再挂回来。
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
             returningToMenu = false;
             animating = false;
             campaignActive = false;
             menuLayerActive = false;
+            returnOverlayHold = false;
+            overlayFading = false;
+            overlayAlpha = 0f;
+            returnZoom = 1f;
             atmosphereTarget = 1f;
             centerTarget = 0f;
             center = 0f;
@@ -1061,7 +1367,7 @@ public final class IronworksBetterMenu{
             params.planet = menuCamera;
             params.renderer = null;
             params.drawUi = false;
-            params.uiAlpha = 1f;
+            params.uiAlpha = 0f;
             params.zoom = 0.9f;
             if(ui.planet != null){
                 ui.planet.color.a = 1f;
@@ -1078,6 +1384,70 @@ public final class IronworksBetterMenu{
             restoreNativePlanet();
         }
 
+        private static final class FadePlanet{
+            final Planet planet;
+            final PlanetMesh mesh;
+            final Shader original;
+            final FadeShader fade;
+            final Color atmosphere;
+
+            FadePlanet(Planet planet, PlanetMesh mesh, Shader original, FadeShader fade){
+                this.planet = planet;
+                this.mesh = mesh;
+                this.original = original;
+                this.fade = fade;
+                this.atmosphere = new Color(planet.atmosphereColor);
+            }
+        }
+
+        /** 和原版 planet.frag 输出一致，只额外乘一个透明度；星球本体/太阳共用同一对 shader。 */
+        private abstract static class FadeShader extends Shader{
+            private static final String alphaFrag =
+                "varying vec4 v_col;\n" +
+                "uniform float u_alpha;\n" +
+                "void main(){\n" +
+                "    gl_FragColor = v_col;\n" +
+                "    gl_FragColor.a *= u_alpha;\n" +
+                "}";
+            float alpha = 1f;
+
+            FadeShader(String vertex){
+                super(shaderSource(vertex), alphaFrag);
+            }
+
+            @Override
+            public void apply(){
+                setUniformf("u_alpha", alpha);
+            }
+        }
+
+        /** 普通星球：HexMesh.preRender() 已经把光照写进 Shaders.planet，这里直接复用，避免每个星球编译一份。 */
+        private static final class PlanetFadeShader extends FadeShader{
+            PlanetFadeShader(){
+                super("planet.vert");
+            }
+
+            @Override
+            public void apply(){
+                super.apply();
+                setUniformf("u_lightdir", Shaders.planet.lightDir);
+                setUniformf("u_ambientColor", Shaders.planet.ambientColor);
+                setUniformf("u_campos", renderer.planets.cam.position);
+                setUniformf("u_emissive", Shaders.planet.emissive ? 1f : 0f);
+            }
+        }
+
+        /** 太阳等使用 unlit 的星球：只保留顶点色和 alpha。 */
+        private static final class UnlitFadeShader extends FadeShader{
+            UnlitFadeShader(){
+                super("unlit.vert");
+            }
+        }
+
+        private static String shaderSource(String name){
+            return Core.files.internal("shaders/" + name).readString();
+        }
+
         private void resetGui(Table t){
             if(t == null) return;
             t.clearActions();
@@ -1087,7 +1457,13 @@ public final class IronworksBetterMenu{
 
         void dispose(){
             disposed = true;
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
             menuLayerActive = false;
+            returnOverlayHold = false;
+            overlayFading = false;
+            overlayAlpha = 0f;
             restoreMenuScene();
             restoreAtmosphereBase();
             if(root != null && root.parent != null) root.parent.removeChild(root);
