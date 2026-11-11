@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.8.2.8，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.8.2.9，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -19,8 +19,9 @@ Mindustry 模组「铁流工业」v3.8.2.8，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.2.8 / md5 `c0b4f6715874d484716f74ac5ce0327f`，双端已部署（2026-11-11，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
-- 3.8.2.8 **严格回退 3.8.2.2**：源码与 `0ec3512`（3.8.2.2）逐字节一致。3.8.2.2 用 `returnOverlayHold` 保持战役相机、再用 `returnZoom` 从当前缩放插值到菜单目标来修复星球先放大；3.8.2.3–3.8.2.7 的 `beginSkybox` 返回期执行/`skyboxPrevFov`/`returnCameraZoom` 都动了共享 `cam.fov`/`params.zoom`，扰乱了这条修复，现已全部移除。星空不改（视频特征点 scale=1.0）。
+- 当前：v3.8.2.9 / md5 `018c51467a092283e735e83a41a47a27`，双端已部署（2026-11-12，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.8.2.9 **修复 3.8.2.2 缩放连锁反应**：3.8.2.2 的 `zoom = lerp(menuZoom, returnZoom, center)` 在 FOV 从 60° 收到 12° 时把 zoom 线性拉回 1，过渡中段相机过近，星球/太阳系先放大再缩小（默认参数下 `center=0.5` 时屏幕角尺寸 0.548，比菜单目标 0.433 大 27%；3.8.2.1 稳定在 0.424–0.433）。改为按屏幕角尺寸插值：起点 `returnZoom`/60°、终点 `menuZoom`/当前 FOV，再反解 zoom；默认 `returnZoom=1` 时尺寸曲线与 3.8.2.1 基本一致，战役缩放过也能连续。星空 FOV：返回保持阶段显式锁回 60°，`beginSkybox()` 保存实际 FOV、只临时用 60° 画天空盒，`endSkybox()` 原样恢复；不再依赖过期 `menuFov`。3.8.2.2 的覆盖层交叉淡化、其它星球淡出、横向挤压抑制、直接重挂对话框均保留。
+- 3.8.2.8 **严格回退 3.8.2.2（已被 3.8.2.9 纠正）**：源码与 `0ec3512`（3.8.2.2）逐字节一致。当时以为 3.8.2.2 的 `returnOverlayHold`/`returnZoom` 是星球放大修复；复查证明 `returnZoom` 线性插值本身正是放大来源，3.8.2.3–3.8.2.7 只是叠加了 FOV/zoom 干扰。3.8.2.9 已保留 3.8.2.2 的有效修复并改写返回缩放曲线。
 - 3.8.2.7 **锁定返回 zoom 目标**：录屏逐帧匹配星球红色特征点，1.4s→1.45s 放大约3%，1.7s 缩到约0.83，而星空点匹配 scale=1，确认不是星空/FOV。根因是 `PlanetDialog.act()` 的 `state.zoom = lerpDelta(...)` 覆盖/滞后 `params.zoom`；FOV 先收窄，星球先变大，zoom 追上后再缩小。新增 `returnCameraZoom`，在 `Trigger.uiDrawBegin`（scene.act 前）把 `params.zoom`/`ui.planet.zoom` 锁到本帧目标；只改返回 zoom，不改 FOV/相机位置/星空。
 - 3.8.2.6 **源码严格回退 3.8.2.2 + 只修星空**：`src/ironworks/IronworksBetterMenu.java` 已整体恢复到 3.8.2.2（`0ec3512`），3.8.2.3–3.8.2.5 的相机 FOV/`endSkybox`/返回保持改动全部撤销；只额外在 `beginSkybox()` 绘制前保存当前 `cam.fov`、临时设 60°，`endSkybox()` 原样恢复，并让它在 `returnOverlayHold` 期间也执行。星球 zoom/相机位置/返回路径未改。
 - 3.8.2.5 **返回保持阶段不改星球 FOV**：3.8.2.4 允许 `beginSkybox()` 在 `returnOverlayHold` 期间执行并恢复“当前 FOV”，若当前是菜单窄 FOV，会把星球层留在窄 FOV，表现为先放大再缩小右移。现在恢复 3.8.2.2 的跳过逻辑，返回保持阶段完全不碰相机 FOV；正常菜单/向右移动阶段仍只临时给天空盒 60°，其余功能不变。
@@ -86,6 +87,7 @@ Mindustry 模组「铁流工业」v3.8.2.8，Java 编写，自研多配方库 + 
 - 3.6.1.0 验证：T218（真实发射 5 道激光后的建筑穿透）、T222（270/420/穿透 5/能量/5 道/音效）、T223（5 个目标受伤、第 6 个满血）、T224/T225 通过；T203–T225 定向 **23/23**。
 - 3.6.2.0 验证：T226–T233 新增 8 项全过（建造时间、蜂群、读档血量、4×6 预览、占位块存档、日志器可见性、原版弹药抽样、剩余固定/模组炮塔弹药）；T203–T233 定向 **31/31**。全量回归复跑到 T79 仍卡住（已知环境问题），不宣称全量通过。
 - 3.7.0.1 验证：T226–T233 定向 8/8；T203–T233 定向 **31/31**；T224 单跑 1/1。主界面是客户端 GPU UI，无头环境不渲染，需实机确认菜单尺寸、右侧星球、拖动方向、120 秒自转和无缝过渡；本版不宣称 UI 自动化通过。
+- 3.8.2.9 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；返回缩放曲线按公式离线复核（起点/终点精确、无中段过冲），无头端不加载 GPU/PlanetDialog，实机录屏仍需确认星球/太阳系/星空。
 - 3.8.2.8 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；无头端不加载 GPU/PlanetDialog，星球放大是否按 3.8.2.2 修复效果消失仍需实机录屏确认。
 - 3.8.2.7 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；无头端不加载 GPU/PlanetDialog，星球是否还会先放大仍需实机录屏确认。
 - 3.8.2.6 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；无头端不加载 GPU/PlanetDialog，星空是否恢复、星球是否保持 3.8.2.2 原运动仍需实机确认。

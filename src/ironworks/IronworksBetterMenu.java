@@ -257,8 +257,8 @@ public final class IronworksBetterMenu{
         private Seq<FadePlanet> planetFades;
         private FadeShader planetFadeShader, unlitFadeShader;
         private static Field planetMeshShaderField;
-        /** 星空绘制前临时切到战役 FOV，画完立刻恢复，避免窄 FOV 把星空放糊。 */
-        private float menuFov = MENU_FOV;
+        /** 天空盒单次绘制前保存的实际相机 FOV；画完只恢复到绘制前的值。 */
+        private float skyboxPrevFov = CAMPAIGN_FOV;
         private boolean skyboxWide;
         private boolean dragging;
         private float lastX, lastY;
@@ -809,7 +809,9 @@ public final class IronworksBetterMenu{
         }
 
         private void beginSkybox(){
-            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            // 只给天空盒这一次绘制临时用 60°；保存实际值，绘制后原样恢复，绝不把星球层留在窄 FOV。
+            skyboxPrevFov = ui.planet.planets.cam.fov;
             skyboxWide = true;
             ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             ui.planet.planets.cam.update();
@@ -819,9 +821,30 @@ public final class IronworksBetterMenu{
             if(!skyboxWide) return;
             skyboxWide = false;
             if(ui.planet != null && ui.planet.planets != null){
-                ui.planet.planets.cam.fov = menuFov;
+                ui.planet.planets.cam.fov = skyboxPrevFov;
                 ui.planet.planets.cam.update();
             }
+        }
+
+        /**
+         * 返回过渡按“屏幕角尺寸”插值，而不是直接线性插值 zoom。
+         * 直接 lerp(menuZoom, returnZoom, center) 在 fov 已收窄、zoom 仍接近 1 时会把
+         * 星球和太阳系整体放大；这里保证起点是战役当前角尺寸、终点是菜单角尺寸。
+         */
+        private float transitionZoom(float menuZoom, float fov, float radius, float planetRadius){
+            float startSize = angularSize(returnZoom, CAMPAIGN_FOV, radius, planetRadius);
+            float menuSize = angularSize(menuZoom, fov, radius, planetRadius);
+            float size = Mathf.lerp(menuSize, startSize, center);
+            float halfTan = (float)Math.tan(size * Math.tan(fov * Mathf.degRad * 0.5f));
+            if(halfTan <= 0.0001f) return menuZoom;
+            return planetRadius / halfTan / (radius * 2f) - 1f;
+        }
+
+        /** 星球半径占屏幕纵向的比例；用于在 FOV/zoom 同时变化时保持视觉尺寸连续。 */
+        private float angularSize(float zoom, float fov, float radius, float planetRadius){
+            float distance = radius * PlanetRenderer.camLength + (zoom - 1f) * radius * 2f;
+            if(distance <= 0.0001f) return 0f;
+            return (float)(Math.atan2(planetRadius, distance) / Math.tan(fov * Mathf.degRad * 0.5f));
         }
 
         private void applyAtmosphereAlpha(){
@@ -874,9 +897,8 @@ public final class IronworksBetterMenu{
             float targetLength = campaignLength
                 * (float)(Math.tan(CAMPAIGN_FOV * Mathf.degRad * 0.5f) / Math.tan(fov * Mathf.degRad * 0.5f));
             float menuZoom = 1f + (targetLength - campaignLength) / (radius * 2f);
-            float zoom = returningToMenu ? Mathf.lerp(menuZoom, returnZoom, center) : menuZoom;
+            float zoom = returningToMenu ? transitionZoom(menuZoom, fov, radius, menuPlanet.radius) : menuZoom;
 
-            menuFov = fov;
             if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = fov;
             params.planet = menuCamera;
             params.drawUi = false;
@@ -1323,6 +1345,11 @@ public final class IronworksBetterMenu{
                 // 战役里可能已经点选/切换到埃里克尔或模组星球；返回菜单时沿用当前星球。
                 Planet returned = (params.planet != null && params.planet != menuCamera) ? params.planet : settingPlanet();
                 selectMenuPlanet(returned);
+                // 返回保持阶段就是战役视角；显式锁回 60°，避免上一帧菜单/天空盒的窄 FOV 残留放大星球和星空。
+                if(ui.planet != null && ui.planet.planets != null){
+                    ui.planet.planets.cam.fov = CAMPAIGN_FOV;
+                    ui.planet.planets.cam.update();
+                }
 
                 // 先不切换相机：保持战役视角，把 uiAlpha 从 1 降到 0，让区块层淡出、
                 // HexSky 包裹层淡入；淡完再由 beginReturnCamera() 启动向右的镜头动画。
