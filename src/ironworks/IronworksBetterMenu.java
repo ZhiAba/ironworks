@@ -809,7 +809,7 @@ public final class IronworksBetterMenu{
         }
 
         private void beginSkybox(){
-            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
             skyboxWide = true;
             ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             ui.planet.planets.cam.update();
@@ -819,7 +819,8 @@ public final class IronworksBetterMenu{
             if(!skyboxWide) return;
             skyboxWide = false;
             if(ui.planet != null && ui.planet.planets != null){
-                ui.planet.planets.cam.fov = menuFov;
+                // 返回前半段仍保持战役视角，天空盒画完后不能把星球层切回菜单窄 FOV。
+                ui.planet.planets.cam.fov = (campaignActive || returnOverlayHold) ? CAMPAIGN_FOV : menuFov;
                 ui.planet.planets.cam.update();
             }
         }
@@ -1323,6 +1324,11 @@ public final class IronworksBetterMenu{
                 // 战役里可能已经点选/切换到埃里克尔或模组星球；返回菜单时沿用当前星球。
                 Planet returned = (params.planet != null && params.planet != menuCamera) ? params.planet : settingPlanet();
                 selectMenuPlanet(returned);
+                // 返回前半段是战役视角；显式锁回 60°，防止上一帧菜单/天空盒的窄 FOV 残留。
+                if(ui.planet != null && ui.planet.planets != null){
+                    ui.planet.planets.cam.fov = CAMPAIGN_FOV;
+                    ui.planet.planets.cam.update();
+                }
 
                 // 先不切换相机：保持战役视角，把 uiAlpha 从 1 降到 0，让区块层淡出、
                 // HexSky 包裹层淡入；淡完再由 beginReturnCamera() 启动向右的镜头动画。
