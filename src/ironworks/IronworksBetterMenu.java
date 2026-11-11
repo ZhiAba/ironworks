@@ -93,6 +93,11 @@ public final class IronworksBetterMenu{
         if(custom != null) custom.endSkybox();
     }
 
+    /** 进入游戏后确保主菜单的 PlanetDialog 背景不会残留；战役里用户主动打开星球界面时不能误关。 */
+    private static void guardGameLayer(){
+        if(custom != null) custom.guardGameLayer();
+    }
+
     public static void init(){
         Core.settings.defaults(KEY, true);
         preloadPlanet();
@@ -104,6 +109,7 @@ public final class IronworksBetterMenu{
         Events.run(EventType.Trigger.update, IronworksBetterMenu::updateAtmosphere);
         Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::beginSkybox);
         Events.run(EventType.Trigger.universeDraw, IronworksBetterMenu::endSkybox);
+        Events.run(EventType.Trigger.update, IronworksBetterMenu::guardGameLayer);
         if(!resizeHook){
             resizeHook = true;
             Events.on(EventType.ResizeEvent.class, e -> {
@@ -203,6 +209,8 @@ public final class IronworksBetterMenu{
         private Seq<Planet> hiddenPlanets;
         private Seq<SavedShell> savedShells;
         private boolean campaignActive;
+        /** true 表示当前 ui.planet 是主菜单背景层，而不是游戏内用户主动打开的星球界面。 */
+        private boolean menuLayerActive;
         private boolean disposed;
         private boolean reopenPending;
         private boolean returningToMenu;
@@ -692,6 +700,7 @@ public final class IronworksBetterMenu{
             }else{
                 cancelDialogHide();
             }
+            menuLayerActive = true;
             cacheNativeMainView();
 
             // 菜单 UI 必须是 ui.planet 之后加入 Scene 的独立 UI 层，才能盖在原生星球上；
@@ -714,6 +723,28 @@ public final class IronworksBetterMenu{
             if(titleLayer == null) buildTitle();
             fadeTitleIn(0.55f);
             updateMenuState();
+        }
+
+        /** 自定义地图/读档等路径不会主动调 ui.planet.hide()，进入游戏后在这里兜底清掉菜单背景层。 */
+        private void guardGameLayer(){
+            if(disposed || !menuLayerActive || !state.isGame()) return;
+            menuLayerActive = false;
+            returningToMenu = false;
+            animating = false;
+            campaignActive = false;
+            atmosphereTarget = 1f;
+            center = 0f;
+            centerTarget = 0f;
+            yaw = menuYaw;
+            pitch = menuPitch;
+            if(root != null) root.visible = false;
+            if(ui.planet != null && ui.planet.isShown()){
+                // 进入游戏不再需要菜单星球背景，立即移除，不播放 0.4 秒 Dialog 淡出。
+                ui.planet.hide(Actions.remove());
+            }
+            restoreMenuScene();
+            restoreAtmosphereBase();
+            restoreNativePlanet();
         }
 
         /** 取消 Dialog.hide() 的淡出，同时摘掉 hide 临时添加的触摸拦截器。 */
@@ -828,6 +859,9 @@ public final class IronworksBetterMenu{
             }
 
             animating = true;
+            // 反向过渡：进入战役时先把被菜单隐藏的其它行星/太阳系恢复出来，
+            // 镜头从菜单窄 FOV 拉回战役视角时它们自然飞回，而不是等 openCampaign 后瞬间出现。
+            restoreMenuScene();
             atmosphereTarget = 0f;
             fadeTitleOut(0.28f);
             menuYaw = yaw;
@@ -882,6 +916,7 @@ public final class IronworksBetterMenu{
             restoreMenuScene();
             setNativeCampaignUi(true);
             campaignActive = true;
+            menuLayerActive = true;
             if(root != null) root.visible = false;
 
             // 只让原生 UI 层淡入；星球画面完全不透明，不做全屏 alpha/缓冲。
@@ -917,6 +952,7 @@ public final class IronworksBetterMenu{
             }
             applyMenuScene();
             setNativeCampaignUi(false);
+            menuLayerActive = true;
             if(titleLayer != null) titleLayer.color.a = 1f;
             if(root != null) root.visible = true;
             if(ui.planet != null && !ui.planet.isShown()) Core.app.post(this::startNativeLayer);
@@ -945,7 +981,10 @@ public final class IronworksBetterMenu{
         void onPlanetHidden(){
             if(disposed) return;
 
-            boolean backToMenu = state.isMenu();
+            // 启动地图时 loadAnd() 会先显示加载层再调用 PlanetDialog.hide()，此时状态仍是菜单；
+            // 不能把它当成“返回主菜单”，否则会把背景层重新 show 出来并残留到游戏里。
+            boolean enteringGame = ui.loadfrag != null && ui.loadfrag.shown();
+            boolean backToMenu = state.isMenu() && !enteringGame;
             dragging = false;
             pointer = -1;
             currentMenu = null;
@@ -955,6 +994,7 @@ public final class IronworksBetterMenu{
                 campaignActive = false;
                 returningToMenu = true;
                 animating = true;
+                menuLayerActive = true;
                 atmosphereTarget = 0f;
                 center = 1f;
                 centerTarget = 0f;
@@ -1012,6 +1052,7 @@ public final class IronworksBetterMenu{
             returningToMenu = false;
             animating = false;
             campaignActive = false;
+            menuLayerActive = false;
             atmosphereTarget = 1f;
             centerTarget = 0f;
             center = 0f;
@@ -1027,6 +1068,7 @@ public final class IronworksBetterMenu{
                 ui.planet.zoom = 0.9f;
             }
             restoreMenuScene();
+            restoreAtmosphereBase();
             if(root != null) root.visible = false;
             if(ui.planet != null){
                 resetGui(ui.planet.buttons);
@@ -1045,6 +1087,7 @@ public final class IronworksBetterMenu{
 
         void dispose(){
             disposed = true;
+            menuLayerActive = false;
             restoreMenuScene();
             restoreAtmosphereBase();
             if(root != null && root.parent != null) root.parent.removeChild(root);
