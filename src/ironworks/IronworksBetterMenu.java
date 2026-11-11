@@ -259,6 +259,7 @@ public final class IronworksBetterMenu{
         private static Field planetMeshShaderField;
         /** 星空绘制前临时切到战役 FOV，画完立刻恢复，避免窄 FOV 把星空放糊。 */
         private float menuFov = MENU_FOV;
+        /** 只用于天空盒那一次绘制：保存/恢复前后完全相同的相机 FOV，不参与星球层。 */
         private float skyboxPrevFov = CAMPAIGN_FOV;
         private boolean skyboxWide;
         private boolean dragging;
@@ -810,9 +811,9 @@ public final class IronworksBetterMenu{
         }
 
         private void beginSkybox(){
-            // 返回保持阶段保持 3.8.2.2 的相机/FOV 行为；这里绝不改星球层 FOV。
-            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
-            // 只临时改天空盒这一笔的 FOV；保存并原样恢复，绝不参与/改变返回相机运动。
+            // 3.8.1.5 的经验：天空盒始终用 60° FOV 绘制，但只在这一次绘制期间生效。
+            // 返回保持阶段也要执行；只保存/恢复 FOV，不碰 zoom、相机位置或星球层。
+            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
             skyboxPrevFov = ui.planet.planets.cam.fov;
             skyboxWide = true;
             ui.planet.planets.cam.fov = CAMPAIGN_FOV;
