@@ -116,11 +116,6 @@ public final class IronworksBetterMenu{
         if(custom != null) custom.keepDialogOpaque();
     }
 
-    /** 在 scene.act() 之前把返回缩放锁到目标值，避免 PlanetDialog.act() 的 lerp 覆盖 params.zoom。 */
-    private static void lockReturnZoomLayer(){
-        if(custom != null) custom.lockReturnZoom();
-    }
-
     public static void init(){
         Core.settings.defaults(KEY, true);
         preloadPlanet();
@@ -131,7 +126,6 @@ public final class IronworksBetterMenu{
         Events.run(EventType.Trigger.update, IronworksBetterMenu::sync);
         Events.run(EventType.Trigger.update, IronworksBetterMenu::updateAtmosphere);
         Events.run(EventType.Trigger.uiDrawBegin, IronworksBetterMenu::keepDialogOpaqueLayer);
-        Events.run(EventType.Trigger.uiDrawBegin, IronworksBetterMenu::lockReturnZoomLayer);
         Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::beginSkybox);
         Events.run(EventType.Trigger.universeDraw, IronworksBetterMenu::endSkybox);
         Events.run(EventType.Trigger.update, IronworksBetterMenu::guardGameLayer);
@@ -257,8 +251,6 @@ public final class IronworksBetterMenu{
         private boolean returnOverlayHold;
         /** 从战役返回时保留玩家缩放，随镜头一起过渡到菜单尺寸。 */
         private float returnZoom = 1f;
-        /** 返回过渡当前帧的目标 zoom；每帧 scene.act() 前锁回，防止原生 PlanetDialog.act() 的 lerp 造成先放大再缩小。 */
-        private float returnCameraZoom = 1f;
         /** 返回菜单末尾对非选中星球做真正的透明度渐隐，避免被遮挡的星球在隐藏时突然消失。 */
         private boolean planetFadeActive, planetFadeTried, planetFadeFinishing;
         private float planetFadeAlpha = 1f;
@@ -267,8 +259,6 @@ public final class IronworksBetterMenu{
         private static Field planetMeshShaderField;
         /** 星空绘制前临时切到战役 FOV，画完立刻恢复，避免窄 FOV 把星空放糊。 */
         private float menuFov = MENU_FOV;
-        /** 只用于天空盒那一次绘制：保存/恢复前后完全相同的相机 FOV，不参与星球层。 */
-        private float skyboxPrevFov = CAMPAIGN_FOV;
         private boolean skyboxWide;
         private boolean dragging;
         private float lastX, lastY;
@@ -619,13 +609,6 @@ public final class IronworksBetterMenu{
             if(ui.planet.isShown()) cancelDialogHide();
         }
 
-        /** 只锁定返回过渡的相机 zoom，不碰 FOV/相机位置/星空。 */
-        private void lockReturnZoom(){
-            if(disposed || !returningToMenu || ui.planet == null) return;
-            params.zoom = returnCameraZoom;
-            ui.planet.zoom = returnCameraZoom;
-        }
-
         /** 大气层没有独立的 alpha uniform，这里缩放它的颜色强度来淡出/淡入。 */
         private void updateAtmosphere(){
             if(disposed) return;
@@ -826,10 +809,7 @@ public final class IronworksBetterMenu{
         }
 
         private void beginSkybox(){
-            // 3.8.1.5 的经验：天空盒始终用 60° FOV 绘制，但只在这一次绘制期间生效。
-            // 返回保持阶段也要执行；只保存/恢复 FOV，不碰 zoom、相机位置或星球层。
-            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
-            skyboxPrevFov = ui.planet.planets.cam.fov;
+            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
             skyboxWide = true;
             ui.planet.planets.cam.fov = CAMPAIGN_FOV;
             ui.planet.planets.cam.update();
@@ -839,7 +819,7 @@ public final class IronworksBetterMenu{
             if(!skyboxWide) return;
             skyboxWide = false;
             if(ui.planet != null && ui.planet.planets != null){
-                ui.planet.planets.cam.fov = skyboxPrevFov;
+                ui.planet.planets.cam.fov = menuFov;
                 ui.planet.planets.cam.update();
             }
         }
@@ -895,7 +875,6 @@ public final class IronworksBetterMenu{
                 * (float)(Math.tan(CAMPAIGN_FOV * Mathf.degRad * 0.5f) / Math.tan(fov * Mathf.degRad * 0.5f));
             float menuZoom = 1f + (targetLength - campaignLength) / (radius * 2f);
             float zoom = returningToMenu ? Mathf.lerp(menuZoom, returnZoom, center) : menuZoom;
-            if(returningToMenu) returnCameraZoom = zoom;
 
             menuFov = fov;
             if(ui.planet != null && ui.planet.planets != null) ui.planet.planets.cam.fov = fov;
@@ -1005,7 +984,6 @@ public final class IronworksBetterMenu{
                 params.drawSkybox = true;
                 params.uiAlpha = overlayAlpha;
                 params.zoom = returnZoom;
-                returnCameraZoom = returnZoom;
                 params.viewW = -1;
                 params.viewH = -1;
                 params.renderer = ui.planet;
@@ -1335,7 +1313,6 @@ public final class IronworksBetterMenu{
                 center = 1f;
                 centerTarget = 0f;
                 returnZoom = params.zoom;
-                returnCameraZoom = returnZoom;
 
                 float camLen = params.camPos.len();
                 if(camLen > 0.0001f){
