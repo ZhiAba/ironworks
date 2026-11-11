@@ -810,7 +810,8 @@ public final class IronworksBetterMenu{
         }
 
         private void beginSkybox(){
-            if(disposed || campaignActive || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
+            // 返回保持阶段保持 3.8.2.2 的相机/FOV 行为；这里绝不改星球层 FOV。
+            if(disposed || campaignActive || returnOverlayHold || !state.isMenu() || ui.planet == null || ui.planet.planets == null) return;
             // 只临时改天空盒这一笔的 FOV；保存并原样恢复，绝不参与/改变返回相机运动。
             skyboxPrevFov = ui.planet.planets.cam.fov;
             skyboxWide = true;
