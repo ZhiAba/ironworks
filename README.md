@@ -26,6 +26,7 @@ Mindustry 160.x 的 Java 模组：从铁砂、钢铁和铝开始，一路搭到�
 详细机制与版本记录：
 
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — 全量变更记录
+- [`docs/LESSONS.md`](docs/LESSONS.md) — 工程复盘、通用排障与变更纪律
 - [`docs/COMBAT-SYSTEM.md`](docs/COMBAT-SYSTEM.md) — 伤害公式与战斗管线
 - [`docs/RBMK-BALANCE.md`](docs/RBMK-BALANCE.md) — 反应堆热工与平衡
 - [`docs/TEST-INDEX.md`](docs/TEST-INDEX.md) — 无头回归索引
