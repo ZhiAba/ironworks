@@ -346,6 +346,8 @@ public final class IronworksBetterMenu{
             menuLayer.visible(() -> !campaignActive);
 
             float leftGutter = Math.max(Scl.scl(44f), 70f);
+            // 手机版顶部太贴边：用一整行空高度把按钮列下移一个按键高度。
+            menuLayer.add().height(MENU_HEIGHT).colspan(3).row();
             menuLayer.add().width(leftGutter);
 
             panel = new Table();
@@ -450,17 +452,18 @@ public final class IronworksBetterMenu{
 
             titleLayer = new Table();
             titleLayer.setFillParent(true);
-            titleLayer.top();
+            titleLayer.left().top();
             titleLayer.touchable = Touchable.disabled;
             titleLayer.color.a = 0f;
 
             float logoscl = Scl.scl(1f) * logo.scale;
-            // 原版 logo 在桌面大屏约占屏宽 40%；手机竖屏不能直接铺到 70%+，否则标题压过菜单。
-            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() * 0.42f);
+            // 标题不再居中：缩到屏宽约 48%，从左侧 34% 处开始，落在右上区域。
+            float logow = Math.min(logo.width * logoscl, Core.graphics.getWidth() * 0.48f);
             float logoh = logow * (float)logo.height / logo.width;
+            float left = Core.graphics.getWidth() * 0.34f;
             // 与 MenuFragment.draw() 的原版 logo 位置一致：离内容区顶部 6px，竖屏再下移 30px。
             float top = Core.scene.marginTop + 6f + (Core.graphics.isPortrait() ? Scl.scl(30f) : 0f);
-            titleLayer.add(new Image(logo)).size(logow, logoh).padTop(top);
+            titleLayer.add(new Image(logo)).size(logow, logoh).padLeft(left).padTop(top);
             root.addChild(titleLayer);
         }
 
