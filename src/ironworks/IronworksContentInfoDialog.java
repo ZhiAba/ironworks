@@ -153,6 +153,15 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
             addRow(extra, Core.bundle.get("ironworks.combat.material", "材质"), TargetMaterial.name(unit));
             addRow(extra, Core.bundle.get("ironworks.combat.weakness", "弱点"),
                 ElementCombo.weaknessName(unit));
+            if(unit.abilities != null){
+                for(mindustry.entities.abilities.Ability ability : unit.abilities){
+                    if(ability instanceof mindustry.entities.abilities.EnergyFieldAbility){
+                        addRow(extra, Core.bundle.get("ironworks.combat.ability-type", "多目标雷电"),
+                            DamageType.physical.coloredName() + DamageType.physical.separator()
+                                + DamageForm.ENERGY.localizedName());
+                    }
+                }
+            }
             return extra;
         }
         return null;
