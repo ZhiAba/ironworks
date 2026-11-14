@@ -50,6 +50,14 @@
 
 ## 3.8.x
 
+### 3.8.3.1 — 回归修复：退出菜单栏、单位属性 UI 与建筑结算
+
+- **进入战役后退出主菜单无菜单栏**：`beginCampaign()` 会把 `menuLayer` 淡到 0 并左移；从地图退出游戏不经过 `beginReturnCamera()`。非返回路径的 `startNativeLayer(false)` 现在会复位菜单层动作、位移与透明度。
+- **单位详情页属性显示**：`IronworksDamageUI` 按武器顺序找到单位武器 grayPanel 内的弹药面板，补上属性名、形态、穿透、Combo、过穿/护盾提示；玄武额外显示多目标雷电能力属性。
+- **建筑伤害重新接入**：原版 `Building.collision()` 会先按护甲结算 `buildingDamage`，带属性弹体只重写 `hitEntity` 会漏掉建筑。现在所有带属性弹体 `buildingDamage()` 返回 0，并在 `hitTile()` 调用 `Dmg.bulletBuildingHit()`；建筑不触发跳弹与过穿。海神主炮对 3520 血、30 甲墙的伤害为 3276.7，剩余 243.3。
+- **验证**：构建通过；T154、T226–T234 定向 **10/10**；`group ui` **3/3**。
+- **版本**：3.8.3.1。
+
 ### 3.8.3.0 — 战役退出修复、无属性/湮灭伤害与原版单位接入
 
 - **战役地图退出异常**：保留 3.8.2.10 的连续返回动画（`onPlanetHidden()` 的 `returnOverlayHold`/`beginReturnCamera()`/菜单按钮淡入全部不动）。实际修复只针对原生 `PlanetDialog`：首次 `show()` 完成 setup 后记录 `nativeSetupDone`，之后从战役/自定义地图返回只直接挂回同一层，不再重跑 `show()` 和 `shown()` 里的首次战役选择弹窗，避免星球选择层覆盖主菜单。

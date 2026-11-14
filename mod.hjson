@@ -5,7 +5,7 @@ author: "只会阿巴阿巴の屑"
 repo: "ZhiAba/ironworks"
 description: "从铁砂炼钢到元素弹药：完整冶金链、元素/无属性/湮灭伤害、RBMK-9 核电站、自动雷达与战术支援。伤害飘字、炮塔详情、敌人图鉴和左侧日志一应俱全。"
 
-version: 3.8.3.0
+version: 3.8.3.1
 minGameVersion: 160
 java: true
 
