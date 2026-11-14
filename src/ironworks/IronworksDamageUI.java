@@ -10,6 +10,8 @@ import arc.struct.ObjectMap;
 import arc.struct.Seq;
 import mindustry.Vars;
 import mindustry.ctype.UnlockableContent;
+import mindustry.type.UnitType;
+import mindustry.type.Weapon;
 import mindustry.entities.bullet.BulletType;
 import mindustry.ui.Styles;
 import mindustry.world.blocks.defense.turrets.Turret;
@@ -35,11 +37,14 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
     @Override
     public void show(UnlockableContent content){
         Turret turret = content instanceof Turret t ? t : null;
+        UnitType unit = content instanceof UnitType u ? u : null;
         if(turret != null) pushBulletPreview(turret);
         try{
             super.show(content);
             if(turret != null){
                 decorate(cont, turret);
+            }else if(unit != null){
+                decorateUnit(cont, unit);
             }
         }finally{
             if(turret != null) popBulletPreview();
@@ -82,7 +87,8 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
         for(Table panel : panels){
             if(index >= bullets.size) break;
             BulletType bullet = bullets.get(index++);
-            decoratePanel(panel, bullet, Dmg.typeOf(bullet, turret), turret);
+            decoratePanel(panel, bullet, Dmg.typeOf(bullet, turret),
+                Dmg.formOf(bullet, turret), Dmg.penOf(bullet, turret));
         }
     }
 
@@ -104,7 +110,7 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
         return null;
     }
 
-    private static void decoratePanel(Table panel, BulletType bullet, DamageType type, Turret turret){
+    private static void decoratePanel(Table panel, BulletType bullet, DamageType type, DamageForm form, ArmorPen pen){
         String areaWord = areaWord();
         String directSuffix = directSuffix();
         boolean changed = false;
@@ -132,9 +138,6 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
             panel.add("[lightgray]" + type.coloredName() + type.separator() + type.damageSuffix()).left();
         }
 
-        // 详情页里显示的是玩家炮塔的实际穿透收益，和 Dmg.bulletHit 的结算保持一致。
-        ArmorPen pen = Difficulty.precisionPen(Dmg.penOf(bullet, turret));
-        DamageForm form = Dmg.formOf(bullet, turret);
         panel.row();
         panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.form", "形态") + ":[] "
             + form.localizedName()).left();
@@ -159,6 +162,59 @@ public class IronworksDamageUI extends IronworksContentInfoDialog{
             panel.add("[lightgray]" + Core.bundle.get("ironworks.combat.ricochet-short"))
                 .left().wrap();
         }
+    }
+
+    /** 单位没有 Stat.ammo 区块，武器统计由 StatValues.weapons 生成；按同样的面板样式逐武器着色。 */
+    private static void decorateUnit(Table root, UnitType unit){
+        if(unit.weapons == null || unit.weapons.isEmpty()) return;
+
+        Seq<Weapon> visible = new Seq<>();
+        for(Weapon weapon : unit.weapons){
+            if(weapon == null || weapon.bullet == null || weapon.flipSprite || !weapon.hasStats(unit)) continue;
+            visible.add(weapon);
+        }
+        if(visible.isEmpty()) return;
+
+        Seq<Table> weaponPanels = new Seq<>();
+        collectWeaponPanels(root, weaponPanels);
+        int count = Math.min(visible.size, weaponPanels.size);
+        for(int i = 0; i < count; i++){
+            Weapon weapon = visible.get(i);
+            Table outer = weaponPanels.get(i);
+            Table ammo = findNestedAmmoPanel(outer);
+            decoratePanel(ammo == null ? outer : ammo, weapon.bullet,
+                Dmg.typeOf(weapon.bullet), Dmg.formOf(weapon.bullet), Dmg.penOf(weapon.bullet));
+        }
+    }
+
+    /**
+     * 顶层武器面板是 StatValues.weapons 的 grayPanel；它内部还会再套一层弹药 grayPanel。
+     * 只取“父级不是 grayPanel、但直接子级是 grayPanel”的顶层面板，避免把弹药面板重复配对。
+     */
+    private static void collectWeaponPanels(Element element, Seq<Table> out){
+        if(element instanceof Table table && table.getBackground() == Styles.grayPanel
+            && !(table.parent instanceof Table parent && parent.getBackground() == Styles.grayPanel)){
+            for(Element child : table.getChildren()){
+                if(child instanceof Table nested && nested.getBackground() == Styles.grayPanel){
+                    out.add(table);
+                    break;
+                }
+            }
+        }
+        if(element instanceof Group group){
+            for(Element child : group.getChildren()){
+                collectWeaponPanels(child, out);
+            }
+        }
+    }
+
+    private static Table findNestedAmmoPanel(Table outer){
+        for(Element child : outer.getChildren()){
+            if(child instanceof Table nested && nested.getBackground() == Styles.grayPanel){
+                return nested;
+            }
+        }
+        return null;
     }
 
     private static String trim(float value){
