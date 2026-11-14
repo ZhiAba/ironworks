@@ -5,6 +5,7 @@ import arc.math.Mathf;
 import arc.struct.FloatSeq;
 import arc.struct.ObjectMap;
 import arc.struct.Seq;
+import arc.struct.ObjectSet;
 import arc.util.Tmp;
 import mindustry.Vars;
 import mindustry.content.Blocks;
@@ -46,11 +47,15 @@ public class Dmg{
     /** 逐个弹体的属性形态覆盖：同一物品在不同炮塔里可以是不同属性/形态。 */
     public static final ObjectMap<BulletType, DamageType> bulletTypeOverrides = new ObjectMap<>();
     public static final ObjectMap<BulletType, DamageForm> bulletFormOverrides = new ObjectMap<>();
+    /** 无限穿透弹体不进入跳弹/过穿分支；过穿会把 100% 穿透变成 10%~30% 伤害。 */
+    private static final ObjectSet<BulletType> noExtremeBullets = new ObjectSet<>();
 
     /** 最近一次 hit 的结算细节，供飘字/UI 读取；游戏逻辑单线程调用。 */
     public static float lastEffectivePierce, lastArmorAbsorbed, lastDealt, lastComboMultiplier = 1f;
     public static float lastShieldAbsorbed, lastBodyDamage, lastArmorReduction;
     public static float lastElementResistance, lastEnergyResistance, lastRicochetChance;
+    /** 最近一次命中的“受到/造成最终伤害降低”比例。 */
+    public static float lastFinalReceived, lastFinalDealt;
     public static String lastComboName;
     /** 上一次命中是否触发跳弹/过穿。 */
     public static boolean lastRicochet, lastOverpen, lastShieldBlocked;
@@ -221,6 +226,13 @@ public class Dmg{
     }
 
     public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowExtremes, DamageForm form){
+        return hit(target, amount, type, applyStatus, showNumber, pen, allowExtremes, form, null);
+    }
+
+    /**
+     * 带攻击者的完整入口；攻击者只用于“造成最终伤害降低”，可传 null。
+     */
+    public static float hit(Healthc target, float amount, DamageType type, boolean applyStatus, boolean showNumber, ArmorPen pen, boolean allowExtremes, DamageForm form, Healthc source){
         if(target == null || amount <= 0f || target.dead()){
             resetLast();
             return 0f;
@@ -229,11 +241,28 @@ public class Dmg{
         DamageType t = type == null ? DamageType.physical : type;
         ArmorPen p = pen == null ? t.pen : pen;
         DamageForm f = form == null ? t.defaultForm : form;
+        // 无属性与动能互斥：调用方误传 KINETIC 时退回无属性形态，避免被当成物理动能。
+        if(t == DamageType.typeless && f == DamageForm.KINETIC) f = DamageForm.TYPELESS;
         resetLast();
 
         boolean numbers = showNumber && !Vars.headless;
         float shieldBefore = target instanceof Shieldc s ? Math.max(s.shield(), 0f) : 0f;
         float incoming = amount;
+
+        // 湮灭：不碰护盾/跳弹/过穿/护甲/抗性/Combo/状态，只在最后读取目标的“受到最终伤害降低”。
+        if(t == DamageType.annihilation){
+            lastFinalReceived = FinalDamage.received(target);
+            lastFinalDealt = 0f;
+            float finalDamage = Math.max(0f, incoming * (1f - lastFinalReceived));
+            float actual = applyBody(target, finalDamage, shieldBefore);
+            lastEffectivePierce = 1f;
+            lastDealt = finalDamage;
+            lastBodyDamage = actual;
+            if(numbers){
+                DamageNumbers.showHit(target, actual > 0.01f ? actual : finalDamage, 0f, 1f, 1f, t, false);
+            }
+            return finalDamage;
+        }
 
         // 1. 力场盾：非能量形态先扣盾，溢出部分才进入后续管线；能量形态直接穿盾。
         if(shieldBefore > 0f && !f.bypassShields){
@@ -322,6 +351,14 @@ public class Dmg{
         // 防浮点归零：未跳弹的最终伤害至少 1 或基础伤害的 5%，不再是 10% 刮痧。
         float floor = Math.max(1f, amount * 0.05f);
         finalDamage = Math.max(finalDamage, floor);
+
+        // 最终伤害修正：完整公式（含保底）之后乘算；真实伤害走 pierce()，不经过这里。
+        float finalReceived = FinalDamage.received(target);
+        float finalDealt = source == null ? 0f : FinalDamage.dealt(source);
+        finalDamage = Math.max(0f, finalDamage * (1f - finalDealt) * (1f - finalReceived));
+        lastFinalReceived = finalReceived;
+        lastFinalDealt = finalDealt;
+
         lastComboMultiplier = combo;
         lastComboName = ElementCombo.lastName;
 
@@ -385,6 +422,8 @@ public class Dmg{
         lastElementResistance = 0f;
         lastEnergyResistance = 0f;
         lastRicochetChance = 0f;
+        lastFinalReceived = 0f;
+        lastFinalDealt = 0f;
         lastComboMultiplier = 1f;
         lastComboName = null;
         lastRicochet = false;
@@ -617,8 +656,10 @@ public class Dmg{
                 amount *= Difficulty.precisionDamageMultiplier();
                 pen = Difficulty.precisionPen(pen);
             }
+            Healthc source = bullet.owner instanceof Healthc owner ? owner : null;
+            boolean allowExtremes = !noExtremeBullets.contains(type);
             hit(target, amount, type instanceof TypedBullet tb ? tb.dtype() : typeOf(bullet), true, true,
-                pen, true, form);
+                pen, allowExtremes, form, source);
             if(lastOverpen){
                 bullet.data = overpenMarker;
             }else if(lastRicochet){
@@ -689,6 +730,8 @@ public class Dmg{
             target = new TypedShrapnelBulletType(actualType);
         }else if(source instanceof RailBulletType){
             target = new TypedRailBulletType(actualType);
+        }else if(source instanceof LaserBoltBulletType){
+            target = new TypedLaserBoltBulletType(actualType, source.speed, source.damage);
         }else if(source instanceof LaserBulletType){
             target = new TypedLaserBulletType(actualType, source.damage);
         }else if(source instanceof BasicBulletType){
@@ -725,6 +768,7 @@ public class Dmg{
         target.fragBullet = retype(source.fragBullet, actualType, actualForm);
         target.intervalBullet = retype(source.intervalBullet, actualType, actualForm);
 
+        if(noExtremeBullets.contains(source)) noExtremeBullets.add(target);
         if(source.spawnBullets != null && source.spawnBullets.size > 0){
             target.spawnBullets = new Seq<>();
             for(BulletType bullet : source.spawnBullets){
@@ -802,6 +846,10 @@ public class Dmg{
 
         // 3b. 所有原版物品/液体/电力炮塔统一接管，避免只覆盖少数硬编码炮塔
         integrateVanillaTurrets();
+        // 3c. 海神主炮只继承恶兆更新后的伤害数值，不继承冷却/射程。
+        applyForeshadowToOmura();
+        // 3d. 原版单位武器默认物理·动能；激光/玄武雷电走能量形态。
+        integrateVanillaUnits();
 
         // 4. 原版液体炮弹：水 / 冰 / 火（渣）按弹种分开
         retypeLiquid((LiquidTurret) Blocks.tsunami, Liquids.water, DamageType.water, DamageForm.ENERGY);
@@ -909,6 +957,69 @@ public class Dmg{
                 }
             }
         }
+    }
+
+    /** 海神主炮只复制厄兆的伤害/穿透数值；装填、射程、弹速与建筑减伤保持海神自己。 */
+    private static void applyForeshadowToOmura(){
+        if(!(Blocks.foreshadow instanceof ItemTurret foreshadow) || foreshadow.ammoTypes == null) return;
+        BulletType src = foreshadow.ammoTypes.get(Items.surgeAlloy);
+        if(src == null) return;
+        if(mindustry.content.UnitTypes.omura == null || mindustry.content.UnitTypes.omura.weapons == null
+            || mindustry.content.UnitTypes.omura.weapons.isEmpty()) return;
+        mindustry.type.Weapon weapon = mindustry.content.UnitTypes.omura.weapons.first();
+        if(weapon == null || weapon.bullet == null) return;
+
+        BulletType dst = weapon.bullet;
+        noExtremeBullets.add(dst);
+        dst.damage = src.damage;
+        dst.pierce = src.pierce;
+        dst.pierceCap = src.pierceCap;
+        dst.pierceBuilding = src.pierceBuilding;
+        dst.pierceDamageFactor = src.pierceDamageFactor;
+        // 厄兆本体对建筑有 0.2 倍率；海神主炮按用户要求不继承这项减伤。
+        dst.buildingDamageMultiplier = 1f;
+
+        ArmorPen pen = bulletPens.get(src);
+        if(pen != null){
+            bulletPens.put(dst, pen);
+        }else{
+            pen(dst, 1f, 175f, 0.20f);
+        }
+    }
+
+    /** 原版单位武器接入：默认物理·动能，激光与死星/玄武走能量形态。 */
+    private static void integrateVanillaUnits(){
+        if(Vars.content == null || Vars.content.units() == null) return;
+
+        for(UnitType unit : Vars.content.units()){
+            if(unit == null || unit.weapons == null || unit.weapons.isEmpty()) continue;
+            if(unit.minfo != null && unit.minfo.mod != null) continue;
+
+            for(mindustry.type.Weapon weapon : unit.weapons){
+                if(weapon == null || weapon.bullet == null || weapon.bullet instanceof TypedBullet) continue;
+                DamageForm form = unitEnergy(unit, weapon.bullet) ? DamageForm.ENERGY : DamageForm.KINETIC;
+                BulletType copied = copy(weapon.bullet, DamageType.physical, form);
+                if(copied != weapon.bullet) weapon.bullet = copied;
+            }
+
+            if(unit == mindustry.content.UnitTypes.aegires && unit.abilities != null){
+                for(int i = 0; i < unit.abilities.size; i++){
+                    if(unit.abilities.get(i) instanceof mindustry.entities.abilities.EnergyFieldAbility field
+                        && !(field instanceof TypedEnergyFieldAbility)){
+                        unit.abilities.set(i, new TypedEnergyFieldAbility(field));
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean unitEnergy(UnitType unit, BulletType bullet){
+        if(unit == mindustry.content.UnitTypes.corvus) return true;
+        if(bullet == null) return false;
+        return bullet.laserBullet
+            || bullet instanceof LaserBoltBulletType
+            || bullet instanceof LaserBulletType
+            || bullet instanceof ContinuousLaserBulletType;
     }
 
     private static void registerIfAbsent(Object key, DamageType type, DamageForm form){

@@ -218,6 +218,10 @@ public class DamageNumbers{
         if(actual > 0){
             addPart(f, String.valueOf(actual), valueColor);
         }
+        // 新属性按“数值+完整属性名”直接显示，如“99无属性伤害”；其余属性保持简洁数值。
+        if(actual > 0 && (f.type == DamageType.typeless || f.type == DamageType.annihilation)){
+            addPart(f, f.type.damageSuffix(), valueColor);
+        }
         if(armor > 0){
             String detail = text("ironworks.damage-number-armor-detail", "（{0}-{1}%）", armor, pierce);
             addPart(f, detail, DETAIL_COLOR);

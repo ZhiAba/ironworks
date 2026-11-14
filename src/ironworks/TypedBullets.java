@@ -169,6 +169,18 @@ class TypedFlakBulletType extends FlakBulletType implements TypedBullet{
     }
 }
 
+/** 原版激光弹（LaserBolt）：保留直线绘制和 laserBullet=true，命中走属性结算。 */
+class TypedLaserBoltBulletType extends LaserBoltBulletType implements TypedBullet{
+    final DamageType dtype;
+    TypedLaserBoltBulletType(DamageType dtype, float speed, float damage){
+        super(speed, damage);
+        this.dtype = dtype;
+        armorMultiplier = 1f;
+    }
+    @Override public DamageType dtype(){ return dtype; }
+    @Override public void hitEntity(Bullet b, Hitboxc entity, float health){ Dmg.bulletHit(this, b, entity, health); }
+}
+
 class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
     final DamageType dtype;
     /** >0 时只固定绘制长度，不改变伤害穿透上限；磁轨炮用它做到“第 6 个目标挡不住特效但也不受伤”。 */

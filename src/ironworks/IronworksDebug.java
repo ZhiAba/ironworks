@@ -6,6 +6,7 @@ import mindustry.content.Items;
 import mindustry.content.Liquids;
 import mindustry.content.StatusEffects;
 import mindustry.content.UnitTypes;
+import mindustry.entities.bullet.BulletType;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.gen.Bullet;
@@ -254,6 +255,98 @@ public class IronworksDebug{
         sb.append(" apOverpen=").append(apOverpen);
         sb.append(" splashSkipped=").append(splashSkipped);
         sb.append(" wet=").append(wet);
+        return sb.toString();
+    }
+
+    /** v3.9 新属性与最终伤害修正回归。 */
+    public static String reworkTest(Building at){
+        StringBuilder sb = new StringBuilder();
+        float x = at.x, y = at.y;
+
+        Unit source = UnitTypes.dagger.spawn(Team.crux, x + 40f, y);
+        Unit typeless = UnitTypes.dagger.spawn(Team.crux, x + 80f, y);
+        Unit annihilate = UnitTypes.fortress.spawn(Team.crux, x + 120f, y);
+        Unit regular = UnitTypes.dagger.spawn(Team.crux, x + 160f, y);
+        Unit trueTarget = UnitTypes.dagger.spawn(Team.crux, x + 200f, y);
+        Unit omenCheck = UnitTypes.omura.spawn(Team.crux, x + 240f, y);
+        Unit corvusCheck = UnitTypes.corvus.spawn(Team.crux, x + 280f, y);
+
+        Resistance.set("dagger", DamageType.fire, 0.50f);
+        Resistance.setEnergy("dagger", 0.50f);
+
+        float h0 = typeless.health;
+        Dmg.hit(typeless, 100f, DamageType.typeless, false, false, ArmorPen.none, false, DamageForm.TYPELESS);
+        boolean typelessClean = Math.abs((h0 - typeless.health) - 100f) < 0.5f
+            && Math.abs(Dmg.lastElementResistance) < 0.001f
+            && Math.abs(Dmg.lastEnergyResistance) < 0.001f
+            && "null".equals(ElementCombo.auraName(typeless));
+
+        FinalDamage.setReceived("dagger", 0.25f);
+        FinalDamage.setReceived("fortress", 0.25f);
+        FinalDamage.setDealt("dagger", 0.50f);
+        annihilate.shield(50f);
+        float h1 = annihilate.health;
+        Dmg.hit(annihilate, 100f, DamageType.annihilation, true, false, ArmorPen.none, true, DamageForm.ANNIHILATION, source);
+        boolean annihilation = Math.abs((h1 - annihilate.health) - 75f) < 0.5f
+            && Math.abs(annihilate.shield() - 50f) < 0.01f
+            && !Dmg.lastRicochet && !Dmg.lastOverpen && !Dmg.lastShieldBlocked
+            && Math.abs(Dmg.lastArmorAbsorbed) < 0.01f
+            && Math.abs(Dmg.lastElementResistance) < 0.001f
+            && Math.abs(Dmg.lastEnergyResistance) < 0.001f
+            && Math.abs(Dmg.lastFinalReceived - 0.25f) < 0.001f
+            && Math.abs(Dmg.lastFinalDealt) < 0.001f;
+
+        float h2 = regular.health;
+        Dmg.hit(regular, 100f, DamageType.physical, false, false, ArmorPen.none, false, DamageForm.KINETIC, source);
+        boolean finalModifiers = Math.abs((h2 - regular.health) - 37.5f) < 0.5f
+            && Math.abs(Dmg.lastFinalReceived - 0.25f) < 0.001f
+            && Math.abs(Dmg.lastFinalDealt - 0.50f) < 0.001f;
+
+        float h3 = trueTarget.health;
+        Dmg.pierce(trueTarget, 100f, DamageType.annihilation);
+        boolean trueExempt = Math.abs((h3 - trueTarget.health) - 100f) < 0.5f;
+
+        boolean suffix = (DamageType.typeless.damageSuffix().contains("无属性")
+                || DamageType.typeless.damageSuffix().contains("typeless"))
+            && (DamageType.annihilation.damageSuffix().contains("湮灭")
+                || DamageType.annihilation.damageSuffix().contains("annihilation"))
+            && Math.abs(DamageType.typeless.color().r - 1f) < 0.001f
+            && Math.abs(DamageType.typeless.color().g - 1f) < 0.001f
+            && Math.abs(DamageType.typeless.color().b - 1f) < 0.001f
+            && Math.abs(DamageType.annihilation.color().r - 0x5b / 255f) < 0.01f
+            && Math.abs(DamageType.annihilation.color().g - 0x1a / 255f) < 0.01f
+            && Math.abs(DamageType.annihilation.color().b - 0x7a / 255f) < 0.01f;
+
+        // 原版单位接入：默认物理·动能；死星能量；海神主炮复制恶兆伤害/破片。
+        BulletType daggerBullet = UnitTypes.dagger.weapons.first().bullet;
+        BulletType corvusBullet = UnitTypes.corvus.weapons.first().bullet;
+        BulletType omuraBullet = UnitTypes.omura.weapons.first().bullet;
+        boolean units = daggerBullet instanceof TypedBullet
+            && Dmg.typeOf(daggerBullet) == DamageType.physical
+            && Dmg.formOf(daggerBullet) == DamageForm.KINETIC
+            && corvusBullet instanceof TypedBullet
+            && Dmg.formOf(corvusBullet) == DamageForm.ENERGY
+            && Math.abs(omuraBullet.damage - 3276.7f) < 0.01f
+            && omuraBullet.pierce && omuraBullet.pierceCap == -1 && omuraBullet.pierceBuilding
+            && Math.abs(omuraBullet.buildingDamageMultiplier - 1f) < 0.001f
+            && Math.abs(Dmg.penOf(omuraBullet).rate - 1f) < 0.001f
+            && Math.abs(Dmg.penOf(omuraBullet).flat - 175f) < 0.01f
+            && Math.abs(Dmg.penOf(omuraBullet).decay - 0.20f) < 0.001f;
+        boolean aegires = UnitTypes.aegires.abilities != null
+            && UnitTypes.aegires.abilities.contains(a -> a instanceof TypedEnergyFieldAbility);
+
+        source.remove(); typeless.remove(); annihilate.remove(); regular.remove();
+        trueTarget.remove(); omenCheck.remove(); corvusCheck.remove();
+        Resistance.clear();
+        FinalDamage.clear();
+
+        sb.append(" typelessClean=").append(typelessClean);
+        sb.append(" annihilation=").append(annihilation);
+        sb.append(" finalModifiers=").append(finalModifiers);
+        sb.append(" trueExempt=").append(trueExempt);
+        sb.append(" suffix=").append(suffix);
+        sb.append(" units=").append(units);
+        sb.append(" aegires=").append(aegires);
         return sb.toString();
     }
 

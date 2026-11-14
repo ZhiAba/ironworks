@@ -27,7 +27,7 @@ public final class Resistance{
     }
 
     public static float element(Healthc target, DamageType type){
-        if(target == null || type == null) return 0f;
+        if(target == null || type == null || !type.elemental) return 0f;
         float value = element(key(target), type);
         // 精英的“全元素抗性”只加在真正的元素上，物理伤害不吃这一项。
         if(type.elemental && Difficulty.isEnemyTarget(target)){
@@ -42,7 +42,7 @@ public final class Resistance{
     }
 
     public static float element(String key, DamageType type){
-        if(key == null || type == null) return 0f;
+        if(key == null || type == null || !type.elemental) return 0f;
         float[] values = elements.get(key);
         if(values == null || type.ordinal() >= values.length) return 0f;
         return clamp(values[type.ordinal()]);

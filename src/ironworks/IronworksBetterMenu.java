@@ -299,6 +299,8 @@ public final class IronworksBetterMenu{
         private boolean returningToMenu;
         /** 返回菜单期间压住 Dialog.hide() 的 alpha 淡出；<0.99 会让 PlanetDialog 走全屏 FBO 缓冲，造成几帧横向挤压。 */
         private boolean dialogHideSuppressed;
+        /** 原生 PlanetDialog 至少完成过一次 setup；之后返回菜单只直接挂回，避免 show() 重跑 shown()。 */
+        private boolean nativeSetupDone;
         private Element nativeMainView;
         private float menuYaw = 0.72f, menuPitch = 0.15f;
 
@@ -1080,6 +1082,34 @@ public final class IronworksBetterMenu{
             }
         }
 
+        /** 战役地图从主菜单退出：直接恢复菜单层，不播放“游戏→菜单”的返回动画。 */
+        private void restoreMenuLayer(){
+            dialogHideSuppressed = false;
+            clearPlanetFade();
+            planetFadeTried = false;
+            returningToMenu = false;
+            animating = false;
+            campaignActive = false;
+            menuLayerActive = true;
+            returnOverlayHold = false;
+            overlayFading = false;
+            overlayAlpha = 0f;
+            returnZoom = 1f;
+            atmosphereTarget = 1f;
+            center = 0f;
+            centerTarget = 0f;
+            restoreMenuScene();
+            restoreAtmosphereBase();
+            setNativeCampaignUi(false);
+            if(root != null) root.visible = true;
+            if(ui.planet != null){
+                ui.planet.color.a = 1f;
+                ui.planet.zoom = 0.9f;
+            }
+            // 用 returning=true：只取消 hide 动作并直接挂回，不再触发 PlanetDialog.shown()。
+            Core.app.post(() -> startNativeLayer(true));
+        }
+
         private void startNativeLayer(){
             startNativeLayer(false);
         }
@@ -1100,15 +1130,16 @@ public final class IronworksBetterMenu{
             ui.planet.state = params;
             ui.planet.color.a = 1f;
             configurePlanetDialog();
+            if(ui.planet.isShown()) nativeSetupDone = true;
             // 退出战役时 Dialog.hide() 的默认淡出还在跑，此时 isShown() 仍为 true；
             // 只判断 isShown() 会跳过 show，等淡出动作把对话框移出场景后就是一段黑屏。
             // 因此：已经彻底隐藏才 show；仍在隐藏动画中就只清掉动作并恢复不透明，
             // 不重复触发 PlanetDialog.shown() 的 setup()，相机和返回过渡保持连续。
             if(!ui.planet.isShown()){
-                if(returning){
-                    // 返回菜单时不要走 Dialog.show()：它会 pack/center 并重新触发 setup()，
-                    // 在主界面已经存在时可能让这一层短暂按不同尺寸重排，录屏中就是几帧横向挤压。
-                    // 这层在战役里刚显示过，直接按屏幕尺寸挂回即可，状态和子控件都还在。
+                if(nativeSetupDone){
+                    // 返回菜单/从游戏退出时不要走 Dialog.show()：它会重新触发 shown()，
+                    // 原生 PlanetDialog 的 shown() 里还带着首次战役选择弹窗，主菜单会被它盖住。
+                    // 这层此前已经 setup 过，直接按屏幕尺寸挂回即可，状态和子控件都还在。
                     ui.planet.color.a = 1f;
                     ui.planet.setSize(Core.graphics.getWidth(), Core.graphics.getHeight());
                     ui.planet.setPosition(0f, 0f);
@@ -1117,6 +1148,7 @@ public final class IronworksBetterMenu{
                     cancelDialogHide();
                 }else{
                     ui.planet.show(Core.scene, null);
+                    nativeSetupDone = true;
                 }
             }else{
                 cancelDialogHide();
@@ -1462,6 +1494,13 @@ public final class IronworksBetterMenu{
             dragging = false;
             pointer = -1;
             currentMenu = null;
+
+            // 从主菜单进入的战役地图：这里只是关掉战役层，不是从游戏退回菜单。
+            // 不能启动整段返回动画，否则菜单 root 会被藏起来，并可能把原生选择层重新挂回。
+            if(backToMenu && campaignActive){
+                restoreMenuLayer();
+                return;
+            }
 
             if(backToMenu){
                 // 从战役返回菜单：沿用同一个 mainView，从战役视角连续拉回右侧菜单视角。

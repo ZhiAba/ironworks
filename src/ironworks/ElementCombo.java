@@ -75,6 +75,8 @@ public final class ElementCombo{
         lastMultiplier = baseMultiplier;
         lastConsume = false;
         if(!(target instanceof Unit unit) || type == null) return baseMultiplier;
+        // 物理仍可作为“碎冰”的触发源；无属性/湮灭等非元素类型不参与附着。
+        if(type != DamageType.physical && !type.elemental) return baseMultiplier;
 
         cleanup();
         Aura aura = auras.get(unit);
@@ -109,7 +111,7 @@ public final class ElementCombo{
      * 绕过我们自己的 Combo 倍率；腐蚀是个例外，保留潮湿以支持酸蚀判定。
      */
     public static void apply(Unit unit, DamageType type){
-        if(unit == null || type == null || type == DamageType.physical) return;
+        if(unit == null || type == null || type == DamageType.physical || !type.elemental) return;
         Aura old = auras.get(unit);
         if(old != null && old.type.status != null && type != DamageType.corrosive){
             unit.unapply(old.type.status);

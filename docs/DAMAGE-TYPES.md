@@ -1,4 +1,4 @@
-# 属性伤害（v3.0.1：元素 × 形态）
+# 属性伤害（v3.9：元素 / 无属性 / 湮灭 × 形态）
 
 > v2.6 的线性衰减、10% 保底、按最大生命过穿已被 v3.0 的平方衰减、
 > 跳弹/过穿与四层防御管线取代。完整规则见 [`COMBAT-SYSTEM.md`](COMBAT-SYSTEM.md)。
@@ -6,7 +6,9 @@
 ## 两个正交维度
 
 - **元素**：物理 / 雷霆 / 水 / 冰 / 火 / 腐蚀，负责 Combo、Aura、元素抗性、腐蚀减甲。
-- **形态**：动能 / 能量 / 爆炸 / 切割，负责力场盾、跳弹、过穿、能量抗性。
+- **形态**：动能 / 能量 / 爆炸 / 切割 / 无属性 / 湮灭，负责力场盾、跳弹、过穿、能量抗性。
+- **无属性**：不是元素也不是动能；不参与 Combo，不吃元素/能量抗性，可继承能量等形态。飘字显示“99无属性伤害”。
+- **湮灭**：既非元素也非物理；不跳弹、不过穿，跳过护盾、护甲、元素/能量抗性、Combo 和状态，只吃“受到最终伤害降低”。飘字显示“99湮灭伤害”。
 
 `能量` 是形态，不再是元素；雷霆-动能（磁轨）与雷霆-能量（电弧）可以共存。能量形态无视原版力场投影器/单位力场墙与护甲乘区，只吃元素抗性、能量抗性和 Combo。
 
@@ -14,13 +16,14 @@
 
 | 类 | 作用 |
 |---|---|
-| `DamageType` | 6 元素、默认形态、默认穿透曲线、附着状态 |
-| `DamageForm` | 4 形态；`kinetic` / `bypassShields` 行为位 |
+| `DamageType` | 6 元素 + 无属性 + 湮灭、默认形态、穿透曲线、附着状态 |
+| `DamageForm` | 6 形态；`kinetic` / `bypassShields` 行为位 |
+| `FinalDamage` | 全单位“受到/造成最终伤害降低”，默认 0，真实伤害不读取 |
 | `ArmorPen` | 白值、基础穿透率、平方衰减、跳弹系数、K=100 减伤 |
 | `Resistance` | 元素抗性 / 能量抗性表，默认 0，上限 90% |
 | `Corrosion` | 永久减甲、潮湿酸蚀、15%/8% 上限 |
 | `ElementCombo` | 独立 Aura、6 条 Combo、状态消耗、弱点 |
-| `Dmg` | 盾→跳弹→过穿→穿透/减伤→抗性→Combo→扣血 |
+| `Dmg` | 盾→跳弹→过穿→穿透/减伤→抗性→Combo→最终减免→扣血 |
 | `DamageNumbers` | 跳弹/过穿/护盾/真伤/普通分类与合并 |
 | `IronworksDamageUI` | 炮塔详情、敌人图鉴 |
 | `IronworksCombatDialog` | 设置里的独立说明页 |
@@ -35,6 +38,8 @@
 | 冰 | 能量 | 40% | 15 | 0.35 | 0.02 | 冻结 2s |
 | 火 | 爆炸 | 25% | 10 | 0.45 | 0.02 | 燃烧 4s |
 | 腐蚀 | 动能 | 80% | 25 | 0.20 | 0.02 | 腐蚀 5s |
+| 无属性 | 无属性 | 65% | 18 | 0.30 | 0.02 | — |
+| 湮灭 | 湮灭 | — | — | — | — | — |
 
 具体弹种覆盖见 `COMBAT-SYSTEM.md` 第 3 节。
 
@@ -57,13 +62,22 @@ Dmg.hit(target, 240f, DamageType.thunder, true, true,
 // 范围伤害：不触发跳弹/过穿
 Dmg.area(team, x, y, 120f, 200f, DamageType.fire, false);
 
-// 真伤：红色“真伤”飘字
+// 湮灭：跳过护甲/抗性/护盾，只吃目标的“受到最终伤害降低”
+Dmg.hit(unit, 400f, DamageType.annihilation);
+
+// 带攻击者的最终伤害修正入口；null 表示无攻击者
+Dmg.hit(unit, 100f, DamageType.physical, true, true,
+    ArmorPen.none, false, DamageForm.KINETIC, sourceUnit);
+
+// 真伤：红色“真伤”飘字，不读取最终减免
 Dmg.pierce(unit, 9f, DamageType.thunder);
 ```
 
 新增元素：在 `DamageType` 枚举加一行，在 `Dmg.load()` 注册归属。
 新增弹体基类：在 `TypedBullets.java` 加 `TypedXxx extends Xxx`；`Dmg.copy()` 只复制已知基类，未知弹体原样保留。
 原版炮塔由 `Dmg.load()` 中的 `integrateVanillaTurrets()` 自动接入，物品/液体/电力炮塔都无需逐个写死。
+原版单位武器由 `integrateVanillaUnits()` 接管：默认物理·动能，激光与死星/玄武改能量形态。
+海神主炮由 `applyForeshadowToOmura()` 复制厄兆的伤害/穿透数值；无限穿透弹体不进入过穿分支。
 新增抗性：`Resistance.set("unit-name", DamageType.fire, 0.5f)`。
 
 ## 已知边界

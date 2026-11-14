@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.8.2.15，Java 编写，自研多配方库 + 属性伤害（元素 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.8.3.0，Java 编写，自研多配方库 + 属性伤害（元素/无属性/湮灭 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾/最终伤害减免）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -19,7 +19,8 @@ Mindustry 模组「铁流工业」v3.8.2.15，Java 编写，自研多配方库 +
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.2.15 / md5 `0c8d3a1c8dea5660e17dbf83cc5449c6`，双端已部署（2026-11-14，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.3.0 / md5 `88668ec46b07725e359b52dca8d3a6ff`，双端已部署（2026-11-14，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.15.bak`、`ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.8.3.0 **战役退出/通知定位/新伤害类型/原版单位接入**：战役地图从主菜单关闭时直接恢复菜单层，不再重跑 `PlanetDialog.shown()`；原生 `PlanetDialog` 首次 setup 后返回菜单只直接挂回。日志面板显式按全屏遮罩居中；左侧通知条夹在左上 HUD 实际底边与左下指挥按钮（含 commandMode 队列层）实际顶边之间。新增无属性/湮灭伤害与全单位最终伤害降低；原版单位武器默认物理·动能，激光/死星/玄武能量形态；海神主炮复制厄兆 3276.7/100%/175/0.2 数值，建筑倍率保持 1。
 - 3.8.2.15 **热开启/退出游戏黑屏淡入**：热开启菜单安装完成后先铺全黑层，延迟 0.1 秒再 0.5 秒淡出；游戏 `state.isGame()→state.isMenu()` 后等 `isSettled()` 再从黑屏淡入，期间黑层 `toFront` 并拦截触摸。
 - 3.8.2.14 **高缩放菜单/通知条/描边**：主菜单按钮列放入 `ScrollPane`，300% UI 缩放下可纵向滚动；`IronworksSidebar` 高度按 `屏幕高度/Scl - 260` 动态限制在 180–520；左侧通知条与日志面板改用原版 `Tex.pane` 九宫格边框。
 - 3.8.2.13 **修正标题/黑底 Scl 尺寸 + 关于按钮**：标题改为逻辑像素计算（屏宽 48%、左 34%），不再被二次 Scl 放大；`menuBackdrop` 宽度取 `panel.getWidth()`，覆盖整列文字；删除红色 i，改为“设置”和“退出”之间的灰色 `Icon.info` 关于按钮，并移除数据库子菜单重复项。
@@ -93,6 +94,7 @@ Mindustry 模组「铁流工业」v3.8.2.15，Java 编写，自研多配方库 +
 - 3.6.1.0 验证：T218（真实发射 5 道激光后的建筑穿透）、T222（270/420/穿透 5/能量/5 道/音效）、T223（5 个目标受伤、第 6 个满血）、T224/T225 通过；T203–T225 定向 **23/23**。
 - 3.6.2.0 验证：T226–T233 新增 8 项全过（建造时间、蜂群、读档血量、4×6 预览、占位块存档、日志器可见性、原版弹药抽样、剩余固定/模组炮塔弹药）；T203–T233 定向 **31/31**。全量回归复跑到 T79 仍卡住（已知环境问题），不宣称全量通过。
 - 3.7.0.1 验证：T226–T233 定向 8/8；T203–T233 定向 **31/31**；T224 单跑 1/1。主界面是客户端 GPU UI，无头环境不渲染，需实机确认菜单尺寸、右侧星球、拖动方向、120 秒自转和无缝过渡；本版不宣称 UI 自动化通过。
+- 3.8.3.0 验证：构建通过，T154、T226–T234 定向 10/10，group ui 3/3；战役/自定义地图退出、日志面板居中、通知条在指挥模式下的边界需实机确认。
 - 3.8.2.15 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；黑屏淡入是否完全遮住加载卡顿需实机确认。
 - 3.8.2.14 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；300% 滚动、通知条自适应和描边需实机确认。
 - 3.8.2.13 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；标题/黑底/关于按钮需实机确认。

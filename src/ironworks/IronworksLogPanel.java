@@ -14,7 +14,6 @@ import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
-import arc.util.Align;
 import mindustry.game.EventType.ResetEvent;
 import mindustry.game.EventType.ResizeEvent;
 import mindustry.game.EventType.Trigger;
@@ -84,6 +83,7 @@ public class IronworksLogPanel{
             ui.hudGroup.addChild(windowBack);
         }
         layoutOverlay();
+        centerPanel();
         if(open){
             rebuildRows();
             updateCount();
@@ -102,11 +102,9 @@ public class IronworksLogPanel{
         panel.visible = true;
         panel.color.a = 1f;
         panel.clearActions();
-        panel.setPosition(-panel.getWidth(), (Core.graphics.getHeight() - panel.getHeight()) / 2f);
-        panel.actions(Actions.moveToAligned(
-            Core.graphics.getWidth() / 2f,
-            Core.graphics.getHeight() / 2f,
-            Align.center, 0.42f, Interp.pow3Out));
+        float targetX = centeredX(), targetY = centeredY();
+        panel.setPosition(-panel.getWidth(), targetY);
+        panel.actions(Actions.moveTo(targetX, targetY, 0.42f, Interp.pow3Out));
     }
 
     public static void hide(){
@@ -118,8 +116,7 @@ public class IronworksLogPanel{
 
         panel.clearActions();
         panel.actions(
-            Actions.moveToAligned(-panel.getWidth() / 2f, Core.graphics.getHeight() / 2f,
-                Align.center, 0.30f, Interp.pow3In),
+            Actions.moveTo(-panel.getWidth() / 2f, centeredY(), 0.30f, Interp.pow3In),
             Actions.fadeOut(0.30f),
             Actions.hide());
     }
@@ -203,9 +200,21 @@ public class IronworksLogPanel{
         panelWidth = Math.min(820f, w / scl * 0.82f) * scl;
         panelHeight = Math.min(720f, h / scl * 0.72f) * scl;
         panel.setSize(panelWidth, panelHeight);
-        if(open){
-            panel.setPosition((w - panelWidth) / 2f, (h - panelHeight) / 2f);
-        }
+        centerPanel();
+    }
+
+    /** 日志面板直接挂在全屏遮罩下，位置必须显式按遮罩尺寸居中，不能依赖 Table 布局。 */
+    private static void centerPanel(){
+        if(windowBack == null || panel == null || !open) return;
+        panel.setPosition(centeredX(), centeredY());
+    }
+
+    private static float centeredX(){
+        return Math.round((windowBack.getWidth() - panelWidth) / 2f);
+    }
+
+    private static float centeredY(){
+        return Math.round((windowBack.getHeight() - panelHeight) / 2f);
     }
 
     private static void rebuildRows(){

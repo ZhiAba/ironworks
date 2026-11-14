@@ -146,12 +146,20 @@ public class IronworksContentInfoDialog extends ContentInfoDialog{
             addRow(extra, Core.bundle.get("ironworks.combat.enemy-armor", "敌方护甲"), fmt(enemyArmor));
             addRow(extra, Core.bundle.get("ironworks.combat.enemy-resistance", "敌方特殊抗性"),
                 Resistance.summaryEnemy(unit));
+            addRow(extra, Core.bundle.get("ironworks.combat.final-received", "受到最终伤害降低"),
+                pct(FinalDamage.received(unit)));
+            addRow(extra, Core.bundle.get("ironworks.combat.final-dealt", "造成最终伤害降低"),
+                pct(FinalDamage.dealt(unit)));
             addRow(extra, Core.bundle.get("ironworks.combat.material", "材质"), TargetMaterial.name(unit));
             addRow(extra, Core.bundle.get("ironworks.combat.weakness", "弱点"),
                 ElementCombo.weaknessName(unit));
             return extra;
         }
         return null;
+    }
+
+    private static String pct(float value){
+        return Math.round(Math.max(0f, Math.min(1f, value)) * 100f) + "%";
     }
 
     private static void addRow(Table table, String label, String value){

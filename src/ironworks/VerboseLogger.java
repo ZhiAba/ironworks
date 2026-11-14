@@ -142,6 +142,10 @@ public class VerboseLogger extends Block{
             return IronworksDebug.damageTest(this);
         }
 
+        public String reworkTest(){
+            return IronworksDebug.reworkTest(this);
+        }
+
         @Override
         public void onDestroyed(){
             IronworksLog.line("[EVENT] logger destroyed");

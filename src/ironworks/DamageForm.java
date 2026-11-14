@@ -12,7 +12,11 @@ public enum DamageForm{
     KINETIC("kinetic", "动能", true, false),
     ENERGY("energy", "能量", false, true),
     EXPLOSIVE("explosive", "爆炸", false, false),
-    SLASHING("slashing", "切割", false, false);
+    SLASHING("slashing", "切割", false, false),
+    /** 无属性：不是动能，也不属于任何元素；具体弹种可继承能量等形态。 */
+    TYPELESS("typeless", "无属性", false, false),
+    /** 湮灭：既非动能也非能量，跳过护甲/抗性/护盾/跳弹/过穿，只吃最终伤害降低。 */
+    ANNIHILATION("annihilation", "湮灭", false, true);
 
     public final String id;
     public final String cn;

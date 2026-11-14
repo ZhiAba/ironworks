@@ -90,7 +90,7 @@
 151	T151 survivor=true coriumCount=[2-9][0-9]* melted=true
 152	T152 maxHp=mace nearest=dagger lowHp=mace dense=true linked=true timer=true teamKeep=true cap=10
 153	T153 after=mace same=true
-154	T154 auraTicks=240 tsun=water liquid=water lancer=thunder malign=physical napalm=fire corr=corrosive tianfa=thunder railForm=kinetic arcForm=energy malignForm=energy apForm=kinetic heForm=explosive napalmForm=explosive vanillaItem=true vanillaLiquid=true vanillaPower=true vanillaLightning=true lightningChunk=true lightningChunkEnergy=true energyAbsorbable=true kineticAbsorbable=true vanillaContinuous=true rateFlat=true rateSquare=true rateCut=true armorDR=true noTenPercent=true ricFormula=true overpenGate=true ricochet=true overpen=true overpenKeepZero=true overpenKeepHigh=true energyNoOverpen=true energyNoArmor=true shieldOverflow=true shieldBlocked=true energyShield=true fireResist=true energyResist=true resistCap=true comboAfterResist=true floorKept=true corrosion=true acidCap=true noCorrCombo=true trueDamage=true building=true apOverpen=true splashSkipped=true wet=true
+154	T154 auraTicks=240 tsun=water liquid=water lancer=thunder malign=physical napalm=fire corr=corrosive tianfa=thunder railForm=energy arcForm=energy malignForm=energy apForm=kinetic heForm=explosive napalmForm=explosive vanillaItem=true vanillaLiquid=true vanillaPower=true vanillaLightning=true lightningChunk=true lightningChunkEnergy=true energyAbsorbable=true kineticAbsorbable=true vanillaContinuous=true rateFlat=true rateSquare=true rateCut=true armorDR=true noTenPercent=true ricFormula=true overpenGate=true ricochet=true overpen=true overpenKeepZero=true overpenKeepHigh=true energyNoOverpen=true energyNoArmor=true shieldOverflow=true shieldBlocked=true energyShield=true fireResist=true energyResist=true resistCap=true comboAfterResist=true floorKept=true corrosion=true acidCap=true noCorrCombo=true trueDamage=true building=true apOverpen=true splashSkipped=true wet=true
 155a	T155a disabledAlive=true
 155b	T155b enabledMelted=true
 156	T156 high=50 low=20 acceptHigh=false acceptLow=true acceptAtLow=true
@@ -174,3 +174,4 @@
 231	T231 monitor=true/true/true verbose=true/true/true ok=true
 232	T232 duo=9/.* scatter=33/24 fuse=-1 fore=3276.* lancer=140 arc=11 ok=true
 233	T233 rapid=16 pier=42/.* mortar=150/195 afflict=180 lustre=157\.5 malign=70 sublimate=45 ok=true
+234	T234 .*typelessClean=true annihilation=true finalModifiers=true trueExempt=true suffix=true units=true aegires=true.*
