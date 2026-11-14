@@ -1082,6 +1082,15 @@ public final class IronworksBetterMenu{
             }
         }
 
+        /** 进入战役会移走菜单层；非返回动画路径（游戏退出/取消过渡）必须显式复位。 */
+        private void resetMenuLayer(){
+            if(menuLayer == null) return;
+            menuLayer.clearActions();
+            menuLayer.translation.set(0f, 0f);
+            menuLayer.color.a = 1f;
+            menuLayer.visible = true;
+        }
+
         private void startNativeLayer(){
             startNativeLayer(false);
         }
@@ -1138,6 +1147,10 @@ public final class IronworksBetterMenu{
 
             campaignActive = false;
             if(!returning){
+                // 进入战役时 beginCampaign() 会把 menuLayer 淡到 0 并左移；从游戏退回菜单
+                // 不会经过 beginReturnCamera()，这里必须把菜单层恢复到正常位置/透明度。
+                root.visible = true;
+                resetMenuLayer();
                 center = 0f;
                 centerTarget = 0f;
                 atmosphereTarget = 1f;
