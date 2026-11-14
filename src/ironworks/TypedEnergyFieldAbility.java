@@ -44,6 +44,12 @@ class TypedEnergyFieldAbility extends EnergyFieldAbility{
     }
 
     @Override
+    public String getBundle(){
+        // 继承原版能场的能力文案，避免详情页按子类名找不到 description。
+        return "ability.energyfield";
+    }
+
+    @Override
     public void update(Unit unit){
         curStroke = arc.math.Mathf.lerpDelta(curStroke, anyNearby ? 1 : 0, 0.09f);
 
