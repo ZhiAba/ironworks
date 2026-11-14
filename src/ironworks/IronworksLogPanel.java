@@ -20,6 +20,7 @@ import mindustry.game.EventType.ResizeEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.gen.Icon;
+import mindustry.gen.Tex;
 import mindustry.graphics.Pal;
 import mindustry.ui.Styles;
 
@@ -152,7 +153,7 @@ public class IronworksLogPanel{
                 }
             });
 
-            panel = new Table(Styles.black6);
+            panel = new Table(Tex.pane);
             panel.touchable = Touchable.enabled;
             panel.top();
             panel.visible = false;

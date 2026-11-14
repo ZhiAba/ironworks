@@ -3,15 +3,18 @@ package ironworks;
 import arc.Core;
 import arc.Events;
 import arc.graphics.Color;
+import arc.math.Mathf;
 import arc.scene.event.Touchable;
 import arc.scene.ui.ImageButton;
 import arc.scene.ui.ImageButton.ImageButtonStyle;
 import arc.scene.ui.Tooltip;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import mindustry.game.EventType.ResetEvent;
 import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.gen.Icon;
+import mindustry.gen.Tex;
 import mindustry.ui.Styles;
 
 import static mindustry.Vars.*;
@@ -29,6 +32,7 @@ public class IronworksSidebar{
 
     private static boolean initialized;
     private static Table root, bar;
+    private static float barHeight = 520f;
 
     private IronworksSidebar(){
     }
@@ -54,6 +58,7 @@ public class IronworksSidebar{
             return;
         }
 
+        layoutHeight();
         ensure();
         bar.visible = true;
     }
@@ -62,9 +67,21 @@ public class IronworksSidebar{
         if(bar != null) bar.visible = false;
     }
 
+    /** 按屏幕高度留出上下 HUD 余量，避免高缩放时 520 长的条压住左侧按钮。 */
+    private static void layoutHeight(){
+        float desired = Mathf.clamp(Core.graphics.getHeight() / Scl.scl(1f) - 260f, 180f, 520f);
+        if(Math.abs(desired - barHeight) > 0.5f){
+            barHeight = desired;
+            if(root != null){
+                root.remove();
+                root = null;
+            }
+        }
+    }
+
     private static void ensure(){
         if(bar == null){
-            bar = new Table(Styles.black6);
+            bar = new Table(Tex.pane);
             bar.margin(0f);
             bar.touchable = Touchable.enabled;
             bar.visible = false;
@@ -81,7 +98,7 @@ public class IronworksSidebar{
             tip.allowMobile = true;
             button.addListener(tip);
 
-            bar.add(button).size(26f, 520f);
+            bar.add(button).width(26f).growY();
         }
 
         if(root == null || root.parent == null){
@@ -91,7 +108,7 @@ public class IronworksSidebar{
                 ui.hudGroup.fill(t -> {
                     root = t;
                     t.touchable = Touchable.childrenOnly;
-                    t.left().add(bar).width(26f).height(520f);
+                    t.left().add(bar).width(26f).height(barHeight);
                 });
             }
         }

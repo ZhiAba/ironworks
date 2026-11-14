@@ -20,6 +20,7 @@ import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.event.Touchable;
 import arc.scene.ui.Button;
+import arc.scene.ui.ScrollPane;
 import arc.scene.ui.Dialog;
 import arc.scene.ui.Dialog.DialogStyle;
 import arc.scene.ui.Image;
@@ -218,6 +219,7 @@ public final class IronworksBetterMenu{
         private WidgetGroup root;
         private Table menuLayer;
         private Table menuBackdrop;
+        private ScrollPane menuScroll;
         private Table panel;
         private Table submenu;
         private Table titleLayer;
@@ -378,7 +380,13 @@ public final class IronworksBetterMenu{
             buttons(panel, desktopButtons.toArray(MenuButton.class));
             buttons(panel, new MenuButton("@quit", Icon.exit, Core.app::exit));
 
-            menuLayer.add(panel).width(MENU_WIDTH).growY().top();
+            // 大 UI 缩放时按钮总高度可能超过屏幕；和原版 MenuFragment 一样用纵向滚动，
+            // 不再把底部按钮裁掉。
+            menuScroll = new ScrollPane(panel, Styles.noBarPane);
+            menuScroll.setFadeScrollBars(false);
+            menuScroll.setScrollingDisabledX(true);
+            menuScroll.setOverscroll(false, false);
+            menuLayer.add(menuScroll).width(MENU_WIDTH).growY().top();
             menuLayer.add(submenu).width(MENU_WIDTH).growY().top();
 
             // 背景单独铺满菜单栏的整列高度：Table 的 growY 在竖屏下会让背景只按
@@ -388,8 +396,8 @@ public final class IronworksBetterMenu{
             menuBackdrop.visible(() -> menuLayer != null && menuLayer.visible && !campaignActive);
             menuBackdrop.update(() -> {
                 if(menuLayer == null || panel == null) return;
-                menuBackdrop.setSize(panel.getWidth(), Math.max(menuLayer.getHeight(), Core.graphics.getHeight()));
-                menuBackdrop.setPosition(panel.x + menuLayer.x + menuLayer.translation.x, 0f);
+                menuBackdrop.setSize(menuScroll.getWidth(), Math.max(menuLayer.getHeight(), Core.graphics.getHeight()));
+                menuBackdrop.setPosition(menuScroll.x + menuLayer.x + menuLayer.translation.x, 0f);
                 menuBackdrop.color.a = menuLayer.color.a;
             });
             root.addChild(menuBackdrop);
