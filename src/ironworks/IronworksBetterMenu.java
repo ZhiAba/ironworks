@@ -81,6 +81,11 @@ public final class IronworksBetterMenu{
     private static boolean preloaded;
     private static PlanetParams nativePlanetState;
     private static DialogStyle nativeDialogStyle;
+    /** 热开启/退出游戏后的黑屏淡入层；加载和布局都在全黑时完成。 */
+    private static Table blackFade;
+    private static boolean hotEnablePending;
+    private static boolean wasInGame;
+    private static boolean pendingExitFade;
 
     private IronworksBetterMenu(){
     }
@@ -125,6 +130,7 @@ public final class IronworksBetterMenu{
             sync();
         });
         Events.run(EventType.Trigger.update, IronworksBetterMenu::sync);
+        Events.run(EventType.Trigger.update, IronworksBetterMenu::trackGameExit);
         Events.run(EventType.Trigger.update, IronworksBetterMenu::updateAtmosphere);
         Events.run(EventType.Trigger.uiDrawBegin, IronworksBetterMenu::keepDialogOpaqueLayer);
         Events.run(EventType.Trigger.universeDrawBegin, IronworksBetterMenu::beginSkybox);
@@ -155,8 +161,54 @@ public final class IronworksBetterMenu{
     /** 设置页回调：立即切换，不必等重启。 */
     public static void setEnabled(boolean enabled){
         Core.settings.put(KEY, enabled);
-        if(enabled) failed = false;
+        if(enabled){
+            failed = false;
+            if(!installed) hotEnablePending = true;
+        }else{
+            hotEnablePending = false;
+        }
         sync();
+    }
+
+    /** 从游戏内退回主菜单时，等菜单布局稳定后再从黑屏淡入，避免加载卡顿露出来。 */
+    private static void trackGameExit(){
+        if(headless || ui == null || state == null) return;
+        if(state.isGame()){
+            wasInGame = true;
+            pendingExitFade = false;
+            return;
+        }
+        if(wasInGame && state.isMenu()){
+            wasInGame = false;
+            pendingExitFade = true;
+        }
+        if(!pendingExitFade) return;
+        if(!Core.settings.getBool(KEY, true)){
+            pendingExitFade = false;
+            return;
+        }
+        if(installed && custom != null && custom.isSettled()){
+            pendingExitFade = false;
+            fadeFromBlack(0f);
+        }
+    }
+
+    private static void fadeFromBlack(float delay){
+        if(headless || ui == null || Core.scene == null) return;
+        // 已经在淡入时不重复叠黑层。
+        if(blackFade != null && blackFade.parent != null) return;
+        blackFade = new Table(Styles.black);
+        blackFade.setFillParent(true);
+        blackFade.touchable = Touchable.enabled;
+        blackFade.color.a = 1f;
+        Core.scene.add(blackFade);
+        // 安装/返回过程中还会把 ui.planet、菜单 root 追加到场景；黑层必须始终在最上面。
+        blackFade.update(blackFade::toFront);
+        blackFade.actions(
+            Actions.delay(delay),
+            Actions.fadeOut(0.5f, Interp.fade),
+            Actions.remove()
+        );
     }
 
     private static void sync(){
@@ -182,6 +234,10 @@ public final class IronworksBetterMenu{
             custom.build(ui.menuGroup);
             ui.menufrag = custom;
             installed = true;
+            if(hotEnablePending){
+                hotEnablePending = false;
+                fadeFromBlack(0.10f);
+            }
 
             if(!planetHook){
                 planetHook = true;
@@ -1374,6 +1430,12 @@ public final class IronworksBetterMenu{
                 menuLayer.color.a = 1f;
                 menuLayer.visible = true;
             }
+        }
+
+        /** 返回菜单相机/覆盖层稳定后才允许黑屏淡入，避免淡入过程中又看到布局跳变。 */
+        boolean isSettled(){
+            return !animating && !returningToMenu && !campaignActive && !overlayFading && !returnOverlayHold
+                && root != null && root.parent != null;
         }
 
         void rebuild(){
