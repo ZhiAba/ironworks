@@ -174,4 +174,4 @@
 231	T231 monitor=true/true/true verbose=true/true/true ok=true
 232	T232 duo=9/.* scatter=33/24 fuse=-1 fore=3276.* lancer=140 arc=11 ok=true
 233	T233 rapid=16 pier=42/.* mortar=150/195 afflict=180 lustre=157\.5 malign=70 sublimate=45 ok=true
-234	T234 .*typelessClean=true annihilation=true finalModifiers=true trueExempt=true suffix=true units=true aegires=true.*
+234	T234 .*typelessClean=true annihilation=true finalModifiers=true trueExempt=true suffix=true buildingHit=true units=true aegires=true.*

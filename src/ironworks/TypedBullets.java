@@ -6,6 +6,7 @@ import arc.math.Mathf;
 import arc.util.Tmp;
 import mindustry.entities.Effect;
 import mindustry.entities.bullet.*;
+import mindustry.gen.Building;
 import mindustry.gen.Bullet;
 import mindustry.gen.Hitboxc;
 import mindustry.content.Fx;
@@ -27,6 +28,11 @@ interface TypedBullet{
 }
 
 class TypedBasicBulletType extends BasicBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedBasicBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
@@ -41,6 +47,11 @@ class TypedBasicBulletType extends BasicBulletType implements TypedBullet{
 }
 
 class TypedArtilleryBulletType extends ArtilleryBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedArtilleryBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
@@ -156,6 +167,11 @@ final class MortarDeadZone{
 }
 
 class TypedFlakBulletType extends FlakBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedFlakBulletType(DamageType dtype){
         super(1f, 1f);
@@ -171,6 +187,11 @@ class TypedFlakBulletType extends FlakBulletType implements TypedBullet{
 
 /** 原版激光弹（LaserBolt）：保留直线绘制和 laserBullet=true，命中走属性结算。 */
 class TypedLaserBoltBulletType extends LaserBoltBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedLaserBoltBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
@@ -182,6 +203,11 @@ class TypedLaserBoltBulletType extends LaserBoltBulletType implements TypedBulle
 }
 
 class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     /** >0 时只固定绘制长度，不改变伤害穿透上限；磁轨炮用它做到“第 6 个目标挡不住特效但也不受伤”。 */
     float visualLength = -1f;
@@ -207,6 +233,11 @@ class TypedLaserBulletType extends LaserBulletType implements TypedBullet{
 }
 
 class TypedLiquidBulletType extends LiquidBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedLiquidBulletType(DamageType dtype, Liquid liquid){
         super(liquid);
@@ -218,6 +249,11 @@ class TypedLiquidBulletType extends LiquidBulletType implements TypedBullet{
 }
 
 class TypedBulletType extends BulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedBulletType(DamageType dtype, float speed, float damage){
         super(speed, damage);
@@ -233,6 +269,11 @@ class TypedBulletType extends BulletType implements TypedBullet{
 
 /** 原版电弧炮的闪电主弹：真正的伤害在 lightningType 的每一跳里。 */
 class TypedLightningBulletType extends LightningBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedLightningBulletType(DamageType dtype, float damage){
         this.damage = damage;
@@ -245,6 +286,11 @@ class TypedLightningBulletType extends LightningBulletType implements TypedBulle
 
 /** 原版熔化/连续激光：每 tick 的线段命中仍走自定义结算。 */
 class TypedContinuousLaserBulletType extends ContinuousLaserBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedContinuousLaserBulletType(DamageType dtype, float damage){
         super(damage);
@@ -257,6 +303,11 @@ class TypedContinuousLaserBulletType extends ContinuousLaserBulletType implement
 
 /** 原版霰射/破片炮。 */
 class TypedShrapnelBulletType extends ShrapnelBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedShrapnelBulletType(DamageType dtype){
         this.dtype = dtype;
@@ -268,6 +319,11 @@ class TypedShrapnelBulletType extends ShrapnelBulletType implements TypedBullet{
 
 /** 原版轨道炮。 */
 class TypedRailBulletType extends RailBulletType implements TypedBullet{
+    @Override public float buildingDamage(Bullet b){ return 0f; }
+    @Override public void hitTile(Bullet b, Building build, float x, float y, float initialHealth, boolean direct){
+        Dmg.bulletBuildingHit(this, b, build, x, y, initialHealth, direct);
+    }
+
     final DamageType dtype;
     TypedRailBulletType(DamageType dtype){
         this.dtype = dtype;

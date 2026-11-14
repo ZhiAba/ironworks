@@ -321,6 +321,29 @@ public class IronworksDebug{
         BulletType daggerBullet = UnitTypes.dagger.weapons.first().bullet;
         BulletType corvusBullet = UnitTypes.corvus.weapons.first().bullet;
         BulletType omuraBullet = UnitTypes.omura.weapons.first().bullet;
+        // 建筑：原版 Building.collision 会先按 armor 扣一次；带属性弹体必须把它归零并由 Dmg 接管。
+        Tile wallTile = Vars.world.tile(at.tileX() + 4, at.tileY());
+        boolean buildingHit = false;
+        float buildingLoss = 0f;
+        if(wallTile != null){
+            wallTile.setBlock(Vars.content.block("ironworks-composite-wall-large"), Team.crux);
+            Building wall = wallTile.build;
+            if(wall != null){
+                float before = wall.health;
+                Bullet wallBullet = Bullet.create();
+                wallBullet.type = UnitTypes.omura.weapons.first().bullet;
+                wallBullet.team = Team.sharded;
+                wallBullet.damage = 3276.7f;
+                wallBullet.buildingDamageMultiplier = 1f;
+                wall.collision(wallBullet);
+                wallBullet.type.hitTile(wallBullet, wall, wall.x, wall.y, before, true);
+                buildingLoss = before - wall.health;
+                buildingHit = Math.abs(buildingLoss - 3276.7f) < 1f;
+                wallBullet.remove();
+            }
+            wallTile.setBlock(Blocks.air, Team.derelict);
+        }
+
         boolean units = daggerBullet instanceof TypedBullet
             && Dmg.typeOf(daggerBullet) == DamageType.physical
             && Dmg.formOf(daggerBullet) == DamageForm.KINETIC
@@ -345,6 +368,7 @@ public class IronworksDebug{
         sb.append(" finalModifiers=").append(finalModifiers);
         sb.append(" trueExempt=").append(trueExempt);
         sb.append(" suffix=").append(suffix);
+        sb.append(" buildingHit=").append(buildingHit);
         sb.append(" units=").append(units);
         sb.append(" aegires=").append(aegires);
         return sb.toString();

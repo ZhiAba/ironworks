@@ -282,7 +282,7 @@ public class Dmg{
 
         // 2. 跳弹：护甲超过白值才按概率触发；能量形态不吃跳弹。
         //    高难度对敌方目标追加跳弹系数（T2 起，T6 +0.05），封顶仍是 90%。
-        if(allowExtremes && !f.bypassShields){
+        if(allowExtremes && target instanceof Unit && !f.bypassShields){
             lastRicochetChance = p.ricochetChance(armor);
             if(Difficulty.isEnemyTarget(target)){
                 lastRicochetChance = Math.min(ArmorPen.maxRicochet, lastRicochetChance + Difficulty.ricochetBonus());
@@ -627,6 +627,21 @@ public class Dmg{
             }
             area(bullet.team, x, y, type.splashDamageRadius, splash, dtype, false, true, pen, formOf(type));
         }
+    }
+
+    /**
+     * 建筑命中入口。原版 BulletComp 先调用 Building.collision 再用 armor 扣一次血，
+     * 不会走 hitEntity；带属性弹体必须把伤害拦到 Dmg，并显式关闭建筑跳弹/过穿。
+     */
+    public static void bulletBuildingHit(BulletType type, Bullet bullet, Building build, float x, float y, float initialHealth, boolean direct){
+        if(type == null || bullet == null || build == null || build.dead() || bullet.damage <= 0f || build.team == bullet.team) return;
+
+        float amount = Math.max(0f, bullet.damage() * bullet.buildingDamageMultiplier);
+        if(amount <= 0f) return;
+
+        Healthc source = bullet.owner instanceof Healthc owner ? owner : null;
+        hit(build, amount, typeOf(bullet), true, true, penOf(type), false, formOf(type), source);
+        type.handlePierce(bullet, initialHealth, x, y);
     }
 
     /** 与 BulletType.hitEntity 等价，只把 h.damage(...) 换成属性结算。 */
