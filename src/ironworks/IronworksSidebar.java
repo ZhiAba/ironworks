@@ -107,7 +107,7 @@ public class IronworksSidebar{
     /** 左上角 HUD 的实际下边界；用状态/目标栏的底边，而不是铺满屏幕的外层容器。 */
     private static float topHudBottom(float screenH, float scl){
         Element waves = findNamed(ui.hudGroup, "waves/editor");
-        if(waves != null && waves.visible && waves.getHeight() > 1f){
+        if(waves != null && waves.visible && waves.getHeight() > 1f && waves.y > 1f){
             return Mathf.clamp(waves.y, 0f, screenH);
         }
         return Math.max(0f, screenH - 220f * scl);
@@ -122,7 +122,7 @@ public class IronworksSidebar{
             if(label == null || !label.visible) continue;
             Element e = label;
             while(e != null && !(e instanceof Button)) e = e.parent;
-            if(e instanceof Button b && b.visible && b.getHeight() > 1f){
+            if(e instanceof Button b && b.visible && b.getHeight() > 1f && b.y + b.getHeight() > 1f){
                 return Mathf.clamp(b.y + b.getHeight(), 0f, screenH);
             }
         }
