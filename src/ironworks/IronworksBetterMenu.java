@@ -258,6 +258,12 @@ public final class IronworksBetterMenu{
         try{
             if(custom != null) custom.dispose();
             custom = null;
+            // 主菜单把 PlanetRenderer 的 FOV 临时收到 12°；热关闭后原生战役界面仍沿用这个
+            // FOV 会把星球异常放大，回到原版前恢复到战役/原生 60°。
+            if(ui.planet != null && ui.planet.planets != null){
+                ui.planet.planets.cam.fov = CAMPAIGN_FOV;
+                ui.planet.planets.cam.update();
+            }
             if(ui.planet != null && !ui.planet.isShown()){
                 if(nativePlanetState != null) ui.planet.state = nativePlanetState;
                 if(nativeDialogStyle != null) ui.planet.setStyle(nativeDialogStyle);

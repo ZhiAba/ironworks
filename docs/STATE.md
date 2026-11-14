@@ -3,7 +3,7 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.8.3.1，Java 编写，自研多配方库 + 属性伤害（元素/无属性/湮灭 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾/最终伤害减免）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.8.3.2，Java 编写，自研多配方库 + 属性伤害（元素/无属性/湮灭 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾/最终伤害减免）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化，已装到手机两个客户端。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -19,7 +19,8 @@ Mindustry 模组「铁流工业」v3.8.3.1，Java 编写，自研多配方库 + 
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.8.3.1 / md5 `9fc71b63d2ae58663f4373bbbc324a88`，双端已部署（2026-11-14，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.15.bak`、`ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 当前：v3.8.3.2 / md5 `e150b65228c47482dbbfc84c34f8a6a4`，双端已部署（2026-11-14，phone_sh 文件复制；旧版备份 `ironworks-3.8.2.15.bak`、`ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.8.3.2 **热关闭主菜单后原生星球放大**：`restore()` 在拆除自定义菜单后把 `ui.planet.planets.cam.fov` 恢复为 60° 并 `update()`，避免原生战役选择界面沿用菜单的 12° 窄 FOV 把星球放大。
 - 3.8.3.1 **回归修复**：进入战役后退出主菜单时复位被 `beginCampaign()` 淡出/左移的菜单层；单位详情按武器显示属性/形态/穿透/Combo，并补充玄武能力行；所有带属性弹体的建筑命中改走 `Dmg.bulletBuildingHit()`，原版 `buildingDamage` 先归零，建筑不跳弹/不过穿。
 - 3.8.3.0 **战役退出/通知定位/新伤害类型/原版单位接入**：战役地图退出保留 3.8.2.10 的连续返回动画；只让原生 `PlanetDialog` 首次 setup 后返回菜单时直接挂回，避免 `show()` 重跑 `shown()` 的首次战役选择弹窗。从战役选择进入地图再退出主菜单时，`startNativeLayer(false)` 会复位被 `beginCampaign()` 淡出/左移的菜单层；日志面板显式按全屏遮罩居中；左侧通知条夹在左上 HUD 实际底边与左下指挥按钮（含 commandMode 队列层）实际顶边之间。建筑命中由 `hitTile()` 接入 `Dmg`（带属性弹体的 `buildingDamage()` 归零），建筑不跳弹/不过穿；单位详情页按武器逐个显示伤害类型/形态/穿透/Combo；新增无属性/湮灭伤害与全单位最终伤害降低；原版单位武器默认物理·动能，激光/死星/玄武能量形态；海神主炮复制厄兆 3276.7/100%/175/0.2 数值，建筑倍率保持 1。
 - 3.8.2.15 **热开启/退出游戏黑屏淡入**：热开启菜单安装完成后先铺全黑层，延迟 0.1 秒再 0.5 秒淡出；游戏 `state.isGame()→state.isMenu()` 后等 `isSettled()` 再从黑屏淡入，期间黑层 `toFront` 并拦截触摸。
@@ -95,6 +96,7 @@ Mindustry 模组「铁流工业」v3.8.3.1，Java 编写，自研多配方库 + 
 - 3.6.1.0 验证：T218（真实发射 5 道激光后的建筑穿透）、T222（270/420/穿透 5/能量/5 道/音效）、T223（5 个目标受伤、第 6 个满血）、T224/T225 通过；T203–T225 定向 **23/23**。
 - 3.6.2.0 验证：T226–T233 新增 8 项全过（建造时间、蜂群、读档血量、4×6 预览、占位块存档、日志器可见性、原版弹药抽样、剩余固定/模组炮塔弹药）；T203–T233 定向 **31/31**。全量回归复跑到 T79 仍卡住（已知环境问题），不宣称全量通过。
 - 3.7.0.1 验证：T226–T233 定向 8/8；T203–T233 定向 **31/31**；T224 单跑 1/1。主界面是客户端 GPU UI，无头环境不渲染，需实机确认菜单尺寸、右侧星球、拖动方向、120 秒自转和无缝过渡；本版不宣称 UI 自动化通过。
+- 3.8.3.2 验证：构建通过，T234 1/1，group ui 3/3；热关闭后原生战役选择界面的星球尺寸需实机确认。
 - 3.8.3.1 验证：构建通过，T154、T226–T234 定向 10/10，group ui 3/3；建筑墙测试预期 3520-3276.7=243.3。
 - 3.8.3.0 验证：构建通过，T154、T226–T234 定向 10/10，group ui 3/3；战役/自定义地图退出、日志面板居中、通知条在指挥模式下的边界需实机确认。
 - 3.8.2.15 验证：构建通过，T226–T233 定向 8/8，group ui 3/3；黑屏淡入是否完全遮住加载卡顿需实机确认。
