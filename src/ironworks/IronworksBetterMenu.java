@@ -1082,34 +1082,6 @@ public final class IronworksBetterMenu{
             }
         }
 
-        /** 战役地图从主菜单退出：直接恢复菜单层，不播放“游戏→菜单”的返回动画。 */
-        private void restoreMenuLayer(){
-            dialogHideSuppressed = false;
-            clearPlanetFade();
-            planetFadeTried = false;
-            returningToMenu = false;
-            animating = false;
-            campaignActive = false;
-            menuLayerActive = true;
-            returnOverlayHold = false;
-            overlayFading = false;
-            overlayAlpha = 0f;
-            returnZoom = 1f;
-            atmosphereTarget = 1f;
-            center = 0f;
-            centerTarget = 0f;
-            restoreMenuScene();
-            restoreAtmosphereBase();
-            setNativeCampaignUi(false);
-            if(root != null) root.visible = true;
-            if(ui.planet != null){
-                ui.planet.color.a = 1f;
-                ui.planet.zoom = 0.9f;
-            }
-            // 用 returning=true：只取消 hide 动作并直接挂回，不再触发 PlanetDialog.shown()。
-            Core.app.post(() -> startNativeLayer(true));
-        }
-
         private void startNativeLayer(){
             startNativeLayer(false);
         }
@@ -1494,13 +1466,6 @@ public final class IronworksBetterMenu{
             dragging = false;
             pointer = -1;
             currentMenu = null;
-
-            // 从主菜单进入的战役地图：这里只是关掉战役层，不是从游戏退回菜单。
-            // 不能启动整段返回动画，否则菜单 root 会被藏起来，并可能把原生选择层重新挂回。
-            if(backToMenu && campaignActive){
-                restoreMenuLayer();
-                return;
-            }
 
             if(backToMenu){
                 // 从战役返回菜单：沿用同一个 mainView，从战役视角连续拉回右侧菜单视角。
