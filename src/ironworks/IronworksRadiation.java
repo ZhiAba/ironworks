@@ -29,8 +29,8 @@ import mindustry.world.Block;
  * 辐射系统：污染值 -> 四级状态 -> 百分比伤害/电子干扰 -> 永久结构损伤。
  *
  * <p>原版 Unit 没有可模组扩展的字段，因此运行时数据放在 tracks 里；
- * 永久损伤另用两个永久状态做存档标记。污染值本身是运行时状态，读档后从 0
- * 重新累积，永久损伤标记仍然保留。</p>
+ * 永久损伤另用两个永久状态做存档标记。污染值用隐藏状态 duration 编码，
+ * 读档时从该状态重建，不需要修改 Unit 的存档结构。</p>
  *
  * <p>辐射源分两类：实现 Emitter 的建筑（RBMK、corium）和注册过的方块，
  * 以及建筑/单位库存里的放射性物品。多源强度按平方和开方叠加，距离按
@@ -63,6 +63,7 @@ public class IronworksRadiation{
     public static final float SOURCE_REFRESH_TICKS = 15f;
 
     public static StatusEffect exposureMild, exposureModerate, exposureSevere, exposureLethal;
+    public static StatusEffect pollutionStatus;
     public static StatusEffect scar15, scar35, jam;
     /** 给未来抗辐射装备预留的状态名；当前由外挂装甲状态提供抗性。 */
     public static StatusEffect radiationResistance;
@@ -142,6 +143,12 @@ public class IronworksRadiation{
         exposureModerate = exposure("radiation-moderate", "b6e34d");
         exposureSevere = exposure("radiation-severe", "ffb84d");
         exposureLethal = exposure("radiation-lethal", "ff5a48");
+        pollutionStatus = new StatusEffect("radiation-pollution"){{
+            color = Color.valueOf("9be86a");
+            show = false;
+            permanent = true;
+            effect = Fx.none;
+        }};
 
         scar15 = new StatusEffect("radiation-scar-15"){{
             color = Color.valueOf("d38b5a");
@@ -296,7 +303,11 @@ public class IronworksRadiation{
             t.id = unit.id;
             t.type = unit.type;
             t.baseMax = unit.type == null ? unit.maxHealth : unit.type.health;
-            // 读档时用永久状态标记重建削减比例。
+            // 读档时用隐藏状态/永久标记重建污染值与削减比例。
+            if(pollutionStatus != null){
+                float encoded = unit.getDuration(pollutionStatus);
+                if(encoded > 0.01f) t.pollution = Math.min(MAX_POLLUTION, encoded / 10f);
+            }
             if(unit.hasEffect(scar35)) t.scar = SCAR_LETHAL;
             else if(unit.hasEffect(scar15)) t.scar = SCAR_SEVERE;
             tracks.put(unit, t);
@@ -310,6 +321,10 @@ public class IronworksRadiation{
             t.dynamicApplied = false;
             t.type = unit.type;
             t.baseMax = unit.type == null ? unit.maxHealth : unit.type.health;
+            if(pollutionStatus != null){
+                float encoded = unit.getDuration(pollutionStatus);
+                if(encoded > 0.01f) t.pollution = Math.min(MAX_POLLUTION, encoded / 10f);
+            }
             if(unit.hasEffect(scar35)) t.scar = SCAR_LETHAL;
             else if(unit.hasEffect(scar15)) t.scar = SCAR_SEVERE;
             syncScar(unit, t);
@@ -375,8 +390,20 @@ public class IronworksRadiation{
             }
         }
 
+        syncPollution(unit, t);
         applyLevelStatus(unit, level);
         applyInterference(unit, t, cls, level, dt);
+    }
+
+    /** 把污染值编码进一个隐藏的永久状态 duration，随单位存档保留。 */
+    private static void syncPollution(Unit unit, Track t){
+        if(pollutionStatus == null) return;
+        if(t.pollution > 0.01f){
+            if(!unit.hasEffect(pollutionStatus)) unit.apply(pollutionStatus, 1f);
+            unit.setDuration(pollutionStatus, t.pollution * 10f);
+        }else if(unit.hasEffect(pollutionStatus)){
+            unit.unapply(pollutionStatus);
+        }
     }
 
     private static void applyLevelStatus(Unit unit, int level){

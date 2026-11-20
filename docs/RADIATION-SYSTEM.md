@@ -161,7 +161,7 @@ amount = maxHealth × rate[level] × tierFactor × dt
 - `radiation-scar-15`
 - `radiation-scar-35`
 
-两个状态都是永久状态，只做重建标记。连续比例 `Track.scar` 存在运行时表中；读档时按标记恢复为 15% 或 35%（净化到中间值时，读档可能回退到较接近的标记值）。
+两个状态都是永久状态，只做重建标记。连续比例 `Track.scar` 存在运行时表中；读档时按标记恢复为 15% 或 35%（净化到中间值时，读档可能回退到较接近的标记值）。污染值另有隐藏状态 `radiation-pollution`，用 duration 编码，随存档保留。
 
 外挂装甲会提供抗性：
 

@@ -419,6 +419,8 @@ public class IronworksDebug{
             && mech.hasEffect(IronworksRadiation.jam);
         boolean scar = Math.abs(IronworksRadiation.scar(mech) - IronworksRadiation.SCAR_LETHAL) < 0.001f
             && mech.maxHealth() <= mech.type.health * 0.66f;
+        boolean encoded = mech.hasEffect(IronworksRadiation.pollutionStatus)
+            && mech.getDuration(IronworksRadiation.pollutionStatus) > 0.1f;
 
         IronworksRadiation.purify(mech, 1f);
         boolean purified = IronworksRadiation.scar(mech) <= 0.001f
@@ -458,6 +460,7 @@ public class IronworksDebug{
         sb.append(" armorSofter=").append(armorSofter);
         sb.append(" statuses=").append(statuses);
         sb.append(" scar=").append(scar);
+        sb.append(" encodedPollution=").append(encoded);
         sb.append(" purified=").append(purified);
         sb.append(" source=").append(sourceAt > 0.1f);
         sb.append(" unitSource=").append(unitSource);
