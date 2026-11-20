@@ -255,57 +255,59 @@ public class IronworksFissionFx{
         float t = e.time;
         float q = Mathf.clamp(t / secondaryLifetime);
 
-        // 巨型光球：和主爆炸一样用高不透明度的白热核心 + 橙色外晕，不再是一层淡光。
+        // 不再用一张 circle 贴图直接放大成巨型光球：贴图边缘只有 1~2 像素，
+        // 放大到几十格后就会出现明显锯齿。改成原版反应堆爆炸那种粒子壳层。
         if(t < secondaryLifetime){
             float p = Mathf.clamp(t / secondaryLifetime);
-            float orb = radius * (0.55f + 0.85f * Interp.pow3Out.apply(p));
+            float expand = Interp.pow2Out.apply(p);
             blend(Blending.additive);
 
-            // 真正的白热核心：接近不透明，保证每次爆燃都能在日光下“炸眼”。
+            for(int i = 0; i < 3; i++){
+                int layer = i;
+                float shell = radius * (0.20f + i * 0.30f + 0.85f * expand);
+                int count = 26 + i * 12;
+                color(i == 0 ? Color.white : (i == 1 ? Pal.lighterOrange : Pal.reactorPurple2));
+                alpha((0.78f - i * 0.16f) * (1f - p));
+                randLenVectors(e.id + 31 + i * 17, count, shell, (x, y) -> {
+                    float size = Mathf.randomSeed(e.id + 101 + layer * 13, 2.4f, 7.5f) * (1f - p * 0.35f);
+                    Fill.circle(e.x + x, e.y + y, size);
+                });
+            }
+
+            // 中心保留少量白热粒子，代替原来半径 0.62r 的大白圆。
             color(Color.white);
-            alpha(1f * (1f - p));
-            Fill.circle(e.x, e.y, orb * 0.62f);
-
-            // 主体白光：比旧版更实、更亮。
-            color(Color.white, Pal.lighterOrange, p);
-            alpha(0.92f * (1f - p));
-            Fill.circle(e.x, e.y, orb);
-
-            // 橙色外晕，峰值正好落在伤害半径上，保证看到的范围就是打到的范围。
-            color(Pal.lighterOrange, Pal.reactorPurple2, p);
-            alpha(0.58f * (1f - p));
-            Fill.circle(e.x, e.y, orb * (secondaryVisualRadiusScale / 1.4f));
+            alpha(0.9f * (1f - p));
+            randLenVectors(e.id + 77, 18, radius * 0.32f * (0.35f + 0.9f * expand), (x, y) -> {
+                Fill.circle(e.x + x, e.y + y, 1.5f + 4f * (1f - p));
+            });
             blend();
 
-            // 光照拉满并扩大半径，让光球真的照到地面和周围方块。
-            Drawf.light(e.x, e.y, orb * 4.2f, Pal.lighterOrange, 1f * (1f - p));
+            Drawf.light(e.x, e.y, radius * (1.8f + 2.2f * expand), Pal.lighterOrange, 0.95f * (1f - p));
         }
 
-        // 小型二次爆燃也有自己的白闪和橙环。
+        // 短促白闪：只给一个小核心，不再靠放大圆贴图撑亮度。
         if(t < 19f){
             float p = t / 19f;
             color(Color.white, Pal.lighterOrange, p);
-            alpha(1f * (1f - p));
-            Fill.circle(e.x, e.y, radius * (0.26f + 0.28f * p));
-            Drawf.light(e.x, e.y, radius * 2.4f, Pal.lighterOrange, 1f * (1f - p));
+            alpha(0.95f * (1f - p));
+            Fill.circle(e.x, e.y, radius * (0.05f + 0.06f * p));
+            Drawf.light(e.x, e.y, radius * (1.8f + 0.8f * p), Pal.lighterOrange, 1f * (1f - p));
         }
 
+        // 冲击波环也改成 72 个微粒，避免 Lines.circle 在大半径下的折线边。
         if(t < 95f){
             float p = Mathf.clamp(t / 95f);
-            color(Pal.lighterOrange, Pal.reactorPurple2, p);
-            alpha(0.88f * (1f - p));
-            stroke(7f * (1f - p) + 0.9f);
-            circle(e.x, e.y, radius * (0.18f + 1.45f * Interp.pow2Out.apply(p)));
+            float rr = radius * (0.18f + 1.45f * Interp.pow2Out.apply(p));
+            float size = 1.2f + 2.4f * (1f - p);
+            for(int i = 0; i < 72; i++){
+                float ang = i * 360f / 72f;
+                color(Pal.lighterOrange, Pal.reactorPurple2, p);
+                alpha(0.55f * (1f - p));
+                Fill.circle(e.x + Mathf.cosDeg(ang) * rr, e.y + Mathf.sinDeg(ang) * rr, size);
+            }
         }
 
-        // 火球核心
-        if(t < 110f){
-            color(Color.white, Pal.lighterOrange, q);
-            alpha(0.92f * (1f - q));
-            Fill.circle(e.x, e.y, radius * 0.55f * (1f - q * 0.45f));
-        }
-
-        // 碎片、火星和烟；每颗二次爆炸都多于首批的普通粒子。
+        // 碎片、火星和烟；保留原来的小粒子密度。
         randLenVectors(e.id + 1, 32, radius * 1.55f * Interp.pow2Out.apply(q), (x, y) -> {
             Fill.circle(e.x + x, e.y + y, (1f - q) * (5f + Mathf.randomSeed(e.id + 9, 0f, 14f)));
         });
