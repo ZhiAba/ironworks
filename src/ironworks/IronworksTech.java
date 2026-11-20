@@ -188,6 +188,10 @@ public class IronworksTech{
             with(IronworksMaterials.siliconCarbide, 600, IronworksItems.steelPlate, 2000,
                  IronworksSilicon.quantumCore, 20, IronworksAluminum.aviationAluminum, 400,
                  Items.silicon, 2500, Items.metaglass, 1000));
+        // 辐射净化舱：清除永久结构损伤
+        node(rbmk, IronworksDecontaminator.decontaminator,
+            with(IronworksItems.steelPlate, 160, Items.lead, 140, Items.metaglass, 100,
+                 Items.silicon, 180));
         TechNode turbineNode = node(rbmk, IronworksRBMK.turbine,
             with(IronworksItems.steelPlate, 150, IronworksSilicon.quantumCore, 1,
                  Items.silicon, 200, Items.metaglass, 120));

@@ -65,38 +65,47 @@ public class IronworksNuclear{
 
     static void loadItems(){
         uraniumOre = new Item("uranium-ore", Color.valueOf("4f8f4a")){{
+            radioactivity = 0.05f;
             cost = 1.5f;
             hardness = 4;
         }};
         yellowcake = new Item("yellowcake", Color.valueOf("ffd34d")){{
+            radioactivity = 0.15f;
             cost = 2.0f;
             hardness = 2;
         }};
         enrichedUranium = new Item("enriched-uranium", Color.valueOf("a6ff8a")){{
+            radioactivity = 0.5f;
             cost = 4.0f;
             hardness = 3;
         }};
         fuelRod = new Item("fuel-rod", Color.valueOf("9fe8b0")){{
+            radioactivity = 0.8f;
             cost = 6.0f;
             hardness = 3;
         }};
         depletedRod = new Item("depleted-rod", Color.valueOf("5f7a68")){{
+            radioactivity = 1.0f;
             cost = 2.0f;
             hardness = 3;
         }};
         cooledRod = new Item("cooled-rod", Color.valueOf("8fa39a")){{
+            radioactivity = 0.35f;
             cost = 2.2f;
             hardness = 3;
         }};
         plutonium = new Item("plutonium", Color.valueOf("c46bd8")){{
+            radioactivity = 0.9f;
             cost = 7.0f;
             hardness = 4;
         }};
         nuclearWaste = new Item("nuclear-waste", Color.valueOf("c9e04a")){{
+            radioactivity = 1.5f;
             cost = 1.0f;
             hardness = 1;
         }};
         vitrifiedWaste = new Item("vitrified-waste", Color.valueOf("6f7d8a")){{
+            radioactivity = 0.1f;
             cost = 1.2f;
             hardness = 2;
         }};
@@ -297,10 +306,27 @@ public class IronworksNuclear{
             return mindustry.Vars.state.rules.infiniteResources;
         }
 
-        public class CoriumBuild extends Building{
+        public class CoriumBuild extends Building implements IronworksRadiation.Emitter{
             /** 剩余寿命（tick）。 */
             public float life = 180f * 60f;
-            float tick;
+            /** 当前辐射强度/半径；死亡污染会按携带物总量写入。 */
+            public float radiationPower = 3f, radius = radRadius;
+            /** 辐射强度半衰期（秒）；0 = 不衰减（熔毁主堆芯）。 */
+            public float decayHalfLife = 0f;
+            /** 死亡产生的临时污染区，寿命结束后移除；熔毁主堆芯在生存模式永久保留。 */
+            public boolean temporary = false;
+            float tick, age;
+
+            @Override
+            public float radiationStrength(){
+                if(decayHalfLife <= 0f) return radiationPower;
+                return radiationPower * (float)Math.pow(0.5, age / decayHalfLife);
+            }
+
+            @Override
+            public float radiationRadius(){
+                return radius;
+            }
 
             @Override
             public void damage(float amount){
@@ -312,15 +338,11 @@ public class IronworksNuclear{
 
             @Override
             public void updateTile(){
+                age += delta() / 60f;
                 tick += delta();
                 if(tick >= 15f){
                     tick = 0f;
-                    // 辐射场
-                    for(mindustry.gen.Unit u : mindustry.gen.Groups.unit){
-                        if(u.dst2(x, y) < radRadius * radRadius){
-                            u.apply(IronworksStatus.radiation, 240f);
-                        }
-                    }
+                    // 辐射场由 IronworksRadiation 统一扫描 Emitter，不再重复挂旧状态。
                     // 熔穿周围建筑（自己的四邻）
                     for(Building other : proximity){
                         if(other != null && other.block != corium && Math.random() < 0.10){
@@ -329,8 +351,8 @@ public class IronworksNuclear{
                     }
                 }
 
-                // 沙盒模式：岩浆 180 秒后凝固消失；生存模式：永久残留（不可拆、不可摧毁）
-                if(mindustry.Vars.state.rules.infiniteResources){
+                // 沙盒模式或死亡污染：到时凝固消失；熔毁主堆芯在生存模式永久残留。
+                if(temporary || mindustry.Vars.state.rules.infiniteResources){
                     life -= delta();
                     if(life <= 0f) tile.remove();
                 }
@@ -343,7 +365,7 @@ public class IronworksNuclear{
                 Draw.color(Color.valueOf("ff6a2b"), 0.5f + 0.3f * arc.math.Mathf.absin(arc.util.Time.time, 4f, 1f));
                 Draw.rect(arc.Core.atlas.white(), x, y, 10f, 10f);
                 Draw.color();
-                mindustry.graphics.Drawf.dashCircle(x, y, radRadius, Color.valueOf("ff6a2b"));
+                mindustry.graphics.Drawf.dashCircle(x, y, radius, Color.valueOf("ff6a2b"));
             }
         }
     }
@@ -357,6 +379,36 @@ public class IronworksNuclear{
             int dx = (int)(Math.random() * 5) - 2, dy = (int)(Math.random() * 5) - 2;
             mindustry.world.Tile t = center.nearby(dx, dy);
             if(t != null && t.block().isAir()) t.setBlock(corium, team);
+        }
+    }
+
+    /**
+     * 单位死亡污染：在死亡点生成 1 格临时 corium，强度/半径由携带物和污染值决定。
+     * 主熔毁的 corium 仍走 {@link #spawnCorium(Tile, mindustry.game.Team)}。
+     */
+    public static void spawnFalloutCorium(float x, float y, mindustry.game.Team team, float strength, float radius){
+        if(corium == null || mindustry.Vars.world == null) return;
+        mindustry.world.Tile tile = mindustry.Vars.world.tileWorld(x, y);
+        if(tile == null) return;
+        if(!tile.block().isAir()){
+            for(int i = 0; i < 9; i++){
+                int dx = (i % 3) - 1, dy = (i / 3) - 1;
+                mindustry.world.Tile other = tile.nearby(dx, dy);
+                if(other != null && other.block().isAir()){
+                    tile = other;
+                    break;
+                }
+            }
+        }
+        if(!tile.block().isAir()) return;
+
+        tile.setBlock(corium, team);
+        if(tile.build instanceof Corium.CoriumBuild build){
+            build.radiationPower = Math.max(1f, strength);
+            build.radius = Math.max(32f, radius);
+            build.decayHalfLife = 180f;
+            build.temporary = true;
+            build.life = 240f * 60f;
         }
     }
 

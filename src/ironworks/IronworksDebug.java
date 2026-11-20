@@ -8,6 +8,7 @@ import mindustry.content.StatusEffects;
 import mindustry.content.UnitTypes;
 import mindustry.entities.bullet.BulletType;
 import mindustry.game.Team;
+import mindustry.type.ItemStack;
 import mindustry.gen.Building;
 import mindustry.gen.Bullet;
 import mindustry.gen.Unit;
@@ -371,6 +372,137 @@ public class IronworksDebug{
         sb.append(" buildingHit=").append(buildingHit);
         sb.append(" units=").append(units);
         sb.append(" aegires=").append(aegires);
+        return sb.toString();
+    }
+
+    /** v3.9 辐射：分类、致死伤害、机械免疫、永久损伤、抗性与净化。 */
+    public static String radiationTest(Building at){
+        StringBuilder sb = new StringBuilder();
+        float x = at.x, y = at.y;
+
+        Unit bio = UnitTypes.crawler.spawn(Team.crux, x + 40f, y);
+        Unit mech = UnitTypes.dagger.spawn(Team.crux, x + 80f, y);
+        Unit armor = UnitTypes.stell.spawn(Team.crux, x + 120f, y);
+
+        boolean classes = IronworksRadiation.classOf(bio) == IronworksRadiation.BIOLOGICAL
+            && IronworksRadiation.classOf(mech) == IronworksRadiation.MECHANICAL
+            && IronworksRadiation.classOf(armor) == IronworksRadiation.ARMORED;
+
+        // 先在中度污染下测伤害，避免“永久损伤压低当前生命”混进机械免疫判定。
+        IronworksRadiation.addPollution(bio, 50f);
+        IronworksRadiation.addPollution(mech, 50f);
+        IronworksRadiation.addPollution(armor, 50f);
+
+        float bioHp = bio.health, mechHp = mech.health, armorHp = armor.health;
+        IronworksRadiation.tickUnit(bio, 1f);
+        IronworksRadiation.tickUnit(mech, 1f);
+        IronworksRadiation.tickUnit(armor, 1f);
+
+        boolean lethal = IronworksRadiation.levelOf(200f) == IronworksRadiation.LETHAL;
+        boolean bioDamaged = bio.health < bioHp - 0.01f;
+        boolean mechImmune = Math.abs(mech.health - mechHp) < 0.01f;
+        boolean armorDamaged = armor.health < armorHp - 0.01f;
+        float bioLoss = (bioHp - bio.health) / Math.max(1f, bioHp);
+        float armorLoss = (armorHp - armor.health) / Math.max(1f, armorHp);
+        boolean armorSofter = armorLoss < bioLoss;
+
+        // 再推到致死级：机械/装甲触发永久 35% 上限削减（当前生命同步压低）。
+        IronworksRadiation.addPollution(bio, 150f);
+        IronworksRadiation.addPollution(mech, 150f);
+        IronworksRadiation.addPollution(armor, 150f);
+        IronworksRadiation.tickUnit(bio, 1f);
+        IronworksRadiation.tickUnit(mech, 1f);
+        IronworksRadiation.tickUnit(armor, 1f);
+
+        boolean statuses = bio.hasEffect(IronworksRadiation.exposureLethal)
+            && mech.hasEffect(IronworksRadiation.exposureLethal)
+            && mech.hasEffect(IronworksRadiation.jam);
+        boolean scar = Math.abs(IronworksRadiation.scar(mech) - IronworksRadiation.SCAR_LETHAL) < 0.001f
+            && mech.maxHealth() <= mech.type.health * 0.66f;
+
+        IronworksRadiation.purify(mech, 1f);
+        boolean purified = IronworksRadiation.scar(mech) <= 0.001f
+            && Math.abs(mech.maxHealth() - mech.type.health) < 0.01f;
+
+        // 单源采样：在测试方块远处的空地放一个 corium，确认 Emitter 进入缓存。
+        float sourceAt = 0f;
+        mindustry.world.Tile tile = Vars.world.tile(at.tileX() + 18, at.tileY());
+        if(tile != null && tile.block().isAir()){
+            tile.setBlock(IronworksNuclear.corium, at.team);
+            sourceAt = IronworksRadiation.sourceStrengthAt(tile.worldx(), tile.worldy());
+            tile.setBlock(mindustry.content.Blocks.air, at.team);
+        }
+
+        bio.remove(); mech.remove(); armor.remove();
+        IronworksRadiation.forget(bio);
+        IronworksRadiation.forget(mech);
+        IronworksRadiation.forget(armor);
+
+        sb.append(" classes=").append(classes);
+        sb.append(" lethal=").append(lethal);
+        sb.append(" bioDmg=").append(bioDamaged);
+        sb.append(" mechImmune=").append(mechImmune);
+        sb.append(" armorSofter=").append(armorSofter);
+        sb.append(" statuses=").append(statuses);
+        sb.append(" scar=").append(scar);
+        sb.append(" purified=").append(purified);
+        sb.append(" source=").append(sourceAt > 0.1f);
+        return sb.toString();
+    }
+
+    /** v3.9 辐射净化舱与死亡污染。 */
+    public static String decontaminationTest(Building at){
+        StringBuilder sb = new StringBuilder();
+        Unit unit = UnitTypes.dagger.spawn(at.team, at.x + 40f, at.y);
+
+        IronworksRadiation.addPollution(unit, 200f);
+        IronworksRadiation.tickUnit(unit, 1f);
+        float before = IronworksRadiation.scar(unit);
+        float maxBefore = unit.maxHealth();
+        // 测试直接 spawn 不会经过 TeamData 的每帧树更新；手动插入一次让 Units.nearby 找到它。
+        unit.team.data().tree().insert(unit);
+
+        mindustry.world.Tile tile = Vars.world.tile(at.tileX() + 12, at.tileY());
+        boolean placed = false;
+        if(tile != null && tile.block().isAir()){
+            tile.setBlock(IronworksDecontaminator.decontaminator, at.team);
+            placed = true;
+            if(tile.build instanceof IronworksDecontaminator.Decontaminator.DecontaminatorBuild build){
+                build.efficiency = 1f;
+                float oldDelta = arc.util.Time.delta;
+                arc.util.Time.delta = 1f;
+                for(int i = 0; i < 1200; i++) build.updateTile();
+                arc.util.Time.delta = oldDelta;
+            }
+        }
+
+        float after = IronworksRadiation.scar(unit);
+        float maxAfter = unit.maxHealth();
+        boolean decon = placed && after < before - 0.01f && maxAfter > maxBefore + 0.1f;
+
+        // 携带放射性物品死亡 -> 死亡点生成临时 corium。
+        unit.stack(new ItemStack(Items.thorium, 8));
+        float dx = unit.x, dy = unit.y;
+        unit.kill();
+        boolean fallout = false;
+        for(int yy = -2; yy <= 2 && !fallout; yy++){
+            for(int xx = -2; xx <= 2; xx++){
+                mindustry.world.Tile t = Vars.world.tileWorld(dx + xx * 8f, dy + yy * 8f);
+                if(t != null && t.block() == IronworksNuclear.corium){
+                    fallout = true;
+                    t.setBlock(mindustry.content.Blocks.air, at.team);
+                    break;
+                }
+            }
+        }
+
+        if(unit != null && !unit.dead()) unit.remove();
+        IronworksRadiation.forget(unit);
+        sb.append(" placed=").append(placed);
+        sb.append(" scar=").append(String.format(java.util.Locale.ROOT, "%.3f->%.3f", before, after));
+        sb.append(" max=").append(String.format(java.util.Locale.ROOT, "%.1f->%.1f", maxBefore, maxAfter));
+        sb.append(" decon=").append(decon);
+        sb.append(" fallout=").append(fallout);
         return sb.toString();
     }
 

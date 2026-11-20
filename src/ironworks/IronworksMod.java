@@ -27,6 +27,8 @@ public class IronworksMod extends Mod{
         IronworksCompute.load();  // 全域算力集群 + 算力模块
         IronworksNuclear.load();  // 核工业全套（铀矿→黄饼→浓缩铀→燃料棒→乏燃料→后处理→固化）
         IronworksRBMK.load();     // RBMK 核电站（反应堆 + 汽轮机）
+        IronworksDecontaminator.load(); // 辐射净化舱（依赖核电材料）
+        IronworksRadiation.load(); // 辐射污染/伤害/永久损伤/建筑源
         IronworksTeleport.load(); // MCT 跃迁节点（物品/液体）
         IronworksBelts.load();     // 通液传送带全套（带 / 路由器 / 带桥 ×2 档）
         IronworksLiquidSorters.load(); // 液体分类器 / 反向分类器

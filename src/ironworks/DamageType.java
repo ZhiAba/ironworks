@@ -20,6 +20,8 @@ public enum DamageType{
     ice     ("ice",      "冰",   "9fe8ff", true,  DamageForm.ENERGY,    0.40f, 15f, 0.35f, "freezing", 120f, 1f),
     fire    ("fire",     "火",   "ff8a3c", true,  DamageForm.EXPLOSIVE, 0.25f, 10f, 0.45f, "burning",  240f, 1f),
     corrosive("corrosive","腐蚀","8fbf5a", true,  DamageForm.KINETIC,   0.80f, 25f, 0.20f, "corrosion",300f, 1f),
+    /** 辐射：百分比生命伤害走真实伤害，本身不挂状态；污染等级由 IronworksRadiation 管理。 */
+    radiation("radiation", "辐射", "9be86a", false, DamageForm.ENERGY, 1f, 1000000f, 0f, null, 0f, 1f),
     /** 无属性：无元素归属，也不参与动能/元素 Combo；可单独指定能量等形态。 */
     typeless("typeless",  "无属性", "ffffff", false, DamageForm.TYPELESS,  0.65f, 18f, 0.30f, null,       0f,   1f),
     /** 湮灭：只受“受到最终伤害降低”影响；不跳弹、不过穿、不吃护甲/抗性/护盾/Combo。 */
@@ -81,6 +83,7 @@ public enum DamageType{
     public String damageSuffix(){
         if(this == typeless) return bundle("damage-type.typeless-suffix", "无属性伤害");
         if(this == annihilation) return bundle("damage-type.annihilation-suffix", "湮灭伤害");
+        if(this == radiation) return bundle("damage-type.radiation-suffix", "辐射伤害");
         return bundle(elemental ? "damage-type.element-suffix" : "damage-type.physical-suffix",
             elemental ? "元素伤害" : "伤害");
     }
@@ -88,6 +91,7 @@ public enum DamageType{
     public String areaSuffix(){
         if(this == typeless) return bundle("damage-type.typeless-area", "无属性范围伤害");
         if(this == annihilation) return bundle("damage-type.annihilation-area", "湮灭范围伤害");
+        if(this == radiation) return bundle("damage-type.radiation-area", "辐射范围伤害");
         return bundle(elemental ? "damage-type.element-area" : "damage-type.physical-area",
             elemental ? "元素范围伤害" : "范围伤害");
     }

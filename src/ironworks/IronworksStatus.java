@@ -133,14 +133,10 @@ public class IronworksStatus{
             applyEffect = Fx.shieldBreak;
         }};
 
-        // 辐射：无视护甲的持续伤害 + 减速（RBMK 熔毁后撒在区域里）
+        // 旧版辐射标记：只保留内容/存档兼容，不再自己结算伤害。
+        // 3.9 起污染值、伤害与永久损伤统一由 IronworksRadiation 管理。
         radiation = new StatusEffect("radiation"){{
             color = Color.valueOf("9be86a");
-            intervalDamage = 10f;
-            intervalDamageTime = 45f;
-            intervalDamagePierce = true;
-            speedMultiplier = 0.9f;
-            reloadMultiplier = 0.92f;
             effect = Fx.none;
         }};
 

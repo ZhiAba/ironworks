@@ -146,6 +146,14 @@ public class VerboseLogger extends Block{
             return IronworksDebug.reworkTest(this);
         }
 
+        public String radiationTest(){
+            return IronworksDebug.radiationTest(this);
+        }
+
+        public String decontaminationTest(){
+            return IronworksDebug.decontaminationTest(this);
+        }
+
         @Override
         public void onDestroyed(){
             IronworksLog.line("[EVENT] logger destroyed");

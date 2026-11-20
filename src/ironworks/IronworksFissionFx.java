@@ -58,6 +58,10 @@ public class IronworksFissionFx{
     public static final float secondaryVisualRadiusScale = 1.65f;
     /** 二次爆燃生命周期；旧版 260 tick，这里减半以把扩散速度翻倍。 */
     public static final float secondaryLifetime = 130f;
+    /** 主爆炸屏幕抖动：足以表现堆芯级爆炸，但远低于会让画面失控的 100 上限。 */
+    public static final float mainShake = 32f, mainShakeDuration = 240f;
+    /** 每次二次爆燃都抖一下；幅度小、时间短，避免连续几十次叠加成癫痫画面。 */
+    public static final float secondaryShake = 4f, secondaryShakeDuration = 26f;
 
     /** 主爆炸之后的小型二次爆燃；每个都有自己的闪光、环、碎片和烟。 */
     public static final Effect secondary = new Effect(secondaryLifetime, 1800f, IronworksFissionFx::renderSecondary)
@@ -98,7 +102,7 @@ public class IronworksFissionFx{
 
     public static void at(float x, float y, float radius, Team team){
         effect.at(x, y, 0f, Color.white, radius);
-        Effect.shake(20f, 210f, x, y);
+        Effect.shake(mainShake, mainShakeDuration, x, y);
 
         // 原版 ImpactReactor 的核心爆炸作第一层底子；外层冲击波和余烬由本类补足。
         if(!Vars.headless){
@@ -126,11 +130,12 @@ public class IronworksFissionFx{
                         secondaryDamage * testDamageScale, DamageType.fire, DamageForm.EXPLOSIVE, 1f, 0.02f);
                 }
 
+                // 每次二次爆燃都带轻微抖动；不再只每 6 次抖一次。
                 if(!Vars.headless){
                     playSecondaryBoom(sx, sy, idx);
                     if(idx % 4 == 0) Fx.massiveExplosion.at(sx, sy);
-                    if(idx % 6 == 0) Effect.shake(3.2f, 24f, sx, sy);
                 }
+                Effect.shake(secondaryShake, secondaryShakeDuration, sx, sy);
             });
         }
     }

@@ -427,7 +427,7 @@ public class IronworksRBMK{
             return false;
         }
 
-        public class RBMKReactorBuild extends PowerGenerator.GeneratorBuild{
+        public class RBMKReactorBuild extends PowerGenerator.GeneratorBuild implements IronworksRadiation.Emitter{
             /** 控制棒**目标**插入深度 0..1（滑条设定的值）。 */
             public float targetRods = 1f;
             /** 控制棒**实际**插入深度 0..1，会以有限速度向目标移动（真实棒有行程时间）。 */
@@ -553,6 +553,18 @@ public class IronworksRBMK{
             /** 当前选中：-1 = 总控（全堆），0..8 = 单个分区。 */
             public int selectedZone = -1;
             private boolean zonesInit = false;
+
+            /** 运行中的反应堆本身就是辐射源；冷停堆/已熔毁时迅速降为 0。 */
+            @Override
+            public float radiationStrength(){
+                if(melted) return 0f;
+                return Math.max(0f, 0.2f + heat * 1.1f + flux * 0.45f);
+            }
+
+            @Override
+            public float radiationRadius(){
+                return 96f;
+            }
 
             @Override
             public float getPowerProduction(){
@@ -1903,8 +1915,10 @@ public class IronworksRBMK{
                     // 落尘：给爆心外的单位挂辐射（保留原逻辑）
                     //落尘范围比爆炸更大，站在爆心外也可能吃到辐射
                     for(Unit u : Groups.unit){
-                        if(u.dst2(x, y) < falloutRadius * falloutRadius){
-                            u.apply(IronworksStatus.radiation, radiationTime);
+                        float dist2 = u.dst2(x, y);
+                        if(dist2 < falloutRadius * falloutRadius){
+                            float falloff = 1f - (float)Math.sqrt(dist2) / falloutRadius;
+                            IronworksRadiation.addPollution(u, 35f * Math.max(0f, falloff));
                         }
                     }
                 }else{
