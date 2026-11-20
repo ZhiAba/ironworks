@@ -424,6 +424,19 @@ public class IronworksDebug{
         boolean purified = IronworksRadiation.scar(mech) <= 0.001f
             && Math.abs(mech.maxHealth() - mech.type.health) < 0.01f;
 
+        // 单位源：一个致死级机械应能把污染传给附近另一个单位。
+        Unit src = UnitTypes.dagger.spawn(Team.crux, x + 200f, y);
+        Unit dst = UnitTypes.dagger.spawn(Team.crux, x + 240f, y);
+        IronworksRadiation.addPollution(src, 200f);
+        IronworksRadiation.tickUnit(src, 1f);
+        IronworksRadiation.refreshSourcesNow();
+        float beforeSpread = IronworksRadiation.pollution(dst);
+        IronworksRadiation.tickUnit(dst, 1f);
+        boolean unitSource = IronworksRadiation.pollution(dst) > beforeSpread + 0.1f;
+        src.remove(); dst.remove();
+        IronworksRadiation.forget(src);
+        IronworksRadiation.forget(dst);
+
         // 单源采样：在测试方块远处的空地放一个 corium，确认 Emitter 进入缓存。
         float sourceAt = 0f;
         mindustry.world.Tile tile = Vars.world.tile(at.tileX() + 18, at.tileY());
@@ -447,6 +460,7 @@ public class IronworksDebug{
         sb.append(" scar=").append(scar);
         sb.append(" purified=").append(purified);
         sb.append(" source=").append(sourceAt > 0.1f);
+        sb.append(" unitSource=").append(unitSource);
         return sb.toString();
     }
 

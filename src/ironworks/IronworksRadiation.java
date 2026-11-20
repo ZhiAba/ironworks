@@ -75,6 +75,8 @@ public class IronworksRadiation{
     private static final ObjectMap<Block, SourceDef> blockSources = new ObjectMap<>();
     /** 当前建筑源缓存。 */
     private static final Seq<Source> sources = new Seq<>();
+    /** 达到致死级或携带放射性物品的单位，也会向周围发射。 */
+    private static final Seq<UnitSource> unitSources = new Seq<>();
     /** 单位运行时数据。 */
     private static final ObjectMap<Unit, Track> tracks = new ObjectMap<>();
     /** 所有有放射性的物品，避免每帧遍历整个内容表。 */
@@ -111,7 +113,19 @@ public class IronworksRadiation{
         }
     }
 
+    private static class UnitSource{
+        final Unit unit;
+        final float strength, radius;
+
+        UnitSource(Unit unit, float strength, float radius){
+            this.unit = unit;
+            this.strength = strength;
+            this.radius = radius;
+        }
+    }
+
     private static class Track{
+        int id;
         float pollution, scar;
         float baseMax = -1f;
         UnitType type;
@@ -279,12 +293,25 @@ public class IronworksRadiation{
         Track t = tracks.get(unit);
         if(t == null){
             t = new Track();
+            t.id = unit.id;
             t.type = unit.type;
             t.baseMax = unit.type == null ? unit.maxHealth : unit.type.health;
             // 读档时用永久状态标记重建削减比例。
             if(unit.hasEffect(scar35)) t.scar = SCAR_LETHAL;
             else if(unit.hasEffect(scar15)) t.scar = SCAR_SEVERE;
             tracks.put(unit, t);
+            syncScar(unit, t);
+        }else if(t.id != unit.id){
+            // 单位对象被实体池复用：按新单位清空运行时污染，只保留状态标记可重建的永久损伤。
+            t.id = unit.id;
+            t.pollution = 0f;
+            t.scar = 0f;
+            t.jamCooldown = 0f;
+            t.dynamicApplied = false;
+            t.type = unit.type;
+            t.baseMax = unit.type == null ? unit.maxHealth : unit.type.health;
+            if(unit.hasEffect(scar35)) t.scar = SCAR_LETHAL;
+            else if(unit.hasEffect(scar15)) t.scar = SCAR_SEVERE;
             syncScar(unit, t);
         }else if(t.type != unit.type){
             t.type = unit.type;
@@ -316,7 +343,7 @@ public class IronworksRadiation{
         int cls = classOf(unit);
         float resist = resistanceOf(unit);
 
-        float source = sourceAt(unit.x, unit.y);
+        float source = sourceAt(unit);
         float item = unitItemStrength(unit);
         float incoming = (float)Math.sqrt(source * source + item * item);
 
@@ -452,6 +479,7 @@ public class IronworksRadiation{
 
     private static void refreshSources(){
         sources.clear();
+        unitSources.clear();
         for(Building building : Groups.build){
             if(building == null || building.dead() || !building.isValid() || building.block == null) continue;
 
@@ -477,6 +505,39 @@ public class IronworksRadiation{
                 sources.add(new Source(building, strength, radius));
             }
         }
+
+        // 致死级或携带放射性物品的单位也是源；自己不会被自己的单位源反向污染。
+        for(Unit unit : Groups.unit){
+            if(unit == null || unit.dead()) continue;
+            float item = unitItemStrength(unit);
+            float polluted = pollution(unit);
+            if(item <= 0f && polluted < THRESHOLDS[LETHAL]) continue;
+
+            float strength = item * 0.45f;
+            if(polluted >= THRESHOLDS[LETHAL]){
+                strength += 0.5f + Math.min(1f, (polluted - THRESHOLDS[LETHAL]) / 100f) * 0.5f;
+            }
+            float radius = Math.min(96f, 40f + polluted * 0.2f + item * 2f);
+            if(strength > 0.0001f){
+                unitSources.add(new UnitSource(unit, strength, radius));
+            }
+        }
+    }
+
+    private static float sourceAt(Unit unit){
+        float sum = sourceAt(unit.x, unit.y);
+        for(int i = 0; i < unitSources.size; i++){
+            UnitSource source = unitSources.get(i);
+            if(source.unit == unit || source.unit == null || source.unit.dead()) continue;
+
+            float dx = source.unit.x - unit.x, dy = source.unit.y - unit.y;
+            float dist = (float)Math.sqrt(dx * dx + dy * dy);
+            if(dist >= source.radius) continue;
+            float falloff = 1f - dist / source.radius;
+            float value = source.strength * falloff * falloff;
+            sum += value * value;
+        }
+        return (float)Math.sqrt(sum);
     }
 
     private static float sourceAt(float x, float y){
@@ -511,6 +572,7 @@ public class IronworksRadiation{
     private static void clear(){
         tracks.clear();
         sources.clear();
+        unitSources.clear();
         sourceTimer = 0f;
     }
 
