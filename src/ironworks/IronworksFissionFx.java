@@ -1,9 +1,11 @@
 package ironworks;
 
+import arc.Core;
 import arc.audio.Sound;
 import arc.graphics.Blending;
 import arc.graphics.Color;
 import arc.graphics.g2d.Fill;
+import arc.graphics.g2d.TextureRegion;
 import arc.math.Interp;
 import arc.math.Mathf;
 import arc.util.Log;
@@ -69,6 +71,36 @@ public class IronworksFissionFx{
 
     private static Sound secondaryBoom;
     private static boolean secondaryBoomTried;
+    private static TextureRegion softGlow, softRing;
+
+    /** 平滑径向渐变贴图；只在客户端首次绘制时查找，避免静态初始化碰 atlas。 */
+    private static TextureRegion softGlow(){
+        if(softGlow == null) softGlow = Core.atlas.find("ironworks-soft-glow");
+        return softGlow;
+    }
+
+    private static TextureRegion softRing(){
+        if(softRing == null) softRing = Core.atlas.find("ironworks-soft-ring");
+        return softRing;
+    }
+
+    private static void drawGlow(float x, float y, float radius, Color color, float alpha){
+        TextureRegion region = softGlow();
+        if(region == null || !region.found()) return;
+        color(color);
+        alpha(alpha);
+        rect(region, x, y, radius * 2f, radius * 2f);
+    }
+
+    private static void drawRing(float x, float y, float radius, Color color, float alpha){
+        TextureRegion region = softRing();
+        if(region == null || !region.found()) return;
+        color(color);
+        alpha(alpha);
+        // 环形贴图的亮带在 0.72 半宽处；反算尺寸，让亮带落在目标半径。
+        float size = radius * 2f / 0.72f;
+        rect(region, x, y, size, size);
+    }
 
     /** 客户端初始化时预加载，避免第一颗二次爆燃才解码 OGG 造成卡顿。 */
     public static void init(){
@@ -255,78 +287,62 @@ public class IronworksFissionFx{
         float t = e.time;
         float q = Mathf.clamp(t / secondaryLifetime);
 
-        // 不再用一张 circle 贴图直接放大成巨型光球：贴图边缘只有 1~2 像素，
-        // 放大到几十格后就会出现明显锯齿。改成原版反应堆爆炸那种粒子壳层。
+        // 一个主光球扩大，而不是一圈小光球向外扩散。
+        // soft-glow 是平滑径向渐变贴图，放大时不会有 circle.png 的硬边台阶。
         if(t < secondaryLifetime){
             float p = Mathf.clamp(t / secondaryLifetime);
-            float expand = Interp.pow2Out.apply(p);
+            float expand = Interp.pow3Out.apply(p);
+            float orb = radius * (0.55f + 0.85f * expand);
+
             blend(Blending.additive);
 
-            for(int i = 0; i < 3; i++){
-                int layer = i;
-                float shell = radius * (0.20f + i * 0.30f + 0.85f * expand);
-                int count = 26 + i * 12;
-                color(i == 0 ? Color.white : (i == 1 ? Pal.lighterOrange : Pal.reactorPurple2));
-                alpha((0.78f - i * 0.16f) * (1f - p));
-                randLenVectors(e.id + 31 + i * 17, count, shell, (x, y) -> {
-                    float size = Mathf.randomSeed(e.id + 101 + layer * 13, 2.4f, 7.5f) * (1f - p * 0.35f);
-                    Fill.circle(e.x + x, e.y + y, size);
-                });
-            }
+            // 橙色外晕
+            drawGlow(e.x, e.y, orb * 1.18f, Pal.lighterOrange, 0.72f * (1f - p));
 
-            // 中心保留少量白热粒子，代替原来半径 0.62r 的大白圆。
-            color(Color.white);
-            alpha(0.9f * (1f - p));
-            randLenVectors(e.id + 77, 18, radius * 0.32f * (0.35f + 0.9f * expand), (x, y) -> {
-                Fill.circle(e.x + x, e.y + y, 1.5f + 4f * (1f - p));
-            });
+            // 白热主体，中心保持一个整体光球
+            drawGlow(e.x, e.y, orb, Color.white, 0.95f * (1f - p));
+
+            // 很小的过曝核心，只增加中心亮度，不改变整体轮廓
+            drawGlow(e.x, e.y, orb * 0.32f, Color.white, 0.85f * (1f - p));
+
             blend();
-
-            Drawf.light(e.x, e.y, radius * (1.8f + 2.2f * expand), Pal.lighterOrange, 0.95f * (1f - p));
+            Drawf.light(e.x, e.y, orb * 4.2f, Pal.lighterOrange, 1f * (1f - p));
         }
 
-        // 短促白闪：只给一个小核心，不再靠放大圆贴图撑亮度。
+        // 短促白闪：同样用平滑贴图，只画一个整体，不铺小圆。
         if(t < 19f){
             float p = t / 19f;
-            color(Color.white, Pal.lighterOrange, p);
-            alpha(0.95f * (1f - p));
-            Fill.circle(e.x, e.y, radius * (0.05f + 0.06f * p));
-            Drawf.light(e.x, e.y, radius * (1.8f + 0.8f * p), Pal.lighterOrange, 1f * (1f - p));
+            blend(Blending.additive);
+            drawGlow(e.x, e.y, radius * (0.24f + 0.22f * p), Color.white, 0.9f * (1f - p));
+            blend();
+            Drawf.light(e.x, e.y, radius * 2.4f, Pal.lighterOrange, 1f * (1f - p));
         }
 
-        // 冲击波环也改成 72 个微粒，避免 Lines.circle 在大半径下的折线边。
+        // 冲击波环：一张平滑的环形贴图，不再是 72 个小圆组成的圆环。
         if(t < 95f){
             float p = Mathf.clamp(t / 95f);
             float rr = radius * (0.18f + 1.45f * Interp.pow2Out.apply(p));
-            float size = 1.2f + 2.4f * (1f - p);
-            for(int i = 0; i < 72; i++){
-                float ang = i * 360f / 72f;
-                color(Pal.lighterOrange, Pal.reactorPurple2, p);
-                alpha(0.55f * (1f - p));
-                Fill.circle(e.x + Mathf.cosDeg(ang) * rr, e.y + Mathf.sinDeg(ang) * rr, size);
-            }
+            blend(Blending.additive);
+            drawRing(e.x, e.y, rr, Pal.lighterOrange, 0.58f * (1f - p));
+            blend();
         }
 
-        // 碎片、火星和烟；保留原来的小粒子密度。
-        randLenVectors(e.id + 1, 32, radius * 1.55f * Interp.pow2Out.apply(q), (x, y) -> {
-            Fill.circle(e.x + x, e.y + y, (1f - q) * (5f + Mathf.randomSeed(e.id + 9, 0f, 14f)));
-        });
-
+        // 稀疏火花和烟，保留“爆燃”的细节，但不形成一圈光球。
         if(t < 110f){
             color(Pal.lighterOrange, Color.gray, q);
-            alpha(0.85f * (1f - q));
-            stroke(3.2f * (1f - q) + 0.5f);
-            randLenVectors(e.id + 2, 22, radius * 1.45f * Interp.pow2Out.apply(q), (x, y) -> {
-                lineAngle(e.x + x, e.y + y, Mathf.angle(x, y), 3f + 16f * (1f - q));
+            alpha(0.75f * (1f - q));
+            stroke(2.6f * (1f - q) + 0.5f);
+            randLenVectors(e.id + 2, 18, radius * 1.45f * Interp.pow2Out.apply(q), (x, y) -> {
+                lineAngle(e.x + x, e.y + y, Mathf.angle(x, y), 3f + 13f * (1f - q));
             });
         }
 
         if(t > 22.5f){
             float s = Mathf.clamp((t - 22.5f) / (secondaryLifetime - 22.5f));
             color(Pal.reactorPurple2, Color.gray, s);
-            alpha(0.18f * (1f - s));
-            randLenVectors(e.id + 3, 16, radius * 1.1f * Interp.pow2Out.apply(s), (x, y) -> {
-                Fill.circle(e.x + x, e.y + y, 3f + 9f * (1f - s));
+            alpha(0.16f * (1f - s));
+            randLenVectors(e.id + 3, 12, radius * 1.1f * Interp.pow2Out.apply(s), (x, y) -> {
+                Fill.circle(e.x + x, e.y + y, 2.5f + 7f * (1f - s));
             });
         }
     }
