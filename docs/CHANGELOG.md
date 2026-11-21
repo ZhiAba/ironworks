@@ -15,6 +15,7 @@
 
 ## 目录
 
+- [3.10.x 单位动态模块库](#310x)
 - [3.9.x 辐射系统、粒子爆燃与 RBMK 屏幕抖动](#39x)
 - [3.8.x 单场景共享星球渲染](#38x)
 - [3.7.x 真实星球主界面、拖动旋转与战役滑入过渡](#37x)
@@ -49,6 +50,21 @@
 
 ---
 
+## 3.10.x
+
+### 3.10.0.0 — 单位动态模块库（模块图/坐标贴图/动态挂载）
+
+- **新增支持库**：`src/ironworks/unitmodule/`。模块是“行为组合”，不是固定武器槽；新增功能通过 `ModuleBehavior` 扩展，不改单位类。
+- **动态模块图**：`UnitModuleState` 支持任意数量节点、父级/socket 嵌套；`install/uninstall/replace/move` 运行时生效。
+- **坐标与贴图**：安装参数携带单位本地坐标、旋转、缩放、z、贴图覆盖；`Trigger.draw` 按单位层 z 排序绘制模块贴图，卸载即移除。
+- **动态武器挂载**：`MountManager` 保留原版 base mounts，模块武器追加/移除；按实例 key 复用 `WeaponMount` 状态；不反射 `WeaponMount.weapon`。
+- **属性/装甲**：`StatBehavior` 聚合护甲/生命/速度/伤害/装填/自定义 key；演示装甲模块“护甲 +12、生命 ×1.15、独立贴图”已通过无头验证。外挂装甲后续走同一行为。
+- **存档/联机**：`SaveVersion.CustomChunk` 保存模块图，`UnitModuleSyncPacket` 实时同步，单位未到进入 pending；未知模块跳过。
+- **后续接入**：`ModuleEditSession`（兵工厂）、`AttachmentModuleAdapter`（其他单位附加）、`DifficultyModuleAdapter`（T7 revision）已提供接口。
+- **测试**：T237–T245 共 9 项通过；既有 8 个定向 8/8；`check-keys` 通过。模块贴图/GPU 未实机验证。
+- **参考**：Eve / 超频没有团队《Modular Weapon Unit 2.0》仅作思路研究，未复制其代码。
+- **版本**：3.10.0.0。
+
 ## 3.9.x
 
 ### 3.9.1.0 — 二次爆燃改为粒子壳层，去掉巨型圆贴图锯齿
@@ -57,6 +73,7 @@
 - **原因**：旧实现把一张 201×201 的 `circle` 贴图直接放大到几十格；贴图边缘只有 1~2 像素，放大后变成台阶。冲击波环 `Lines.circle` 在大半径下也会露出折线边。
 - **修复**：二次爆燃改成原版反应堆爆炸同类的粒子壳层：三层 `randLenVectors` 小光点、中心白热粒子、72 个微粒组成的冲击波环；只保留小核心闪烁，不再绘制巨型 `Fill.circle`。伤害半径、可见外缘和 `secondaryVisualRadiusScale` 不变。
 - **验证**：构建通过；T142/T148/T151/T154/T161/T234/T235/T236 定向 8/8；粒子视觉和锯齿是否消失需实机确认。
+- **文档整理（2026-11-20）**：重写 `HANDOFF.md` 为 3.9.1.0 当前交接；`DUAL-BOARD.md` 校准到 `79388d9`；`TEST-INDEX.md` 更新到 T1–T236；旧版 `HANDOFF`（截止 3.4.0.0）、`RBMK-BALANCE-2.4.md`、`SUBCONTEXT.md` 归档到 `/sdcard/文件中转/铁流工业-旧文档-2026-11-20/`。不涉及代码、jar 与部署。
 - **版本**：3.9.1.0。
 
 ### 3.9.0.0 — 辐射系统、死亡污染区与 RBMK 屏幕抖动

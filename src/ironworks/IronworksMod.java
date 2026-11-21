@@ -1,6 +1,8 @@
 package ironworks;
 
 import mindustry.mod.Mod;
+import ironworks.unitmodule.UnitModuleRuntime;
+import ironworks.unitmodule.adapter.DifficultyModuleAdapter;
 
 public class IronworksMod extends Mod{
 
@@ -68,6 +70,8 @@ public class IronworksMod extends Mod{
     @Override
     public void init(){
         Difficulty.init();       // 全局难度协议（T0-T7）
+        UnitModuleRuntime.init(); // 单位动态模块库（模块图/热替换/贴图绑定）
+        UnitModuleRuntime.registerModifierSource(new DifficultyModuleAdapter());
         IronworksBlockSearch.init(); // 建造菜单里的方块搜索（名称匹配，不带拼音表）
         IronworksPause.init();       // 多人暂停：网络包 + !pause 命令 + 暂停键请求
         IronworksRbmkChat.init();    // 彩蛋：聊天关键词按顺序说出 → 全图工作中的反应堆熔毁

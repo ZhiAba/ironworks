@@ -177,3 +177,12 @@
 234	T234 .*typelessClean=true annihilation=true finalModifiers=true trueExempt=true suffix=true buildingHit=true units=true aegires=true.*
 235	T235 .*classes=true lethal=true bioDmg=true mechImmune=true armorSofter=true statuses=true scar=true encodedPollution=true purified=true source=true.* unitSource=true.*
 236	T236 .*placed=true scar=0\.3[0-9]+->0\.[12][0-9]+ max=[0-9.]+->[0-9.]+ decon=true fallout=true.*
+237	T237 .*ok=true
+238	T238 .*ok=true
+239	T239 .*ok=true
+240	T240 .*ok=true
+241	T241 .*ok=true
+242	T242 .*ok=true
+243	T243 .*ok=true
+244	T244 .*ok=true
+245	T245 .*ok=true

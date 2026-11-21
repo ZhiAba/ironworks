@@ -38,6 +38,8 @@ cp -a "$MOD/mod.hjson" "$CLASSES/mod.hjson"
 # GPL 分发要求：许可证与第三方声明随 jar 一起走
 cp -a "$MOD/LICENSE" "$MOD/NOTICE.md" "$MOD/THIRD-PARTY.md" "$CLASSES/"
 
+python3 "$MOD/tools/normalize-build-sizes.py" "$CLASSES"
+
 echo "== 4/5 打 jar =="
 "$JAR" --create --file "$BUILD/$MOD_ID-classes.jar" -C "$CLASSES" .
 
