@@ -71,16 +71,16 @@ public class IronworksFissionFx{
 
     private static Sound secondaryBoom;
     private static boolean secondaryBoomTried;
-    private static TextureRegion softGlow;
+    private static TextureRegion hardOrb;
 
-    /** 平滑径向渐变贴图；只在客户端首次绘制时查找，避免静态初始化碰 atlas。 */
-    private static TextureRegion softGlow(){
-        if(softGlow == null) softGlow = Core.atlas.find("ironworks-soft-glow");
-        return softGlow;
+    /** 硬边圆形贴图；只在客户端首次绘制时查找，避免静态初始化碰 atlas。 */
+    private static TextureRegion hardOrb(){
+        if(hardOrb == null) hardOrb = Core.atlas.find("ironworks-hard-orb");
+        return hardOrb;
     }
 
-    private static void drawGlow(float x, float y, float radius, Color color, float alpha){
-        TextureRegion region = softGlow();
+    private static void drawOrb(float x, float y, float radius, Color color, float alpha){
+        TextureRegion region = hardOrb();
         if(region == null || !region.found()) return;
         color(color);
         alpha(alpha);
@@ -273,7 +273,8 @@ public class IronworksFissionFx{
         float q = Mathf.clamp(t / secondaryLifetime);
 
         // 一个主光球扩大，而不是一圈小光球向外扩散。
-        // soft-glow 是平滑径向渐变贴图，放大时不会有 circle.png 的硬边台阶。
+        // 尺寸与 3.9.0.0 修改屏幕抖动之前一致：核心 0.62r、白球 r、橙晕 1.1786r；
+        // 贴图是硬边圆形，不再用高斯模糊，放大后也不会出现软边光晕。
         if(t < secondaryLifetime){
             float p = Mathf.clamp(t / secondaryLifetime);
             float expand = Interp.pow3Out.apply(p);
@@ -281,24 +282,27 @@ public class IronworksFissionFx{
 
             blend(Blending.additive);
 
-            // 橙色外晕
-            drawGlow(e.x, e.y, orb * 1.18f, Pal.lighterOrange, 0.72f * (1f - p));
+            // 真正的白热核心：接近不透明，保证每次爆燃都能在日光下“炸眼”。
+            drawOrb(e.x, e.y, orb * 0.62f, Color.white, 1f * (1f - p));
 
-            // 白热主体，中心保持一个整体光球
-            drawGlow(e.x, e.y, orb, Color.white, 0.95f * (1f - p));
+            // 主体白光：比旧版更实、更亮。
+            color(Color.white, Pal.lighterOrange, p);
+            alpha(0.92f * (1f - p));
+            TextureRegion region = hardOrb();
+            if(region != null && region.found()) rect(region, e.x, e.y, orb * 2f, orb * 2f);
 
-            // 很小的过曝核心，只增加中心亮度，不改变整体轮廓
-            drawGlow(e.x, e.y, orb * 0.32f, Color.white, 0.85f * (1f - p));
+            // 橙色外晕，峰值正好落在伤害半径上，保证看到的范围就是打到的范围。
+            drawOrb(e.x, e.y, orb * (secondaryVisualRadiusScale / 1.4f), Pal.lighterOrange, 0.58f * (1f - p));
 
             blend();
             Drawf.light(e.x, e.y, orb * 4.2f, Pal.lighterOrange, 1f * (1f - p));
         }
 
-        // 短促白闪：同样用平滑贴图，只画一个整体，不铺小圆。
+        // 短促白闪：同样只画一个整体，不铺小圆。
         if(t < 19f){
             float p = t / 19f;
             blend(Blending.additive);
-            drawGlow(e.x, e.y, radius * (0.24f + 0.22f * p), Color.white, 0.9f * (1f - p));
+            drawOrb(e.x, e.y, radius * (0.26f + 0.28f * p), Color.white, 1f * (1f - p));
             blend();
             Drawf.light(e.x, e.y, radius * 2.4f, Pal.lighterOrange, 1f * (1f - p));
         }
