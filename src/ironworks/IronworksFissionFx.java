@@ -65,23 +65,18 @@ public class IronworksFissionFx{
     /** 每次二次爆燃都抖一下；幅度小、时间短，避免连续几十次叠加成癫痫画面。 */
     public static final float secondaryShake = 4f, secondaryShakeDuration = 26f;
 
-    /** 主爆炸之后的小型二次爆燃；每个都有自己的闪光、环、碎片和烟。 */
+    /** 主爆炸之后的小型二次爆燃；每个都只有一个会膨胀的光球，外加稀疏火花和烟。 */
     public static final Effect secondary = new Effect(secondaryLifetime, 1800f, IronworksFissionFx::renderSecondary)
         .layer(Layer.effect + 0.02f);
 
     private static Sound secondaryBoom;
     private static boolean secondaryBoomTried;
-    private static TextureRegion softGlow, softRing;
+    private static TextureRegion softGlow;
 
     /** 平滑径向渐变贴图；只在客户端首次绘制时查找，避免静态初始化碰 atlas。 */
     private static TextureRegion softGlow(){
         if(softGlow == null) softGlow = Core.atlas.find("ironworks-soft-glow");
         return softGlow;
-    }
-
-    private static TextureRegion softRing(){
-        if(softRing == null) softRing = Core.atlas.find("ironworks-soft-ring");
-        return softRing;
     }
 
     private static void drawGlow(float x, float y, float radius, Color color, float alpha){
@@ -90,16 +85,6 @@ public class IronworksFissionFx{
         color(color);
         alpha(alpha);
         rect(region, x, y, radius * 2f, radius * 2f);
-    }
-
-    private static void drawRing(float x, float y, float radius, Color color, float alpha){
-        TextureRegion region = softRing();
-        if(region == null || !region.found()) return;
-        color(color);
-        alpha(alpha);
-        // 环形贴图的亮带在 0.72 半宽处；反算尺寸，让亮带落在目标半径。
-        float size = radius * 2f / 0.72f;
-        rect(region, x, y, size, size);
     }
 
     /** 客户端初始化时预加载，避免第一颗二次爆燃才解码 OGG 造成卡顿。 */
@@ -316,15 +301,6 @@ public class IronworksFissionFx{
             drawGlow(e.x, e.y, radius * (0.24f + 0.22f * p), Color.white, 0.9f * (1f - p));
             blend();
             Drawf.light(e.x, e.y, radius * 2.4f, Pal.lighterOrange, 1f * (1f - p));
-        }
-
-        // 冲击波环：一张平滑的环形贴图，不再是 72 个小圆组成的圆环。
-        if(t < 95f){
-            float p = Mathf.clamp(t / 95f);
-            float rr = radius * (0.18f + 1.45f * Interp.pow2Out.apply(p));
-            blend(Blending.additive);
-            drawRing(e.x, e.y, rr, Pal.lighterOrange, 0.58f * (1f - p));
-            blend();
         }
 
         // 稀疏火花和烟，保留“爆燃”的细节，但不形成一圈光球。

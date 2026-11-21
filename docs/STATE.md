@@ -3,9 +3,9 @@
 # 当前状态快照（压缩上下文后从这里恢复）
 
 ## 一句话
-Mindustry 模组「铁流工业」v3.10.0.1，Java 编写，自研多配方库 + 属性伤害（元素/无属性/湮灭 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾/最终伤害减免）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 辐射污染/四级伤害/永久结构损伤/死亡污染区/辐射净化舱 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化 + 单位动态模块库（模块图/坐标贴图/动态挂载），已装到手机两个客户端。
+Mindustry 模组「铁流工业」v3.10.0.2，Java 编写，自研多配方库 + 属性伤害（元素/无属性/湮灭 × 形态：平方衰减穿透/跳弹/过穿/永久腐蚀/能量穿盾/最终伤害减免）+ 分类合并伤害飘字 + 左侧日志长条 + 独立动画日志面板 + 右上角通知弹出条 + RBMK 异常广播（含警告音效） + RBMK-9 12×12 分区堆芯（3240 L/s，三节点热工/多普勒/棒尖/衰变热/逐区熔毁/分区水汽/湿蒸汽/独立注水泵/泵惰转/水锤/卡棒/自动跳闸锁存）+ 液体分类器/反向分类器 + 黑色半透明控制台 + 4×4 大型汽轮机 + 2×2/4×4 冷却塔 + 分区堆手动告警到X号堆 + 辐射污染/四级伤害/永久结构损伤/死亡污染区/辐射净化舱 + 状态/光环 + 外挂装甲 + 矩形算力集群（链接块方案）+ 真实星球主界面（原生桌面菜单/右侧星球/120秒自转/单场景共享星球渲染）+ 逻辑块编辑界面汉化 + 单位动态模块库（模块图/坐标贴图/动态挂载），已装到手机两个客户端。
 
-> 2026-11-21：v3.10.0.1 为二次爆燃光球热修；v3.10.0.0 新增 `ironworks.unitmodule` 支持库。当前构建/测试/部署状态见下方。
+> 2026-11-21：v3.10.0.2 彻底移除二次爆燃冲击波环，只保留单个膨胀光球；v3.10.0.1 为平滑光球首修；v3.10.0.0 新增 `ironworks.unitmodule` 支持库。当前构建/测试/部署状态见下方。
 
 ## 环境
 - JDK: /root/jdk-dl/jdk-21.0.2，路径在 /root/jdk.path
@@ -21,8 +21,9 @@ Mindustry 模组「铁流工业」v3.10.0.1，Java 编写，自研多配方库 +
 ## 部署（容器读不到 Android/data，必须 phone_sh cp）
 - 原版: /sdcard/Android/data/io.anuke.mindustry/files/mods/
 - 改端: /sdcard/Android/data/com.github.tinylake.mindustryX/files/mods/
-- 当前：v3.10.0.1 / md5 `08f5ed6d2d135862c667b1f073380ff7`，双端已部署（2026-11-21，phone_sh 文件复制；旧版备份 `ironworks-backup-3.10.0.0.jar`、`ironworks-3.9.0.0.bak`、`ironworks-3.8.3.2.bak`、`ironworks-3.8.2.15.bak`、`ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
-- 3.10.0.1 **二次爆燃改回单个平滑光球**：3.9.1.0 的粒子壳层实机看起来是一圈小光球；现在用 256×256 平滑径向渐变 `soft-glow.png` 画一个整体主光球，用 `soft-ring.png` 画平滑冲击波环，保留稀疏火花/烟。伤害半径/可见外缘/抖动参数不变。
+- 当前：v3.10.0.2 / md5 `fd03f384756ba7753fbde19d166581f0`，双端已部署（2026-11-21，phone_sh 文件复制；旧版备份 `ironworks-backup-3.10.0.1.jar`、`ironworks-backup-3.10.0.0.jar`、`ironworks-3.9.0.0.bak`、`ironworks-3.8.3.2.bak`、`ironworks-3.8.2.15.bak`、`ironworks-3.8.2.14.bak`、`ironworks-3.8.2.13.bak`、`ironworks-3.8.2.12.bak`、`ironworks-3.8.2.11.bak`、`ironworks-3.8.2.10.bak`、`ironworks-3.8.2.9.bak`、`ironworks-3.8.2.8.bak`、`ironworks-3.8.2.7.bak`、`ironworks-3.8.2.6.bak`、`ironworks-3.8.2.5.bak`、`ironworks-3.8.2.4.bak`、`ironworks-3.8.2.3.bak`、`ironworks-3.8.2.2.bak`、`ironworks-3.8.2.1.bak`、`ironworks-3.8.2.0.bak`、`ironworks-3.8.1.6.bak`、`ironworks-3.8.1.5.bak`、`ironworks-3.8.1.4.bak`、`ironworks-3.8.0.0.bak`、`ironworks-3.5.1.0.bak`、`ironworks-3.6.0.0.bak`、`ironworks-3.6.1.0.bak`、`ironworks-3.6.2.0.bak`、`ironworks-3.7.0.0.bak`、`ironworks-3.7.0.1.bak`）；GPL-3.0-only 开源版，jar 内含 LICENSE/NOTICE/THIRD-PARTY。
+- 3.10.0.2 **二次爆燃只保留单个膨胀光球**：彻底删除 `soft-ring.png` 冲击波环和 `softRing()`/`drawRing()`；一个整体 `soft-glow` 主光球（橙晕 + 白热主体 + 小核心）膨胀，外加稀疏火花/烟。伤害半径/可见外缘/抖动参数不变。
+- 3.10.0.1 **二次爆燃改回单个平滑光球**：3.9.1.0 的粒子壳层实机看起来是一圈小光球；改用 256×256 平滑径向渐变 `soft-glow.png` 画一个整体主光球；其 `soft-ring.png` 已在 3.10.0.2 删除。
 - 3.9.1.0 **二次爆燃去锯齿**：不再把 201×201 的 `circle` 贴图放大成巨型光球；改为三层 `randLenVectors` 粒子壳层、中心白热粒子、72 个微粒组成的冲击波环和小核心闪烁。伤害半径/可见外缘/`secondaryVisualRadiusScale` 不变，屏幕抖动参数保持 32/240 与 4/26。
 - 3.9.0.0 **辐射系统 / 死亡污染区 / RBMK 抖动**：新增 `IronworksRadiation`：建筑/物品源、平方和开方叠加、10 秒半衰期、15/40/80/140 四级阈值；生物百分比伤害、装甲减半、机械免疫；机械/装甲动态移速/装填减益和重度/致死停火；无抗性时重度/致死永久削减 15%/35% 最大生命；死亡按污染/携带物生成临时 corium；3×3 辐射净化舱缓慢恢复永久损伤。RBMK 主爆抖动 32/240、每颗二次爆燃 4/26。物品放射性写入核工业物品；RBMK/corium 实现动态源。详见 `docs/RADIATION-SYSTEM.md`。
 - 3.8.3.2 **热关闭主菜单后原生星球放大**：`restore()` 在拆除自定义菜单后把 `ui.planet.planets.cam.fov` 恢复为 60° 并 `update()`，避免原生战役选择界面沿用菜单的 12° 窄 FOV 把星球放大。
